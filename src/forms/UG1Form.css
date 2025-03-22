@@ -1,0 +1,90 @@
+.form-container {
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.form-title {
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.form-subtitle {
+  font-size: 16px;
+  text-align: center;
+}
+
+.form-field {
+  margin-bottom: 12px;
+}
+
+label {
+  font-weight: bold;
+  display: block;
+}
+
+input, textarea {
+  width: 90%;
+  padding: 8px;
+  margin-top: 4px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 10px;
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.table-title {
+  margin-top: 20px;
+  font-weight: bold;
+}
+
+.student-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.student-table th,
+.student-table td {
+  padding: 9px;
+  border: 1px solid #ccc;
+  text-align: center;
+}
+
+.button-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px; /* Increased space */
+  align-items: center;
+  margin-top: 20px;
+}
+
+.signature-btns {
+  display: flex;
+  gap: 20px; /* Added space between buttons */
+}
+
+.upload-btn, .submit-btn, .signature-btns button {
+  padding: 10px 20px;
+  border: none;
+  background-color: #d9534f;
+  color: #fff;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.amount-container {
+  display: flex;
+  gap: 10px;
+}
+
+.submit-btn {
+  background-color: #d9534f;
+}
