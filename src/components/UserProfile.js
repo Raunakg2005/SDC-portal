@@ -1,12 +1,25 @@
-import React from 'react';
+import React, { useEffect, useState } from "react";
 
 const UserProfile = () => {
+  const [user, setUser] = useState({ svvNetId: "Guest", role: "Not Logged In" });
+
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem("user")) || {};
+    if (storedUser.svvNetId) {
+      setUser(storedUser);
+    }
+  }, []);
+
   return (
     <div className="user-profile">
-      <img src="https://cdn.builder.io/api/v1/image/assets/TEMP/57eca2fe7222750eaf370d385ac59968772b541f" alt="User Icon" className="user-icon" />
+      <img
+        src="https://cdn.builder.io/api/v1/image/assets/TEMP/57eca2fe7222750eaf370d385ac59968772b541f"
+        alt="User Icon"
+        className="user-icon"
+      />
       <div className="user-info">
-        <div className="user-name">Lakshya Santani</div>
-        <div className="user-role">UG (AI&amp;DS)</div>
+        <div className="user-name">{user.svvNetId || "Guest"}</div>
+        <div className="user-role">{user.role || "Not Logged In"}</div>
       </div>
       <style jsx>{`
         .user-profile {

@@ -1,8 +1,29 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import UserProfile from './UserProfile';
 
 const Header = () => {
+
+  const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Check if a valid session exists
+    const token = localStorage.getItem("token");
+    if (token) {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleLogout = () => {
+    // Clear authentication token
+    localStorage.removeItem("token");
+    setIsAuthenticated(false);
+
+    // Redirect to login page
+    navigate("/login");
+  };
+  
   return (
     <header className="header">
       <img
@@ -14,7 +35,11 @@ const Header = () => {
         <Link to="/" className="nav-link">Home</Link>
         <Link to="/dashboard" className="nav-link">Dashboard</Link>
         <Link to="/policy" className="nav-link">Policy</Link>
-        <Link to="/logout" className="nav-link">Logout</Link>
+        {isAuthenticated ? (
+          <Link to="/logout" className="nav-link" onClick={handleLogout}>Logout</Link>
+        ) : (
+          <Link to="/login" className="nav-link">Login</Link>
+        )}
       </nav>
       <UserProfile />
       <style jsx>{`

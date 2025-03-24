@@ -10,17 +10,20 @@ const LoginPage = () => {
 
     const handleLogin = async (e) => {
         e.preventDefault();
-        setError(""); // Reset error state
+        setError("");
 
         try {
             const res = await axios.post("http://localhost:5000/api/auth/login", { svvNetId, password });
 
-            if (res.status === 200) {
-                localStorage.setItem("token", res.data.token); // Save token
-                navigate("/ApplicationPortal"); // Redirect after login
+            if (res.status === 200 && res.data.token) {
+                localStorage.setItem("token", res.data.token);
+                localStorage.setItem("user", JSON.stringify({ svvNetId: svvNetId, role: "UG (AI&DS)" })); // Save user info
+                navigate("/ApplicationPortal");
+            } else {
+                setError("Invalid login credentials.");
             }
         } catch (err) {
-            setError(err.response?.data?.message || "Login Failed");
+            setError(err.response?.data?.message || "Login failed.");
         }
     };
 

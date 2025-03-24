@@ -9,7 +9,7 @@ const Sidebar = () => {
         <p className="portal-subtitle">Somaiya Vidyvihar University</p>
       </div>
       <nav className="sidebar-nav">
-        <a href="#application-forms" className="nav-item">Application Forms</a>
+      <Link to="/ApplicationPortal" className="nav-item">Application Portal</Link>
         <div className="nav-item">
           <span>Application Status</span>
           <ul className="status-list">
