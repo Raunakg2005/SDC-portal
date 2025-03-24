@@ -17,13 +17,13 @@ const ApplicationPortal = () => {
       <main className="main-content">
         <Sidebar />
         <Routes>
-            <Route path="/" element={<ApplicationForms />} />
-            <Route path="/forms/:id" element={<FormPage />} />
-            <Route path="faqs" element={<FAQ />} /> {/* ✅ Relative path */}
-            <Route path="contact" element={<Contact />} /> {/* ✅ Relative path */}
-            <Route path="/UG1Form" element={<UG1Form />} />
-            <Route path="/UGForm2" element={<UGForm2 />} />
-          </Routes>
+          <Route index element={<ApplicationForms />} />
+          <Route path="forms/:id" element={<FormPage />} />
+          <Route path="faqs" element={<FAQ />} />
+          <Route path="contact" element={<Contact />} />
+          <Route path="UG1Form" element={<UG1Form />} />
+          <Route path="UGForm2" element={<UGForm2 />} />
+        </Routes>
       </main>
       <ChatWidget />
       <style jsx>{`

@@ -5,7 +5,7 @@ const ApplicationCard = ({ id, title, description }) => {
   const navigate = useNavigate();
 
   const handleNavigate = () => {
-    navigate(`/forms/${id}`);
+    navigate(`/ApplicationPortal/forms/${id}`);
   };
 
   return (

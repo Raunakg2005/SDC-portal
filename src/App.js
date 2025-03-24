@@ -16,7 +16,7 @@ const App = () => {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<Navigate to="/ApplicationPortal" />} />
-      <Route path="/ApplicationPortal" element={<PrivateRoute element={<ApplicationPortal />} />} />
+      <Route path="/ApplicationPortal/*" element={<PrivateRoute element={<ApplicationPortal />} />} />
       <Route path="/faqs" element={<PrivateRoute element={<FAQ />} />} />
       <Route path="/contact" element={<PrivateRoute element={<Contact />} />} />
     </Routes>
