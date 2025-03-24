@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/authRoutes");
+const ug1FormRoutes = require("./routes/ug1FormRoutes");
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(cookieParser());
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/ug1form", ug1FormRoutes);
 
 // ✅ Fix MongoDB Connection
 mongoose

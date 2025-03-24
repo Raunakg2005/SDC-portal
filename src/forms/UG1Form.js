@@ -10,7 +10,7 @@ const UG1Form = () => {
     guideName: '',
     employeeCode: '',
     amountClaimed: '',
-    studentDetails: Array(4).fill({ srNo: '', branch: '', yearOfStudy: '', studentName: '', rollNumber: '' }),
+    studentDetails: Array.from({ length: 4 }, () => ({ srNo: '', branch: '', yearOfStudy: '', studentName: '', rollNumber: '' })),
   });
 
   const handleInputChange = (name, value) => {
@@ -29,11 +29,44 @@ const UG1Form = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form Data:', formData);
-  };
-
+  
+    const userEmail = localStorage.getItem("userEmail"); // Get user's email from localStorage (or state)
+  
+    if (!userEmail) {
+      alert("User not logged in!");
+      return;
+    }
+  
+    try {
+      const response = await fetch("http://localhost:5000/api/ug1form/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ userEmail, ...formData }),
+      });
+  
+      const result = await response.json();
+      if (response.ok) {
+        alert("Form submitted successfully!");
+        setFormData({
+          projectTitle: "",
+          projectUtility: "",
+          projectDescription: "",
+          finance: "",
+          guideName: "",
+          employeeCode: "",
+          amountClaimed: "",
+          studentDetails: Array(4).fill({ srNo: "", branch: "", yearOfStudy: "", studentName: "", rollNumber: "" }),
+        });
+      } else {
+        alert(result.error);
+      }
+    } catch (error) {
+      console.error("❌ Error submitting form:", error);
+    }
+  };  
   return (
     <div className="form-container">
       <h1 className="form-title">Under Graduate Form 1</h1>
