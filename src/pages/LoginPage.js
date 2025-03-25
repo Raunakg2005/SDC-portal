@@ -17,6 +17,7 @@ const LoginPage = () => {
 
             if (res.status === 200 && res.data.token) {
                 localStorage.setItem("token", res.data.token);
+                localStorage.setItem("svvNetId", res.data.svvNetId); 
                 localStorage.setItem("user", JSON.stringify({ svvNetId: svvNetId, role: "UG (AI&DS)" })); // Save user info
                 navigate("/ApplicationPortal");
             } else {

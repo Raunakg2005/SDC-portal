@@ -3,6 +3,7 @@ import LoginPage from "./pages/LoginPage";
 import ApplicationPortal from "./components/ApplicationPortal";
 import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
+import ExpenseUpload from "./forms/ExpenseUpload";
 
 
 const PrivateRoute = ({ element }) => {
@@ -19,6 +20,7 @@ const App = () => {
       <Route path="/ApplicationPortal/*" element={<PrivateRoute element={<ApplicationPortal />} />} />
       <Route path="/faqs" element={<PrivateRoute element={<FAQ />} />} />
       <Route path="/contact" element={<PrivateRoute element={<Contact />} />} />
+      <Route path="/ExpenseUpload" element={<ExpenseUpload />} />
     </Routes>
   );
 };

@@ -49,14 +49,30 @@ input, textarea {
 .student-table {
   width: 100%;
   border-collapse: collapse;
+  margin-top: 10px;
 }
 
-.student-table th,
-.student-table td {
-  padding: 9px;
-  border: 1px solid #ccc;
+.student-table th, .student-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
   text-align: center;
+  vertical-align: middle;
 }
+
+.student-table th {
+  background-color: #f4f4f4;
+  font-weight: bold;
+}
+
+.student-table td input {
+  width: 100%;
+  padding: 5px;
+  box-sizing: border-box;
+  text-align: center;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
 
 .button-container {
   display: flex;

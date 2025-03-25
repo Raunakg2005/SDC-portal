@@ -4,7 +4,7 @@ import Header from "./Header";
 import Sidebar from "./Sidebar";
 import ApplicationForms from "./ApplicationForms";
 import FormPage from "./FormPage";
-import ChatWidget from "./ChatWidget";
+
 import FAQ from "../pages/FAQ";
 import Contact from "../pages/Contact";
 import UG1Form from "../forms/UG1Form";
@@ -25,7 +25,6 @@ const ApplicationPortal = () => {
           <Route path="UGForm2" element={<UGForm2 />} />
         </Routes>
       </main>
-      <ChatWidget />
       <style jsx>{`
         .application-portal {
           font-family: "Fira Sans", sans-serif;

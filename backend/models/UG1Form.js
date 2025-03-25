@@ -9,15 +9,19 @@ const studentSchema = new mongoose.Schema({
 });
 
 const UG1FormSchema = new mongoose.Schema({
-  userEmail: { type: String, required: true }, // Identify user
-  projectTitle: String,
+  svvNetId: { type: String, required: true },
+  projectTitle: { type: String, required: true },
   projectUtility: String,
   projectDescription: String,
   finance: String,
   guideName: String,
   employeeCode: String,
   amountClaimed: String,
-  studentDetails: [studentSchema], // Store student details as an array
+  studentDetails : [studentSchema],
+  document: {
+    filename: String,
+    url: String,
+  },
 });
 
 module.exports = mongoose.model("UG1Form", UG1FormSchema);
