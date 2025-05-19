@@ -1,108 +1,151 @@
 import React, { useState } from "react";
-import "../styles/UG2.css";
 
-const UG2Form = () => {
-  const [groupLeaderSignature, setGroupLeaderSignature] = useState(null);
-  const [guideSignature, setGuideSignature] = useState(null);
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [students, setStudents] = useState([
-    { srNo: "", name: "", class: "", div: "", branch: "", rollNo: "", mobileNo: "" }
-  ]);
-  const [expenses, setExpenses] = useState([
-    { category: "", amount: "", details: "" }
-  ]);
+const UGForm2 = () => {
+  const [formData, setFormData] = useState({
+    projectTitle: "",
+    projectDescription: "",
+    utility: "",
+    receivedFinance: false,
+    financeDetails: "",
+    guideName: "",
+    guideEmployeeCode: "",
+    students: [],
+    expenses: [],
+    totalBudget: "",
+    groupLeaderSignature: null,
+    guideSignature: null,
+    uploadedFile: null,
+    errorMessage: "",
+  });
 
-  // File Validation Function
-  const handleFileUpload = (event, type) => {
-    const file = event.target.files[0];
-
-    if (!file) return;
-
-    if (type === "signature") {
-      if (!file.type.startsWith("image/jpeg")) {
-        setErrorMessage("Only JPEG format is allowed for signatures.");
-        return;
-      }
-      if (event.target.name === "groupLeaderSignature") {
-        setGroupLeaderSignature(file);
-      } else {
-        setGuideSignature(file);
-      }
-    } else if (type === "document") {
-      if (file.type !== "application/pdf") {
-        setErrorMessage("Only PDF format is allowed for document upload.");
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        setErrorMessage("File size must be less than 5MB.");
-        return;
-      }
-      setUploadedFile(file);
-    }
-
-    setErrorMessage("");
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
   };
 
-  // Add a new student row
+  const handleFileUpload = (e) => {
+    const { name } = e.target;
+    const file = e.target.files[0];
+  
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // Limit to 5MB
+        alert("File size must be under 5MB.");
+        return;
+      }
+      setFormData({ ...formData, [name]: file });
+    }
+  };
+
   const addStudentRow = () => {
-    setStudents([...students, { srNo: "", name: "", class: "", div: "", branch: "", rollNo: "", mobileNo: "" }]);
+    setFormData({
+      ...formData,
+      students: [...formData.students, { srNo: "", name: "",year: "" , class: "", div: "", branch: "", rollNo: "", mobileNo: "" }],
+    });
   };
 
-  // Remove a student row
+  const updateStudentField = (e, index, field) => {
+    const updatedStudents = [...formData.students];
+    updatedStudents[index][field] = e.target.value;
+    setFormData({ ...formData, students: updatedStudents });
+  };
+
   const removeStudentRow = (index) => {
-    if (students.length > 1) {
-      const updatedStudents = students.filter((_, i) => i !== index);
-      setStudents(updatedStudents);
-    }
+    const updatedStudents = [...formData.students];
+    updatedStudents.splice(index, 1);
+    setFormData({ ...formData, students: updatedStudents });
   };
 
-  // Add a new expense row
   const addExpenseRow = () => {
-    setExpenses([...expenses, { category: "", amount: "", details: "" }]);
+    setFormData({
+      ...formData,
+      expenses: [...formData.expenses, { category: "", amount: "", details: "" }],
+    });
   };
 
-  // Remove an expense row
+  const updateExpenseField = (e, index, field) => {
+    const updatedExpenses = [...formData.expenses];
+    updatedExpenses[index][field] = e.target.value;
+    setFormData({ ...formData, expenses: updatedExpenses });
+  };
+
   const removeExpenseRow = (index) => {
-    if (expenses.length > 1) {
-      const updatedExpenses = expenses.filter((_, i) => i !== index);
-      setExpenses(updatedExpenses);
+    const updatedExpenses = [...formData.expenses];
+    updatedExpenses.splice(index, 1);
+    setFormData({ ...formData, expenses: updatedExpenses });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+  
+    try {
+      const formDataToSend = {
+        projectTitle: formData.projectTitle,
+        projectUtility: formData.utility,       
+        finance: formData.financeDetails,        
+        employeeCode: formData.guideEmployeeCode, 
+        amountClaimed: formData.totalBudget,    
+        receivedFinance: formData.receivedFinance,
+        guideName: formData.guideName,
+        students: formData.students,
+        expenses: formData.expenses,
+      };
+  
+      const response = await fetch("http://localhost:5000/api/ug2form/saveFormData", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }, // ✅ Set JSON header
+        body: JSON.stringify(formDataToSend), // ✅ Convert to JSON
+      });
+  
+      const data = await response.json();
+  
+      if (response.ok) {
+        console.log("✅ Form Submitted Successfully", data);
+        alert("Form submitted successfully!");
+      } else {
+        console.error("❌ Submission Failed:", data);
+        alert("Error: " + (data.message || "Something went wrong"));
+      }
+    } catch (error) {
+      console.error("❌ Error submitting form:", error);
+      alert("Submission failed! Please try again.");
     }
   };
-
+  
+  
   return (
     <div className="form-container">
       <h2>Under Graduate Form 2</h2>
       <p className="form-category">Interdisciplinary Projects (FY to LY Students)</p>
-
+      <form onSubmit={handleSubmit}>
       <label>Title of Proposed Project:</label>
-      <input type="text" />
+      <input type="text" name="projectTitle" value={formData.projectTitle} onChange={handleInputChange} />
 
       <label>Brief Description of Proposed Work:</label>
-      <textarea placeholder="Attach a separate sheet if required" />
+      <textarea name="projectDescription" placeholder="Attach a separate sheet if required" value={formData.projectDescription} onChange={handleInputChange} />
 
       <label>Utility:</label>
-      <input type="text" />
+      <input type="text" name="utility" value={formData.utility} onChange={handleInputChange} />
 
       <label>Whether received finance from any other agency:</label>
       <div className="checkbox-group">
-        <input type="checkbox" id="yes" />
-        <label htmlFor="yes">Yes</label>
-        <input type="checkbox" id="no" />
-        <label htmlFor="no">No</label>
+      <input type="radio" id="yes" name="receivedFinance" checked={formData.receivedFinance === true} onChange={() => setFormData({ ...formData, receivedFinance: true })} />
+      <label htmlFor="yes">Yes</label>
+
+      <input type="radio" id="no" name="receivedFinance" checked={formData.receivedFinance === false} onChange={() => setFormData({ ...formData, receivedFinance: false })} />
+      <label htmlFor="no">No</label>
       </div>
 
       <label>Details if Yes:</label>
-      <textarea />
+      <textarea name="financeDetails" value={formData.financeDetails} onChange={handleInputChange} />
 
       <div className="guide-details">
         <div>
           <label>Name of the Guide/Co-Guide:</label>
-          <input type="text" />
+          <input type="text" name="guideName" value={formData.guideName} onChange={handleInputChange} />
         </div>
         <div>
           <label>Employee Code:</label>
-          <input type="text" />
+          <input type="text" name="guideEmployeeCode" value={formData.guideEmployeeCode} onChange={handleInputChange} />
         </div>
       </div>
 
@@ -111,6 +154,7 @@ const UG2Form = () => {
           <tr>
             <th>Sr. No.</th>
             <th>Name of Student</th>
+            <th>Year Of Study</th>
             <th>Class</th>
             <th>Div</th>
             <th>Branch</th>
@@ -120,15 +164,13 @@ const UG2Form = () => {
           </tr>
         </thead>
         <tbody>
-          {students.map((student, index) => (
+          {formData.students.map((student, index) => (
             <tr key={index}>
-              <td><input type="text" value={student.srNo} /></td>
-              <td><input type="text" value={student.name} /></td>
-              <td><input type="text" value={student.class} /></td>
-              <td><input type="text" value={student.div} /></td>
-              <td><input type="text" value={student.branch} /></td>
-              <td><input type="text" value={student.rollNo} /></td>
-              <td><input type="text" value={student.mobileNo} /></td>
+              {Object.keys(student).map((key) => (
+                <td key={key}>
+                  <input type="text" value={student[key]} onChange={(e) => updateStudentField(e, index, key)} />
+                </td>
+              ))}
               <td><button type="button" className="remove-btn" onClick={() => removeStudentRow(index)}>❌</button></td>
             </tr>
           ))}
@@ -146,11 +188,17 @@ const UG2Form = () => {
           </tr>
         </thead>
         <tbody>
-          {expenses.map((expense, index) => (
+          {formData.expenses.map((expense, index) => (
             <tr key={index}>
-              <td><input type="text" value={expense.category} /></td>
-              <td><input type="number" value={expense.amount} /></td>
-              <td><textarea value={expense.details} /></td>
+              {Object.keys(expense).map((key) => (
+                <td key={key}>
+                  {key === "details" ? (
+                    <textarea value={expense[key]} onChange={(e) => updateExpenseField(e, index, key)} />
+                  ) : (
+                    <input type="text" value={expense[key]} onChange={(e) => updateExpenseField(e, index, key)} />
+                  )}
+                </td>
+              ))}
               <td><button type="button" className="remove-btn" onClick={() => removeExpenseRow(index)}>❌</button></td>
             </tr>
           ))}
@@ -159,34 +207,35 @@ const UG2Form = () => {
       <button type="button" className="add-btn" onClick={addExpenseRow}>➕ Add More Expense</button>
 
       <label>Total Budget (Including Contingency Amount):</label>
-      <input type="text" />
+      <input type="text" name="totalBudget" value={formData.totalBudget} onChange={handleInputChange} />
 
       <div className="signatures">
         <div>
           <label>Signature of Group Leader (JPEG Only)</label>
           <input type="file" accept="image/jpeg" name="groupLeaderSignature" onChange={(e) => handleFileUpload(e, "signature")} />
-          {groupLeaderSignature && <p className="file-name">{groupLeaderSignature.name}</p>}
+          {formData.groupLeaderSignature && <p className="file-name">{formData.groupLeaderSignature.name}</p>}
         </div>
 
         <div>
           <label>Signature of Guide (JPEG Only)</label>
           <input type="file" accept="image/jpeg" name="guideSignature" onChange={(e) => handleFileUpload(e, "signature")} />
-          {guideSignature && <p className="file-name">{guideSignature.name}</p>}
+          {formData.guideSignature && <p className="file-name">{formData.guideSignature.name}</p>}
         </div>
       </div>
 
       <label>Upload Additional Documents (PDF Only, Max 5MB)</label>
       <input type="file" accept="application/pdf" onChange={(e) => handleFileUpload(e, "document")} />
-      {uploadedFile && <p className="file-name">{uploadedFile.name}</p>}
+      {formData.uploadedFile && <p className="file-name">{formData.uploadedFile.name}</p>}
 
-      {errorMessage && <p className="error-message">{errorMessage}</p>}
+      {formData.errorMessage && <p className="error-message">{formData.errorMessage}</p>}
 
       <div className="form-actions">
         <button className="back-btn">Back</button>
-        <button className="submit-btn">Submit</button>
+        <button className="submit-btn" onClick={handleSubmit}>Submit</button>
       </div>
+      </form>
     </div>
   );
 };
 
-export default UG2Form;
+export default UGForm2;
