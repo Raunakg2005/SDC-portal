@@ -80,10 +80,11 @@ const UGForm2 = () => {
     try {
       const formDataToSend = {
         projectTitle: formData.projectTitle,
-        projectUtility: formData.utility,       
-        finance: formData.financeDetails,        
-        employeeCode: formData.guideEmployeeCode, 
-        amountClaimed: formData.totalBudget,    
+        projectDescription: formData.projectDescription, 
+        projectUtility: formData.utility,
+        finance: formData.financeDetails,
+        employeeCode: formData.guideEmployeeCode,
+        amountClaimed: formData.totalBudget,
         receivedFinance: formData.receivedFinance,
         guideName: formData.guideName,
         students: formData.students,
