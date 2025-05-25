@@ -38,7 +38,7 @@ router.post('/submit', uploadFields, async (req, res) => {
     const bankDetails = JSON.parse(req.body.bankDetails);
     const studentDetails = JSON.parse(req.body.studentDetails);
     const expenses = JSON.parse(req.body.expenses);
-
+    
     // Required files
     const bills = req.files?.bills || [];
     const studentSignature = req.files?.studentSignature?.[0];
@@ -72,6 +72,7 @@ router.post('/submit', uploadFields, async (req, res) => {
         guideSignature: guideSignatureId,
         hodSignature: hodSignatureId,
       },
+      status: req.body.status || 'Pending',
     });
 
     await newForm.save();

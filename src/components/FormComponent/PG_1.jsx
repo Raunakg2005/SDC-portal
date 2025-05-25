@@ -27,7 +27,8 @@ const PG_1 = () => {
     previousClaim: 'No',
     claimDate: '',
     amountReceived: '',
-    amountSanctioned: ''
+    amountSanctioned: '',
+    status: 'pending' 
   });
 
   const [files, setFiles] = useState({
@@ -68,8 +69,6 @@ const PG_1 = () => {
           formPayload.append(key, value);
         }
       });
-  
-      // Append bankDetails JSON string
       formPayload.append("bankDetails", JSON.stringify(formData.bankDetails));
   
       // Append files

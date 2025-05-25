@@ -40,7 +40,11 @@ const pg1FormSchema = new mongoose.Schema({
     additionalDocuments: { type: mongoose.Schema.Types.ObjectId, ref: 'pg1files.files' },
     guideSignature: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'pg1files.files' },
   },
-
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+  },
   createdAt: { type: Date, default: Date.now },
 });
 

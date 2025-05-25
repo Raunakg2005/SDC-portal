@@ -18,6 +18,11 @@ const UGForm2Schema = new mongoose.Schema({
   amountClaimed: { type: String, required: true },
   studentDetails: [studentSchema], // Array of student details
   pdfFileId: { type: mongoose.Schema.Types.ObjectId, ref: "uploads.files" }, // GridFS File ID
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+  },
 }, { timestamps: true });
 
 const UGForm2 = mongoose.model("UGForm2", UGForm2Schema);

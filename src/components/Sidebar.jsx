@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom"; // Import Link from react-router-dom
+import { Link } from "react-router-dom"; 
 import "../style.css";
 import { FaClock, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
 
@@ -22,7 +22,9 @@ const Sidebar = () => {
         <div className="status-section">
           <p>Application Status</p>
           <div className="status-item">
-            <FaClock className="status-icon" /> Pending
+            <FaClock className="status-icon" />{" "}
+            {/* Link to Pending Applications */}
+            <Link to="/application/pending" className="sidebar-link">Pending</Link>
           </div>
           <div className="status-item">
             <FaCheckCircle className="status-icon" /> Accepted
@@ -32,8 +34,9 @@ const Sidebar = () => {
           </div>
         </div>
 
+        {/* Other Links */}
         <Link to="/faqs" className="nav-item">FAQ's</Link>
-        <br></br>
+        <br />
         <Link to="/contact" className="nav-item">Contact Us</Link>
       </div>
     </div>

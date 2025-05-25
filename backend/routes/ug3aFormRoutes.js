@@ -59,7 +59,7 @@ router.post("/submit", upload.fields([
       totalAmount,
       bankDetails: parsedBankDetails,
       imageFileId,
-      documentFileId
+      documentFileId,
     });
 
     await form.save();

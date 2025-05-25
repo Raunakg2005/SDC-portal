@@ -48,7 +48,6 @@ router.post('/submit', uploadFields, async (req, res) => {
       ? await uploadFile(req.files.additionalDocuments[0])
       : null;
     const guideSignatureId = await uploadFile(guideSignature);
-
     const newForm = new PG1Form({
       studentName: req.body.studentName,
       yearOfAdmission: req.body.yearOfAdmission,
@@ -73,6 +72,7 @@ router.post('/submit', uploadFields, async (req, res) => {
         additionalDocuments: additionalDocumentsId,
         guideSignature: guideSignatureId,
       },
+      status: req.body.status || 'pending',
     });
 
     await newForm.save();

@@ -33,7 +33,8 @@ const PG_2_A = () => {
     amountClaimed: '',
     amountRecommended: '',
     comments: '',
-    finalAmount: ''
+    finalAmount: '',
+    status: 'Pending'
   });
   
   const [files, setFiles] = useState({
@@ -117,7 +118,7 @@ const PG_2_A = () => {
       formPayload.append("bankDetails", JSON.stringify(formData.bankDetails));
       formPayload.append("studentDetails", JSON.stringify(formData.studentDetails));
       formPayload.append("expenses", JSON.stringify(formData.expenses));
-  
+      formPayload.append("status", formData.status);
       // Append files
       files.bills.forEach((file) => {
         formPayload.append("bills", file);

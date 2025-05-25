@@ -23,6 +23,11 @@ const UG1FormSchema = new mongoose.Schema({
     url: String,
     fileId: { type: mongoose.Schema.Types.ObjectId, ref: "fs.files" },  // Storing the GridFS file ID
   },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+  },
 });
 
 

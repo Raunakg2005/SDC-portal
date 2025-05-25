@@ -53,7 +53,11 @@ const UG3BFormSchema = new mongoose.Schema({
     mimetype: String,
     size: Number
   },
-
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+  },
 }, { timestamps: true });
 
 const UG3BForm = mongoose.model("UG3BForm", UG3BFormSchema);

@@ -32,6 +32,11 @@ const UG3AFormSchema = new mongoose.Schema({
   bankDetails: bankDetailsSchema,
   imageFileId: { type: mongoose.Schema.Types.ObjectId, ref: "uploads.files" },
   documentFileId: { type: mongoose.Schema.Types.ObjectId, ref: "uploads.files" },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+  },
 }, { timestamps: true });
 
 const UG3AForm = mongoose.model("UG3AForm", UG3AFormSchema);
