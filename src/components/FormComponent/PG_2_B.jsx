@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 
 const PG_2_B = () => {
   const [formData, setFormData] = useState({
@@ -32,8 +33,8 @@ const PG_2_B = () => {
   const [files, setFiles] = useState({
     paperCopy: null,
     groupLeaderSignature: null,
-    additionalDocuments: null,
-    guideSignature: null
+    guideSignature: null,
+    additionalDocuments: null, // will hold FileList for multiple files
   });
 
   const handleChange = (e) => {
@@ -56,11 +57,53 @@ const PG_2_B = () => {
   };
 
   const handleFileChange = (field, e) => {
-    setFiles({
-      ...files,
-      [field]: e.target.files[0]
-    });
+    if (field === 'additionalDocuments') {
+      setFiles(prev => ({ ...prev, additionalDocuments: e.target.files }));
+    } else {
+      setFiles(prev => ({ ...prev, [field]: e.target.files[0] }));
+    }
   };
+
+  // Submit handler
+const handleSubmit = async () => {
+  try {
+    const submissionData = new FormData();
+
+    // Append form data fields
+    Object.entries(formData).forEach(([key, value]) => {
+      if (key === 'bankDetails' || key === 'authors') {
+        submissionData.append(key, JSON.stringify(value));
+      } else {
+        submissionData.append(key, value);
+      }
+    });
+
+    // Append single files
+    if (files.paperCopy) submissionData.append('paperCopy', files.paperCopy);
+    if (files.groupLeaderSignature) submissionData.append('groupLeaderSignature', files.groupLeaderSignature);
+    if (files.guideSignature) submissionData.append('guideSignature', files.guideSignature);
+
+    // Append multiple files correctly
+    if (files.additionalDocuments) {
+      for (let i = 0; i < files.additionalDocuments.length; i++) {
+        submissionData.append('additionalDocuments', files.additionalDocuments[i]);
+      }
+    }
+
+    // Axios POST request
+    const response = await axios.post(
+      'http://localhost:5000/api/pg2bform/submit',
+      submissionData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+
+    alert('Form submitted successfully!');
+    console.log(response.data);
+  } catch (error) {
+    console.error('Error submitting form:', error.response?.data || error.message);
+    alert(`Form submission failed: ${error.response?.data?.error || error.message}`);
+  }
+};
 
   return (
     <div className="form-container max-w-4xl mx-auto p-5 bg-gray-50 rounded-lg shadow-md">
@@ -356,97 +399,100 @@ const PG_2_B = () => {
 
         <p className="mb-6 text-gray-700">The participation by the student was relevant to their Final Year project and affiliation to the institute was clearly mentioned.</p>
 
-        {/* File Uploads */}
-        <div className="mb-6 space-y-4">
-          <div>
-            <label className="block font-semibold mb-2">*Attach proof documents:</label>
-            <div className="flex items-center">
-              <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                Choose Paper Copy
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => handleFileChange('paperCopy', e)}
-                />
-              </label>
-              <span className="ml-2 text-sm">
-                {files.paperCopy ? files.paperCopy.name : "No file chosen"}
-              </span>
-            </div>
+         {/* File Uploads */}
+      <div className="mb-6 space-y-4">
+        <div>
+          <label className="block font-semibold mb-2">*Attach proof documents:</label>
+          <div className="flex items-center">
+            <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+              Choose Paper Copy
+              <input
+                type="file"
+                className="hidden"
+                onChange={(e) => handleFileChange('paperCopy', e)}
+              />
+            </label>
+            <span className="ml-2 text-sm">
+              {files.paperCopy ? files.paperCopy.name : "No file chosen"}
+            </span>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block font-semibold mb-2">Signature of Student (JPEG Only)</label>
-              <div className="flex items-center">
-                <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                  Choose File
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="image/jpeg"
-                    onChange={(e) => handleFileChange('groupLeaderSignature', e)}
-                  />
-                </label>
-                <span className="ml-2 text-sm">
-                  {files.groupLeaderSignature ? files.groupLeaderSignature.name : "No file chosen"}
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-semibold mb-2">Signature of Guide (JPEG Only)</label>
-              <div className="flex items-center">
-                <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                  Choose File
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="image/jpeg"
-                    onChange={(e) => handleFileChange('guideSignature', e)}
-                  />
-                </label>
-                <span className="ml-2 text-sm">
-                  {files.guideSignature ? files.guideSignature.name : "No file chosen"}
-                </span>
-              </div>
-            </div>
-          </div>
-
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block font-semibold mb-2">Upload Additional Documents</label>
+            <label className="block font-semibold mb-2">Signature of Student (JPEG Only)</label>
             <div className="flex items-center">
               <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
                 Choose File
                 <input
                   type="file"
                   className="hidden"
-                  
-                  onChange={(e) => handleFileChange('additionalDocuments', e)}
+                  accept="image/jpeg"
+                  onChange={(e) => handleFileChange('groupLeaderSignature', e)}
                 />
               </label>
               <span className="ml-2 text-sm">
-                {files.additionalDocuments ? files.additionalDocuments.name : "No file chosen"}
+                {files.groupLeaderSignature ? files.groupLeaderSignature.name : "No file chosen"}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-2">Signature of Guide (JPEG Only)</label>
+            <div className="flex items-center">
+              <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+                Choose File
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/jpeg"
+                  onChange={(e) => handleFileChange('guideSignature', e)}
+                />
+              </label>
+              <span className="ml-2 text-sm">
+                {files.guideSignature ? files.guideSignature.name : "No file chosen"}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Signatures */}
-        <div className="flex justify-between mb-6">
-          <div className="w-1/2 pr-2">
-            <p className="font-semibold mb-2">Signature of the Guide/Co-Guide HOD</p>
-            <div className="h-12 border-t border-gray-400"></div>
+        <div>
+          <label className="block font-semibold mb-2">Upload Additional Documents</label>
+          <div className="flex items-center">
+            <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+              Choose File(s)
+              <input
+                type="file"
+                className="hidden"
+                multiple
+                onChange={(e) => handleFileChange('additionalDocuments', e)}
+              />
+            </label>
+            <span className="ml-2 text-sm">
+              {files.additionalDocuments && files.additionalDocuments.length > 0
+                ? Array.from(files.additionalDocuments)
+                    .map((file) => file.name)
+                    .join(', ')
+                : "No file chosen"}
+            </span>
           </div>
-          
         </div>
+      </div>
+
+      {/* Signatures */}
+      <div className="flex justify-between mb-6">
+        <div className="w-1/2 pr-2">
+          <p className="font-semibold mb-2">Signature of the Guide/Co-Guide HOD</p>
+          <div className="h-12 border-t border-gray-400"></div>
+        </div>
+      </div>
 
         {/* Form Actions */}
         <div className="flex justify-between">
-          <button className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
+          <button onClick={() => window.history.back()} className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
             Back
           </button>
-          <button className="submit-btn bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+          <button  onClick={handleSubmit} className="submit-btn bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
             Submit
           </button>
         </div>

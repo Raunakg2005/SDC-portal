@@ -582,7 +582,7 @@ const PG_2_A = () => {
         </table>
         {/* Form Actions */}
         <div className="flex justify-between">
-          <button className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
+          <button onClick={() => window.history.back()} className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
             Back
           </button>
           <button onClick={handleSubmit} className="submit-btn bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">

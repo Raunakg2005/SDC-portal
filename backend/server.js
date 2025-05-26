@@ -12,6 +12,7 @@ import ug3aFormRoutes from "./routes/ug3aFormRoutes.js";
 import ug3bFormRoutes from "./routes/ug3bFormRoutes.js";
 import pg1formRoutes from "./routes/pg1formRoutes.js";
 import pg2aFormRoutes from "./routes/pg2aFormRoutes.js";
+import pg2bFormRoutes from "./routes/pg2bFormRoutes.js";
 import applicationRoutes from "./routes/applicationRoutes.js";
 
 dotenv.config();
@@ -54,6 +55,7 @@ app.use("/api/ug3aform", ug3aFormRoutes);
 app.use("/api/ug3bform",ug3bFormRoutes);
 app.use("/api/pg1form", pg1formRoutes);
 app.use("/api/pg2aform", pg2aFormRoutes);
+app.use("/api/pg2bform", pg2bFormRoutes);
 app.use("/api/application", applicationRoutes);
 
 // 🔹 404 handler (optional, helps catch unknown routes)
