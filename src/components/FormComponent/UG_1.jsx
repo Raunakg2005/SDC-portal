@@ -2,39 +2,85 @@ import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import "../styles/UG1.css";
 
-const UG1Form = () => {
+const UG1Form = ({ data = null, viewOnly = false }) => {
   const [formData, setFormData] = useState({
-    projectTitle: "",
-    projectUtility: "",
-    projectDescription: "",
-    finance: "",
-    guideName: "",
-    employeeCode: "",
-    svvNetId: "",
-    studentDetails: Array(4).fill({
+    projectTitle: data?.projectTitle || "",
+    projectUtility: data?.projectUtility || "",
+    projectDescription: data?.projectDescription || "",
+    finance: data?.finance || "",
+    guideName: data?.guideName || "",
+    employeeCode: data?.employeeCode || "",
+    svvNetId: data?.svvNetId || "",
+    studentDetails: data?.studentDetails || Array(4).fill({
       branch: "",
       yearOfStudy: "",
       studentName: "",
       rollNumber: "",
     }),
-    status: 'pending' 
+    status: data?.status || "pending",
   });
-
-  const [pdfFiles, setPdfFiles] = useState([]);
+  const [pdfFiles, setPdfFiles] = useState(
+    data?.pdfFiles?.map((fileName, i) => ({
+      name: fileName,
+      url: data.pdfFileUrls?.[i] || null,
+    })) || []
+  );
+  
+  const [groupLeaderSignature, setGroupLeaderSignature] = useState(
+    data?.groupLeaderSignatureUrl
+      ? { name: "Group Leader Signature", url: data.groupLeaderSignatureUrl }
+      : null
+  );
+  
+  const [guideSignature, setGuideSignature] = useState(
+    data?.guideSignatureUrl
+      ? { name: "Guide Signature", url: data.guideSignatureUrl }
+      : null
+  );
   const [errorMessage, setErrorMessage] = useState("");
   const [formId, setFormId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
   const svvNetIdRef = useRef("");
-  const [groupLeaderSignature, setGroupLeaderSignature] = useState(null);
-  const [guideSignature, setGuideSignature] = useState(null);
-
   useEffect(() => {
-    const storedSvvNetId = localStorage.getItem("svvNetId");
-    if (storedSvvNetId) {
-      svvNetIdRef.current = storedSvvNetId;
+    if (data) {
+      setFormData({
+        projectTitle: data.projectTitle || "",
+        projectUtility: data.projectUtility || "",
+        projectDescription: data.projectDescription || "",
+        finance: data.finance || "",
+        guideName: data.guideName || "",
+        employeeCode: data.employeeCode || "",
+        svvNetId: data.svvNetId || "",
+        studentDetails: data.studentDetails || Array(4).fill({
+          branch: "",
+          yearOfStudy: "",
+          studentName: "",
+          rollNumber: "",
+        }),
+        status: data.status || "pending",
+      });
+  
+      setPdfFiles(
+        data.pdfFiles?.map((fileName, i) => ({
+          name: fileName,
+          url: data.pdfFileUrls?.[i] || null,
+        })) || []
+      );
+  
+      setGroupLeaderSignature(
+        data.groupLeaderSignatureUrl
+          ? { name: "Group Leader Signature", url: data.groupLeaderSignatureUrl }
+          : null
+      );
+  
+      setGuideSignature(
+        data.guideSignatureUrl
+          ? { name: "Guide Signature", url: data.guideSignatureUrl }
+          : null
+      );
     }
-  }, []);
+  }, [data]);
 
   // Handle text input change
   const handleInputChange = (field, value) => {
@@ -56,6 +102,7 @@ const UG1Form = () => {
   };
 
   const handleFileUpload = (e) => {
+    if (viewOnly) return;
     const files = Array.from(e.target.files);
     const validFiles = [];
     const existingFileNames = new Set(pdfFiles.map((file) => file.name)); // Prevent duplicates
@@ -82,11 +129,13 @@ const UG1Form = () => {
 
   // Remove a selected file
   const removeFile = (index) => {
+    if (viewOnly) return;
     setPdfFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Handle Signature Upload
   const handleSignatureUpload = (e, type) => {
+    if (viewOnly) return;
     const file = e.target.files[0];
     if (!file) return;
 
@@ -162,9 +211,6 @@ const UG1Form = () => {
     try {
       const dataToSend = { ...formData, svvNetId: svvNetIdRef.current };
       const response = await axios.post("http://localhost:5000/api/ug1form/saveFormData", dataToSend);
-
-      console.log("✅ Form Data Saved:", response.data);
-
       if (response.data.formId) {
         setFormId(response.data.formId);
         alert("✅ Form data saved successfully!");
@@ -183,7 +229,7 @@ const UG1Form = () => {
   // Handle Form Submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isSubmitting) return; // Prevent double submit
+    if (viewOnly || isSubmitting) return; // Prevent double submit
 
     setIsSubmitting(true);
     try {
@@ -227,33 +273,36 @@ const UG1Form = () => {
     <div className="form-container">
       <h2>Under Graduate Form 1</h2>
       <p className="form-category">In-house Student Project within Department</p>
-
+  
       {errorMessage && <p className="error">{errorMessage}</p>}
-
+  
       <form onSubmit={handleSubmit}>
         <label>Title of the Project:</label>
         <input
           type="text"
           value={formData.projectTitle}
           onChange={(e) => handleInputChange("projectTitle", e.target.value)}
+          disabled={viewOnly}
           required
         />
-
+  
         <label>Utility of the Project:</label>
         <input
           type="text"
           value={formData.projectUtility}
           onChange={(e) => handleInputChange("projectUtility", e.target.value)}
+          disabled={viewOnly}
           required
         />
-
+  
         <label>Description:</label>
         <textarea
           value={formData.projectDescription}
           onChange={(e) => handleInputChange("projectDescription", e.target.value)}
+          disabled={viewOnly}
           required
         />
-
+  
         <label>Whether received finance from any other agency:</label>
         <div className="form-group">
           <div className="radio-group">
@@ -264,6 +313,7 @@ const UG1Form = () => {
                 value="Yes"
                 checked={formData.finance === "Yes"}
                 onChange={() => handleRadioChange("Yes")}
+                disabled={viewOnly}
               />
               Yes
             </label>
@@ -274,12 +324,13 @@ const UG1Form = () => {
                 value="No"
                 checked={formData.finance === "No"}
                 onChange={() => handleRadioChange("No")}
+                disabled={viewOnly}
               />
               No
             </label>
           </div>
         </div>
-
+  
         <div className="guide-details">
           <div>
             <label>Name of the Guide/Co-Guide:</label>
@@ -287,6 +338,7 @@ const UG1Form = () => {
               type="text"
               value={formData.guideName}
               onChange={(e) => handleInputChange("guideName", e.target.value)}
+              disabled={viewOnly}
               required
             />
           </div>
@@ -296,10 +348,11 @@ const UG1Form = () => {
               type="text"
               value={formData.employeeCode}
               onChange={(e) => handleInputChange("employeeCode", e.target.value)}
+              disabled={viewOnly}
             />
           </div>
         </div>
-
+  
         {/* Student Details Table */}
         <h3>Student Details</h3>
         <table className="student-table">
@@ -321,6 +374,7 @@ const UG1Form = () => {
                     type="text"
                     value={student.branch}
                     onChange={(e) => handleStudentDetailsChange(index, "branch", e.target.value)}
+                    disabled={viewOnly}
                   />
                 </td>
                 <td>
@@ -328,6 +382,7 @@ const UG1Form = () => {
                     type="text"
                     value={student.yearOfStudy}
                     onChange={(e) => handleStudentDetailsChange(index, "yearOfStudy", e.target.value)}
+                    disabled={viewOnly}
                   />
                 </td>
                 <td>
@@ -335,6 +390,7 @@ const UG1Form = () => {
                     type="text"
                     value={student.studentName}
                     onChange={(e) => handleStudentDetailsChange(index, "studentName", e.target.value)}
+                    disabled={viewOnly}
                   />
                 </td>
                 <td>
@@ -342,69 +398,99 @@ const UG1Form = () => {
                     type="text"
                     value={student.rollNumber}
                     onChange={(e) => handleStudentDetailsChange(index, "rollNumber", e.target.value)}
+                    disabled={viewOnly}
                   />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-
+  
         <div className="signatures">
           <div>
             <label>Signature of Group Leader (JPEG Only)</label>
-            <input
-              type="file"
-              accept="image/jpeg"
-              name="groupLeaderSignature"
-              onChange={(e) => handleSignatureUpload(e, "groupLeader")}
-            />
-            {groupLeaderSignature && <p className="file-name">{groupLeaderSignature.name}</p>}
+            {!viewOnly && (
+              <input
+                type="file"
+                accept="image/jpeg"
+                name="groupLeaderSignature"
+                onChange={(e) => handleSignatureUpload(e, "groupLeader")}
+              />
+            )}
+            {groupLeaderSignature &&
+              (viewOnly && groupLeaderSignature.url ? (
+                <a href={groupLeaderSignature.url} target="_blank" rel="noopener noreferrer">
+                  View Signature
+                </a>
+              ) : (
+                <p className="file-name">{groupLeaderSignature.name}</p>
+              ))}
           </div>
-
+  
           <div>
             <label>Signature of Guide (JPEG Only)</label>
-            <input
-              type="file"
-              accept="image/jpeg"
-              name="guideSignature"
-              onChange={(e) => handleSignatureUpload(e, "guide")}
-            />
-            {guideSignature && <p className="file-name">{guideSignature.name}</p>}
+            {!viewOnly && (
+              <input
+                type="file"
+                accept="image/jpeg"
+                name="guideSignature"
+                onChange={(e) => handleSignatureUpload(e, "guide")}
+              />
+            )}
+            {guideSignature &&
+              (viewOnly && guideSignature.url ? (
+                <a href={guideSignature.url} target="_blank" rel="noopener noreferrer">
+                  View Signature
+                </a>
+              ) : (
+                <p className="file-name">{guideSignature.name}</p>
+              ))}
           </div>
         </div>
-
+  
         <div className="form-group">
           <label>Upload Supporting Documents (PDF):</label>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept=".pdf"
-            multiple
-          />
+          {!viewOnly && (
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".pdf"
+              multiple
+            />
+          )}
           <ul className="file-list">
             {pdfFiles.map((file, index) => (
               <li key={index}>
-                {file.name}{" "}
-                <button type="button" onClick={() => removeFile(index)}>
-                  ❌ Remove
-                </button>
+                {file.url ? (
+                  <a href={file.url} target="_blank" rel="noopener noreferrer">
+                    {file.name}
+                  </a>
+                ) : (
+                  file.name
+                )}
+                {!viewOnly && (
+                  <button type="button" onClick={() => removeFile(index)}>
+                    ❌ Remove
+                  </button>
+                )}
               </li>
             ))}
           </ul>
         </div>
-
+  
         <div className="form-actions">
           <button type="button" className="back-btn" onClick={handleBack} disabled={isSubmitting}>
             Back
           </button>
-          <button type="submit" className="submit-btn" disabled={isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Submit"}
-          </button>
+          {!viewOnly && (
+            <button type="submit" className="submit-btn" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Submit"}
+            </button>
+          )}
         </div>
       </form>
     </div>
   );
 };
-
 export default UG1Form;

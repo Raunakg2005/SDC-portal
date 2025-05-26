@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 
 const R1 = () => {
   const [formData, setFormData] = useState({
@@ -23,6 +24,8 @@ const R1 = () => {
     dateFrom: '',
     dateTo: '',
     registrationFee: '',
+    dateOfSubmission: '',
+    remarksByHod: '',
     bankDetails: {
       beneficiary: '',
       ifsc: '',
@@ -32,7 +35,8 @@ const R1 = () => {
       accountNumber: ''
     },
     amountClaimed: '',
-    finalAmountSanctioned: ''
+    finalAmountSanctioned: '',
+    status: 'pending'
   });
 
   const [files, setFiles] = useState({
@@ -67,6 +71,42 @@ const R1 = () => {
       ...files,
       [field]: e.target.files[0]
     });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+  
+    const submissionData = new FormData();
+  
+    // Append primitive fields
+    for (const [key, value] of Object.entries(formData)) {
+      if (Array.isArray(value)) {
+        submissionData.append(key, JSON.stringify(value));
+      } else if (typeof value === 'object' && value !== null) {
+        submissionData.append(key, JSON.stringify(value));
+      } else {
+        submissionData.append(key, value);
+      }
+    }
+  
+    // Append files individually
+    Object.entries(files).forEach(([key, file]) => {
+      if (file) {
+        submissionData.append(key, file);
+      }
+    });
+  
+    try {
+      const response = await axios.post("http://localhost:5000/api/r1form/submit", submissionData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      alert("Form submitted successfully!");
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      alert("Error submitting form. Please try again.");
+    }
   };
 
   return (
@@ -460,6 +500,9 @@ const R1 = () => {
             <label className="block font-semibold mb-2">Date of Submission:</label>
             <input
               type="date"
+              name="dateOfSubmission"
+              value={formData.dateOfSubmission}
+              onChange={handleChange}
               className="w-full p-1 border border-gray-300 rounded max-w-xs"
             />
           </div>
@@ -505,6 +548,9 @@ const R1 = () => {
           <div className="mb-4">
             <label className="block font-semibold mb-2">Remarks by HOD:</label>
             <textarea
+              name='remarksByHod'
+              value={formData.remarksByHod}
+              onChange={handleChange}
               className="w-full p-2 border border-gray-300 rounded h-20"
             ></textarea>
           </div>
@@ -588,10 +634,10 @@ const R1 = () => {
 
         {/* Form Actions */}
         <div className="flex justify-between">
-          <button className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
+          <button  onClick={() => window.history.back()} className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
             Back
           </button>
-          <button className="submit-btn bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+          <button  onClick={handleSubmit} className="submit-btn bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
             Submit
           </button>
         </div>

@@ -1,21 +1,40 @@
 import React, { useState } from "react";
 
-const UGForm2 = () => {
-  const [formData, setFormData] = useState({
-    projectTitle: "",
-    projectDescription: "",
-    utility: "",
-    receivedFinance: false,
-    financeDetails: "",
-    guideName: "",
-    guideEmployeeCode: "",
-    students: [],
-    expenses: [],
-    totalBudget: "",
-    groupLeaderSignature: null,
-    guideSignature: null,
-    uploadedFile: null,
-    errorMessage: "",
+const UGForm2 = ({ viewOnly = false, data = null }) => {
+  const [formData, setFormData] = useState(() => {
+    return data
+      ? {
+          projectTitle: data.projectTitle || "",
+          projectDescription: data.projectDescription || "",
+          utility: data.projectUtility || "",
+          receivedFinance: data.receivedFinance || false,
+          financeDetails: data.finance || "",
+          guideName: data.guideName || "",
+          guideEmployeeCode: data.employeeCode || "",
+          students: data.students || [],
+          expenses: data.expenses || [],
+          totalBudget: data.amountClaimed || "",
+          groupLeaderSignature: null,
+          guideSignature: null,
+          uploadedFile: null,
+          errorMessage: "",
+        }
+      : {
+          projectTitle: "",
+          projectDescription: "",
+          utility: "",
+          receivedFinance: false,
+          financeDetails: "",
+          guideName: "",
+          guideEmployeeCode: "",
+          students: [],
+          expenses: [],
+          totalBudget: "",
+          groupLeaderSignature: null,
+          guideSignature: null,
+          uploadedFile: null,
+          errorMessage: "",
+        };
   });
 
   const handleInputChange = (e) => {
@@ -100,7 +119,6 @@ const UGForm2 = () => {
       const data = await response.json();
   
       if (response.ok) {
-        console.log("✅ Form Submitted Successfully", data);
         alert("Form submitted successfully!");
       } else {
         console.error("❌ Submission Failed:", data);
@@ -119,13 +137,13 @@ const UGForm2 = () => {
       <p className="form-category">Interdisciplinary Projects (FY to LY Students)</p>
       <form onSubmit={handleSubmit}>
       <label>Title of Proposed Project:</label>
-      <input type="text" name="projectTitle" value={formData.projectTitle} onChange={handleInputChange} />
+      <input type="text" name="projectTitle" value={formData.projectTitle} disabled={viewOnly} onChange={handleInputChange} />
 
       <label>Brief Description of Proposed Work:</label>
-      <textarea name="projectDescription" placeholder="Attach a separate sheet if required" value={formData.projectDescription} onChange={handleInputChange} />
+      <textarea name="projectDescription" disabled={viewOnly} placeholder="Attach a separate sheet if required" value={formData.projectDescription} onChange={handleInputChange} />
 
       <label>Utility:</label>
-      <input type="text" name="utility" value={formData.utility} onChange={handleInputChange} />
+      <input type="text" name="utility" disabled={viewOnly} value={formData.utility} onChange={handleInputChange} />
 
       <label>Whether received finance from any other agency:</label>
       <div className="checkbox-group">
@@ -137,16 +155,16 @@ const UGForm2 = () => {
       </div>
 
       <label>Details if Yes:</label>
-      <textarea name="financeDetails" value={formData.financeDetails} onChange={handleInputChange} />
+      <textarea name="financeDetails" disabled={viewOnly} value={formData.financeDetails} onChange={handleInputChange} />
 
       <div className="guide-details">
         <div>
           <label>Name of the Guide/Co-Guide:</label>
-          <input type="text" name="guideName" value={formData.guideName} onChange={handleInputChange} />
+          <input type="text" disabled={viewOnly} name="guideName" value={formData.guideName} onChange={handleInputChange} />
         </div>
         <div>
           <label>Employee Code:</label>
-          <input type="text" name="guideEmployeeCode" value={formData.guideEmployeeCode} onChange={handleInputChange} />
+          <input type="text" disabled={viewOnly} name="guideEmployeeCode" value={formData.guideEmployeeCode} onChange={handleInputChange} />
         </div>
       </div>
 
@@ -177,8 +195,10 @@ const UGForm2 = () => {
           ))}
         </tbody>
       </table>
-      <button type="button" className="add-btn" onClick={addStudentRow}>➕ Add More Student</button>
-
+      {!viewOnly && (
+        <button type="button" className="add-btn" onClick={addStudentRow}>➕ Add More Student</button>
+      )}
+     
       <table className="budget-table">
         <thead>
           <tr>
@@ -205,10 +225,12 @@ const UGForm2 = () => {
           ))}
         </tbody>
       </table>
-      <button type="button" className="add-btn" onClick={addExpenseRow}>➕ Add More Expense</button>
-
+      {!viewOnly && (
+        <button type="button" className="add-btn" onClick={addExpenseRow}>➕ Add More Expense</button>
+      )}
+  
       <label>Total Budget (Including Contingency Amount):</label>
-      <input type="text" name="totalBudget" value={formData.totalBudget} onChange={handleInputChange} />
+      <input type="text" disabled={viewOnly} name="totalBudget" value={formData.totalBudget} onChange={handleInputChange} />
 
       <div className="signatures">
         <div>
@@ -231,9 +253,15 @@ const UGForm2 = () => {
       {formData.errorMessage && <p className="error-message">{formData.errorMessage}</p>}
 
       <div className="form-actions">
-        <button className="back-btn">Back</button>
-        <button className="submit-btn" onClick={handleSubmit}>Submit</button>
-      </div>
+        {!viewOnly && (
+        <button className="submit-btn"  onClick={handleSubmit}>Submit</button>
+        )}
+        
+        {!viewOnly && (
+         <button className="back-btn">Back</button>
+        )}
+       
+      </div> 
       </form>
     </div>
   );

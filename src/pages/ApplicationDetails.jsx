@@ -1,4 +1,3 @@
-// src/pages/ApplicationDetails.jsx
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import formMapper from "../components/FormComponent/FormMapper";
@@ -11,9 +10,12 @@ const ApplicationDetails = () => {
 
   useEffect(() => {
     const fetchApplication = async () => {
+      setLoading(true);
+      setError(null);
+
       try {
         const res = await fetch(`http://localhost:5000/api/application/${id}`);
-        if (!res.ok) throw new Error("Failed to fetch application details");
+        if (!res.ok) throw new Error(`Failed to fetch application details (status ${res.status})`);
         const data = await res.json();
         setApplication(data);
       } catch (err) {
@@ -23,7 +25,7 @@ const ApplicationDetails = () => {
       }
     };
 
-    fetchApplication();
+    if (id) fetchApplication();
   }, [id]);
 
   if (loading) return <div className="p-6">Loading application details...</div>;
