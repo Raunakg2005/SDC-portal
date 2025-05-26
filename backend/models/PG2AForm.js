@@ -46,7 +46,7 @@ const pg2aFormSchema = new mongoose.Schema({
     guideSignature: { type: mongoose.Schema.Types.ObjectId, ref: 'pg2afiles.files', required: true },
     hodSignature: { type: mongoose.Schema.Types.ObjectId, ref: 'pg2afiles.files', required: true },
   },
-  status: { type: String, enum: ['Pending', 'Approved', 'Rejected', 'Under Review'], default: 'Pending' },
+  status: { type: String, enum: ['pending', 'approved', 'rejected', 'under Review'], default: 'pending' },
 
   createdAt: { type: Date, default: Date.now },
 });

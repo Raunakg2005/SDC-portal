@@ -32,7 +32,7 @@ const PG2BFormSchema = new mongoose.Schema({
   claimDate: { type: Date },
   amountReceived: { type: String },
   amountSanctioned: { type: String },
-  status: { type: String, default: 'Pending' },
+  status: { type: String, default: 'pending' },
 
   // Store GridFS file IDs here:
   paperCopyFilename: { type: mongoose.Schema.Types.ObjectId, required: true },

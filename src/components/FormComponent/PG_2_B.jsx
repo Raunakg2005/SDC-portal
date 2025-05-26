@@ -27,7 +27,7 @@ const PG_2_B = () => {
     claimDate: '',
     amountReceived: '',
     amountSanctioned: '',
-    status: 'Pending'
+    status: 'pending'
   });
 
   const [files, setFiles] = useState({
