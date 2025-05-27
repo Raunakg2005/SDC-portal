@@ -9,6 +9,7 @@ import UG3BForm from "../models/UG3BForm.js";
 import PG1Form from "../models/PG1Form.js";
 import PG2AForm from "../models/PG2AForm.js";
 import PG2BForm from "../models/PG2BForm.js";
+import R1Form from "../models/R1Form.js";
 
 const router = express.Router();
 
@@ -45,6 +46,7 @@ router.get("/pending", async (req, res) => {
       pg1,
       pg2a,
       pg2b,
+      r1
     ] = await Promise.all([
       UG1Form.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
       UGForm2.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
@@ -53,6 +55,7 @@ router.get("/pending", async (req, res) => {
       PG1Form.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
       PG2AForm.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
       PG2BForm.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
+      R1Form.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
     ]);
 
     // Combine and format all results
@@ -64,6 +67,7 @@ router.get("/pending", async (req, res) => {
       ...pg1.map((f) => formatForm(f, "PG_1")),
       ...pg2a.map((f) => formatForm(f, "PG_2_A")),
       ...pg2b.map((f) => formatForm(f, "PG_2_B")),
+      ...r1.map(f => formatForm(f, "R1")),
     ];
 
     res.json(results);
@@ -95,6 +99,7 @@ router.get("/:id", async (req, res) => {
       PG1Form,
       PG2AForm,
       PG2BForm,
+      R1Form
     ];
 
     let application = null;
@@ -122,6 +127,7 @@ router.get("/:id", async (req, res) => {
       PG1Form: "PG_1",
       PG2AForm: "PG_2_A",
       PG2BForm: "PG_2_B",
+      R1Form: "R1",
     };
 
     const formType = modelNameToFormType[foundType] || "Unknown";

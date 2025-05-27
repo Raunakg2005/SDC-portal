@@ -4,24 +4,30 @@ import "../style.css";
 import somaiyaLogo from "../assets/somaiya-logo.png";
 
 const Navbar = () => {
+  const user = JSON.parse(localStorage.getItem("user"));
+
   return (
     <nav className="navbar-home">
-      
       <div className="navbar-left">
         <img src={somaiyaLogo} alt="Somaiya Logo" className="navbar-logo" />
       </div>
 
       <div className="navbar-center">
         <Link to="/home" className="nav-link">Home</Link>
-        {/* Temporarily point Dashboard to ApplicationDetails with a test ID */}
         <Link to="/dashboard" className="nav-link">Dashboard</Link>
         <Link to="/policy" className="nav-link">Policy</Link>
-        <Link to="/" className="nav-link logout-btn">Logout</Link>
+        <Link
+          to="/"
+          className="nav-link logout-btn"
+          onClick={() => localStorage.removeItem("user")}
+        >
+          Logout
+        </Link>
       </div>
 
       <div className="navbar-user-home">
-        <span className="user-name">Devanshu Desai</span>
-        <span className="user-role">UG (A18DS)</span>
+        <span className="user-name">{user?.svvNetId || "Guest"}</span>
+        <span className="user-role">{user?.role || "Not Logged In"}</span>
       </div>
     </nav>
   );

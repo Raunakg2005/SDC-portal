@@ -42,6 +42,14 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
   const svvNetIdRef = useRef("");
+
+  useEffect(() => {
+    const storedSvvNetId = localStorage.getItem("svvNetId");
+    if (storedSvvNetId) {
+      svvNetIdRef.current = storedSvvNetId;
+    }
+  }, []);
+
   useEffect(() => {
     if (data) {
       setFormData({
@@ -196,8 +204,8 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
   // Save Form Data
   const handleSaveFormData = async () => {
     setErrorMessage("");
-
-    // Basic validation for required fields
+  
+    // Basic field validation
     if (
       !formData.projectTitle.trim() ||
       !formData.projectUtility.trim() ||
@@ -207,7 +215,54 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
       setErrorMessage("Please fill all required fields.");
       return null;
     }
-
+  
+    // Validate student details
+    const hasValidStudent = formData.studentDetails.some((student, idx) => {
+      const { studentName, rollNumber, branch, yearOfStudy } = student;
+  
+      // If any field is filled, all must be valid
+      if (studentName || rollNumber || branch || yearOfStudy) {
+        if (!studentName.trim() || !rollNumber.trim() || !branch.trim() || !yearOfStudy.trim()) {
+          setErrorMessage(`Please complete all fields for student ${idx + 1}.`);
+          return false;
+        }
+  
+        // Check roll number format
+        if (!/^\d{11}$/.test(rollNumber)) {
+          setErrorMessage(`Roll Number for student ${idx + 1} must be exactly 11 digits.`);
+          return false;
+        }
+  
+        return true;
+      }
+  
+      return false;
+    });
+  
+    if (!hasValidStudent) {
+      setErrorMessage("At least one student's complete details must be filled correctly.");
+      return null;
+    }
+  
+    // Check PDF files' size
+    for (let file of pdfFiles) {
+      if (file.size && file.size > 5 * 1024 * 1024) {
+        setErrorMessage(`File "${file.name}" exceeds the 5MB size limit.`);
+        return null;
+      }
+    }
+  
+    // Signatures validation
+    if (!groupLeaderSignature || (groupLeaderSignature && !groupLeaderSignature.url && !groupLeaderSignature.name)) {
+      setErrorMessage("Please upload the Group Leader's signature.");
+      return null;
+    }
+  
+    if (!guideSignature || (guideSignature && !guideSignature.url && !guideSignature.name)) {
+      setErrorMessage("Please upload the Guide's signature.");
+      return null;
+    }
+  
     try {
       const dataToSend = { ...formData, svvNetId: svvNetIdRef.current };
       const response = await axios.post("http://localhost:5000/api/ug1form/saveFormData", dataToSend);
@@ -225,6 +280,7 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
       return null;
     }
   };
+  
 
   // Handle Form Submission
   const handleSubmit = async (e) => {
@@ -252,12 +308,7 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
       if (guideSignature) {
         await uploadSignature(guideSignature, "guide", savedFormId);
       }
-
       alert("✅ Form submitted successfully!");
-
-      // Optionally reset form here if you want
-      // resetForm();
-
     } catch (error) {
       setErrorMessage("An error occurred during submission. Please try again.");
     } finally {

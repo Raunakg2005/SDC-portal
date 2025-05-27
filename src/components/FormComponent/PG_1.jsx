@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from "axios";
 
-const PG_1 = () => {
+const PG_1 = ({ readonly = false }) => {
   const [formData, setFormData] = useState({
     studentName: '',
     yearOfAdmission: '',
@@ -38,11 +38,13 @@ const PG_1 = () => {
   });
 
   const handleChange = (e) => {
+    if (readonly) return;
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleBankChange = (e) => {
+    if (readonly) return;
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -51,6 +53,7 @@ const PG_1 = () => {
   };
 
   const handleFileChange = (field, e) => {
+    if (readonly) return;
     setFiles(prevFiles => ({
       ...prevFiles,
       [field]: e.target.files[0]
@@ -59,11 +62,11 @@ const PG_1 = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (readonly) return;
   
     try {
       const formPayload = new FormData();
   
-      // Append all non-bankDetails fields
       Object.entries(formData).forEach(([key, value]) => {
         if (key !== "bankDetails") {
           formPayload.append(key, value);
@@ -71,7 +74,6 @@ const PG_1 = () => {
       });
       formPayload.append("bankDetails", JSON.stringify(formData.bankDetails));
   
-      // Append files
       if (files.receiptCopy) formPayload.append("receiptCopy", files.receiptCopy);
       if (files.additionalDocuments) formPayload.append("additionalDocuments", files.additionalDocuments);
       if (files.guideSignature) formPayload.append("guideSignature", files.guideSignature);
@@ -87,9 +89,12 @@ const PG_1 = () => {
       alert("Failed to submit form. Please try again.");
     }
   };
+  
   return (
     <div className="form-container max-w-4xl mx-auto p-5 bg-gray-50 rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">Post Graduate Form 1 - Workshop/STTP</h1>
+      <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
+        Post Graduate Form 1 - Workshop/STTP {readonly && "(View Only)"}
+      </h1>
       
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-center underline">Application Form</h2>
@@ -105,7 +110,8 @@ const PG_1 = () => {
                   name="studentName"
                   value={formData.studentName}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Year of Admission</th>
@@ -115,7 +121,8 @@ const PG_1 = () => {
                   name="yearOfAdmission"
                   value={formData.yearOfAdmission}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Whether Paid fees for Current Academic Year</th>
@@ -124,7 +131,8 @@ const PG_1 = () => {
                   name="feesPaid"
                   value={formData.feesPaid}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 >
                   <option value="Yes">Yes</option>
                   <option value="No">No</option>
@@ -139,7 +147,8 @@ const PG_1 = () => {
                   name="sttpTitle"
                   value={formData.sttpTitle}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
             </tr>
@@ -157,7 +166,8 @@ const PG_1 = () => {
                   name="guideName"
                   value={formData.guideName}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Number of days of Workshop/STTP</th>
@@ -167,7 +177,8 @@ const PG_1 = () => {
                   name="numberOfDays"
                   value={formData.numberOfDays}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
             </tr>
@@ -179,7 +190,8 @@ const PG_1 = () => {
                   name="dateFrom"
                   value={formData.dateFrom}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">To Date</th>
@@ -189,7 +201,8 @@ const PG_1 = () => {
                   name="dateTo"
                   value={formData.dateTo}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
             </tr>
@@ -207,7 +220,8 @@ const PG_1 = () => {
                   name="organization"
                   value={formData.organization}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
             </tr>
@@ -218,7 +232,8 @@ const PG_1 = () => {
                   name="reason"
                   value={formData.reason}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded h-20"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded h-20 ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
             </tr>
@@ -229,7 +244,8 @@ const PG_1 = () => {
                   name="knowledgeUtilization"
                   value={formData.knowledgeUtilization}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded h-20"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded h-20 ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
             </tr>
@@ -252,7 +268,8 @@ const PG_1 = () => {
                   name="beneficiary"
                   value={formData.bankDetails.beneficiary}
                   onChange={handleBankChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
             </tr>
@@ -264,7 +281,8 @@ const PG_1 = () => {
                   name="ifsc"
                   value={formData.bankDetails.ifsc}
                   onChange={handleBankChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
             </tr>
@@ -276,7 +294,8 @@ const PG_1 = () => {
                   name="bankName"
                   value={formData.bankDetails.bankName}
                   onChange={handleBankChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
             </tr>
@@ -288,7 +307,8 @@ const PG_1 = () => {
                   name="branch"
                   value={formData.bankDetails.branch}
                   onChange={handleBankChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
             </tr>
@@ -300,7 +320,8 @@ const PG_1 = () => {
                   name="accountType"
                   value={formData.bankDetails.accountType}
                   onChange={handleBankChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
             </tr>
@@ -312,7 +333,8 @@ const PG_1 = () => {
                   name="accountNumber"
                   value={formData.bankDetails.accountNumber}
                   onChange={handleBankChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
             </tr>
@@ -330,7 +352,8 @@ const PG_1 = () => {
                   name="registrationFee"
                   value={formData.registrationFee}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Rs.___________"
                 />
               </td>
@@ -340,7 +363,8 @@ const PG_1 = () => {
                   name="previousClaim"
                   value={formData.previousClaim}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 >
                   <option value="Yes">Yes</option>
                   <option value="No">No</option>
@@ -353,7 +377,8 @@ const PG_1 = () => {
                   name="claimDate"
                   value={formData.claimDate}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Amount Received</th>
@@ -363,7 +388,8 @@ const PG_1 = () => {
                   name="amountReceived"
                   value={formData.amountReceived}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Rs.___________"
                 />
               </td>
@@ -376,7 +402,8 @@ const PG_1 = () => {
                   name="amountSanctioned"
                   value={formData.amountSanctioned}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  readOnly={readonly}
+                  className={`w-full p-1 border border-gray-300 rounded ${readonly ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   placeholder="Rs.___________"
                 />
               </td>
@@ -386,70 +413,94 @@ const PG_1 = () => {
 
         {/* File Uploads */}
         <div className="mb-6 space-y-4">
-          <div>
-            <label className="block font-semibold mb-2">Attach receipt of registration fees:</label>
-            <div className="flex items-center">
-              <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                Choose Receipt Copy
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => handleFileChange('receiptCopy', e)}
-                />
-              </label>
-              <span className="ml-2 text-sm">
-                {files.receiptCopy ? files.receiptCopy.name : "No file chosen"}
-              </span>
-            </div>
-          </div>
+          {!readonly ? (
+            <>
+              <div>
+                <label className="block font-semibold mb-2">Attach receipt of registration fees:</label>
+                <div className="flex items-center">
+                  <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+                    Choose Receipt Copy
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => handleFileChange('receiptCopy', e)}
+                    />
+                  </label>
+                  <span className="ml-2 text-sm">
+                    {files.receiptCopy ? files.receiptCopy.name : "No file chosen"}
+                  </span>
+                </div>
+              </div>
 
-          <div>
-            <label className="block font-semibold mb-2">Upload Additional Documents </label>
-            <div className="flex items-center">
-              <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                Choose File
-                <input
-                  type="file"
-                  className="hidden"
-                  
-                  onChange={(e) => handleFileChange('additionalDocuments', e)}
-                />
-              </label>
-              <span className="ml-2 text-sm">
-                {files.additionalDocuments ? files.additionalDocuments.name : "No file chosen"}
-              </span>
+              <div>
+                <label className="block font-semibold mb-2">Additional Documents:</label>
+                <div className="flex items-center">
+                  <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+                    Choose Additional Documents
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => handleFileChange('additionalDocuments', e)}
+                    />
+                  </label>
+                  <span className="ml-2 text-sm">
+                    {files.additionalDocuments ? files.additionalDocuments.name : "No file chosen"}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-2">Guide Signature:</label>
+                <div className="flex items-center">
+                  <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+                    Choose Guide Signature
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => handleFileChange('guideSignature', e)}
+                    />
+                  </label>
+                  <span className="ml-2 text-sm">
+                    {files.guideSignature ? files.guideSignature.name : "No file chosen"}
+                  </span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <div>
+                <label className="block font-semibold mb-2">Receipt Copy:</label>
+                <span className="text-sm text-gray-600">
+                  {files.receiptCopy ? files.receiptCopy.name : "No file attached"}
+                </span>
+              </div>
+              <div>
+                <label className="block font-semibold mb-2">Additional Documents:</label>
+                <span className="text-sm text-gray-600">
+                  {files.additionalDocuments ? files.additionalDocuments.name : "No file attached"}
+                </span>
+              </div>
+              <div>
+                <label className="block font-semibold mb-2">Guide Signature:</label>
+                <span className="text-sm text-gray-600">
+                  {files.guideSignature ? files.guideSignature.name : "No file attached"}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
-
-        {/* Signatures */}
-        <div className="flex justify-between mb-6">
-          <div className="w-1/2 pr-2">
-            <p className="font-semibold mb-2">Signature of the Guide/Co-Guide HOD</p>
-            <div className="flex items-center">
-              <div className="h-12 border-t border-gray-400 flex-1"></div>
-              <label className="ml-2 bg-gray-200 px-4 py-2 rounded cursor-pointer hover:bg-gray-300">
-                Upload Signature
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                  onChange={(e) => handleFileChange('guideSignature', e)}
-                />
-              </label>
-            </div>
-          </div>
-         
-        </div>
-
-        {/* Form Actions */}
+        {/* Form Actions */}   
         <div className="flex justify-between">
-          <button onClick={() => window.history.back()} className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
-            Back
+        {!readonly && (
+           <button onClick={handleSubmit} className="submit-btn bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+           Submit
+         </button>
+        )} 
+        {!readonly && (
+           <button onClick={() => window.history.back()} className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
+           Back
           </button>
-          <button onClick={handleSubmit} className="submit-btn bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
-            Submit
-          </button>
+        )}    
         </div>
       </div>
     </div>

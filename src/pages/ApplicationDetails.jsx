@@ -37,11 +37,13 @@ const ApplicationDetails = () => {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Application Details</h1>
-      <div className="mb-4 text-gray-600">
+      <div className="mb-4 text-gray-600 space-y-1">
         <p><strong>Topic:</strong> {application.topic}</p>
+        <p><strong>Applicant Roll No:</strong> {application.name}</p>
         <p><strong>Submitted on:</strong> {new Date(application.submitted).toLocaleDateString()}</p>
         <p><strong>Branch:</strong> {application.branch}</p>
         <p><strong>Form Type:</strong> {application.formType}</p>
+        <p><strong>Status:</strong> {application.status}</p>
       </div>
 
       {FormComponent ? (
