@@ -1,32 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const R1 = () => {
+const R1 = ({ data = null, viewOnly = false }) => {
   const [formData, setFormData] = useState({
-    guideName: '',
-    coGuideName: '',
-    employeeCodes: '',
-    studentName: '',
-    yearOfAdmission: '',
-    branch: '',
-    rollNo: '',
-    mobileNo: '',
-    feesPaid: 'No',
-    receivedFinance: 'No',
-    financeDetails: '',
-    paperTitle: '',
-    paperLink: '',
-    authors: ['', '', '', ''],
-    sttpTitle: '',
-    organizers: '',
-    reasonForAttending: '',
-    numberOfDays: '',
-    dateFrom: '',
-    dateTo: '',
-    registrationFee: '',
-    dateOfSubmission: '',
-    remarksByHod: '',
-    bankDetails: {
+    guideName: data?.guideName || '',
+    coGuideName: data?.coGuideName || '',
+    employeeCodes: data?.employeeCodes || '',
+    studentName: data?.studentName || '',
+    yearOfAdmission: data?.yearOfAdmission || '',
+    branch: data?.branch || '',
+    rollNo: data?.rollNo || '',
+    mobileNo: data?.mobileNo || '',
+    feesPaid: data?.feesPaid || 'No',
+    receivedFinance: data?.receivedFinance || 'No',
+    financeDetails: data?.financeDetails || '',
+    paperTitle: data?.paperTitle || '',
+    paperLink: data?.paperLink || '',
+    authors: data?.authors || ['', '', '', ''],
+    sttpTitle: data?.sttpTitle || '',
+    organizers: data?.organizers || '',
+    reasonForAttending: data?.reasonForAttending || '',
+    numberOfDays: data?.numberOfDays || '',
+    dateFrom: data?.dateFrom || '',
+    dateTo: data?.dateTo || '',
+    registrationFee: data?.registrationFee || '',
+    dateOfSubmission: data?.dateOfSubmission || '',
+    remarksByHod: data?.remarksByHod || '',
+    bankDetails: data?.bankDetails || {
       beneficiary: '',
       ifsc: '',
       bankName: '',
@@ -34,25 +34,82 @@ const R1 = () => {
       accountType: '',
       accountNumber: ''
     },
-    amountClaimed: '',
-    finalAmountSanctioned: '',
-    status: 'pending'
+    amountClaimed: data?.amountClaimed || '',
+    finalAmountSanctioned: data?.finalAmountSanctioned || '',
+    status: data?.status || 'pending'
   });
 
   const [files, setFiles] = useState({
-    proofDocument: null,
-    receiptCopy: null,
-    studentSignature: null,
-    guideSignature: null,
-    hodSignature: null
+    proofDocument: data?.proofDocumentUrl ? { name: 'Proof Document', url: data.proofDocumentUrl } : null,
+    receiptCopy: data?.receiptCopyUrl ? { name: 'Receipt Copy', url: data.receiptCopyUrl } : null,
+    studentSignature: data?.studentSignatureUrl ? { name: 'Student Signature', url: data.studentSignatureUrl } : null,
+    guideSignature: data?.guideSignatureUrl ? { name: 'Guide Signature', url: data.guideSignatureUrl } : null,
+    hodSignature: data?.hodSignatureUrl ? { name: 'HOD Signature', url: data.hodSignatureUrl } : null,
+    sdcChairpersonSignature: data?.sdcChairpersonSignatureUrl ? { name: 'SDC Chairperson Signature', url: data.sdcChairpersonSignatureUrl } : null, // Added for SDC Chairperson
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Update form when data prop changes
+  useEffect(() => {
+    if (data) {
+      setFormData({
+        guideName: data.guideName || '',
+        coGuideName: data.coGuideName || '',
+        employeeCodes: data.employeeCodes || '',
+        studentName: data.studentName || '',
+        yearOfAdmission: data.yearOfAdmission || '',
+        branch: data.branch || '',
+        rollNo: data.rollNo || '',
+        mobileNo: data.mobileNo || '',
+        feesPaid: data.feesPaid || 'No',
+        receivedFinance: data.receivedFinance || 'No',
+        financeDetails: data.financeDetails || '',
+        paperTitle: data.paperTitle || '',
+        paperLink: data.paperLink || '',
+        authors: data.authors || ['', '', '', ''],
+        sttpTitle: data.sttpTitle || '',
+        organizers: data.organizers || '',
+        reasonForAttending: data.reasonForAttending || '',
+        numberOfDays: data.numberOfDays || '',
+        dateFrom: data.dateFrom || '',
+        dateTo: data.dateTo || '',
+        registrationFee: data.registrationFee || '',
+        dateOfSubmission: data.dateOfSubmission || '',
+        remarksByHod: data.remarksByHod || '',
+        bankDetails: data.bankDetails || {
+          beneficiary: '',
+          ifsc: '',
+          bankName: '',
+          branch: '',
+          accountType: '',
+          accountNumber: ''
+        },
+        amountClaimed: data.amountClaimed || '',
+        finalAmountSanctioned: data.finalAmountSanctioned || '',
+        status: data.status || 'pending'
+      });
+
+      setFiles({
+        proofDocument: data.proofDocumentUrl ? { name: 'Proof Document', url: data.proofDocumentUrl } : null,
+        receiptCopy: data.receiptCopyUrl ? { name: 'Receipt Copy', url: data.receiptCopyUrl } : null,
+        studentSignature: data.studentSignatureUrl ? { name: 'Student Signature', url: data.studentSignatureUrl } : null,
+        guideSignature: data.guideSignatureUrl ? { name: 'Guide Signature', url: data.guideSignatureUrl } : null,
+        hodSignature: data.hodSignatureUrl ? { name: 'HOD Signature', url: data.hodSignatureUrl } : null,
+        sdcChairpersonSignature: data.sdcChairpersonSignatureUrl ? { name: 'SDC Chairperson Signature', url: data.sdcChairpersonSignatureUrl } : null, // Added for SDC Chairperson
+      });
+    }
+  }, [data]);
+
   const handleChange = (e) => {
+    if (viewOnly) return;
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleBankChange = (e) => {
+    if (viewOnly) return;
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -61,23 +118,70 @@ const R1 = () => {
   };
 
   const handleAuthorChange = (index, value) => {
+    if (viewOnly) return;
     const newAuthors = [...formData.authors];
     newAuthors[index] = value;
     setFormData(prev => ({ ...prev, authors: newAuthors }));
   };
 
   const handleFileChange = (field, e) => {
-    setFiles({
-      ...files,
-      [field]: e.target.files[0]
-    });
+    if (viewOnly) return;
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // File validation
+    if (field.includes('Signature') && !file.type.startsWith('image/')) {
+      alert('❌ Only image files are allowed for signatures.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('❌ File must be less than 5MB.');
+      return;
+    }
+
+    setFiles(prev => ({
+      ...prev,
+      [field]: file
+    }));
+  };
+
+  const validateForm = () => {
+    // Basic validation
+    if (!formData.guideName.trim() || !formData.studentName.trim() || !formData.rollNo.trim()) {
+      setErrorMessage('Please fill all required fields (Guide Name, Student Name, Roll No).');
+      return false;
+    }
+
+    // Validate roll number format (assuming 11 digits like UG1)
+    if (!/^\d{11}$/.test(formData.rollNo)) {
+      setErrorMessage('Roll Number must be exactly 11 digits.');
+      return false;
+    }
+
+    // Validate mobile number
+    if (formData.mobileNo && !/^\d{10}$/.test(formData.mobileNo)) {
+      setErrorMessage('Mobile Number must be exactly 10 digits.');
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+    if (viewOnly || isSubmitting) return;
+
+    setErrorMessage('');
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
     const submissionData = new FormData();
-  
+
     // Append primitive fields
     for (const [key, value] of Object.entries(formData)) {
       if (Array.isArray(value)) {
@@ -88,33 +192,89 @@ const R1 = () => {
         submissionData.append(key, value);
       }
     }
-  
-    // Append files individually
+
+    // Append files individually (only if they're actual files, not URLs)
     Object.entries(files).forEach(([key, file]) => {
-      if (file) {
+      if (file && file instanceof File) {
         submissionData.append(key, file);
       }
     });
-  
+
     try {
       const response = await axios.post("http://localhost:5000/api/r1form/submit", submissionData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
-      alert("Form submitted successfully!");
+      alert("✅ Form submitted successfully!");
+      // Optionally redirect or clear form
     } catch (error) {
-      console.error("Error submitting form:", error);
-      alert("Error submitting form. Please try again.");
+      console.error("❌ Error submitting form:", error);
+      setErrorMessage("Error submitting form. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const handleBack = () => {
+    window.history.back();
+  };
+
+  // Helper function to render file display
+  const renderFileDisplay = (fileKey, label) => {
+    const file = files[fileKey];
+    
+    if (viewOnly && file && file.url) {
+      return (
+        <div className="flex items-center">
+          <a 
+            href={file.url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 underline"
+          >
+            View {label}
+          </a>
+        </div>
+      );
+    } else if (!viewOnly) {
+      return (
+        <div className="flex items-center">
+          <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+            Choose File
+            <input
+              type="file"
+              className="hidden"
+              accept={fileKey.includes('Signature') ? 'image/*' : '*'}
+              onChange={(e) => handleFileChange(fileKey, e)}
+            />
+          </label>
+          <span className="ml-2 text-sm">
+            {file ? (file.name || 'File selected') : "No file chosen"}
+          </span>
+        </div>
+      );
+    } else if (file) { // For viewOnly when a file object (not a URL) is present, perhaps from initial data
+      return <span className="text-sm text-gray-600">{file.name}</span>;
+    }
+    
+    return <span className="text-sm text-gray-400">No file uploaded</span>;
   };
 
   return (
     <div className="form-container max-w-4xl mx-auto p-5 bg-gray-50 rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">Research Form R1</h1>
+      <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
+        Research Form R1 {viewOnly && <span className="text-blue-600">(View Only)</span>}
+      </h1>
       
       <div className="mb-8">
         <h2 className="text-xl font-semibold mb-4 text-center">Application Form</h2>
+        
+        {errorMessage && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {errorMessage}
+          </div>
+        )}
         
         {/* Guide and Student Information */}
         <table className="w-full mb-6 border border-gray-300">
@@ -127,15 +287,18 @@ const R1 = () => {
                   name="guideName"
                   value={formData.guideName}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                   placeholder="Guide Name"
+                  required
                 />
                 <input
                   type="text"
                   name="coGuideName"
                   value={formData.coGuideName}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded mt-2"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded mt-2 disabled:bg-gray-100"
                   placeholder="Co-guide Name"
                 />
               </td>
@@ -146,7 +309,8 @@ const R1 = () => {
                   name="employeeCodes"
                   value={formData.employeeCodes}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                 />
               </td>
             </tr>
@@ -158,7 +322,10 @@ const R1 = () => {
                   name="studentName"
                   value={formData.studentName}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
+                  placeholder="Student Name"
+                  required
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Year of Admission</th>
@@ -168,7 +335,8 @@ const R1 = () => {
                   name="yearOfAdmission"
                   value={formData.yearOfAdmission}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                 />
               </td>
             </tr>
@@ -180,7 +348,8 @@ const R1 = () => {
                   name="branch"
                   value={formData.branch}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Roll No.</th>
@@ -190,7 +359,9 @@ const R1 = () => {
                   name="rollNo"
                   value={formData.rollNo}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
+                  required
                 />
               </td>
             </tr>
@@ -202,7 +373,8 @@ const R1 = () => {
                   name="mobileNo"
                   value={formData.mobileNo}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Whether Paid fees for Current Academic Year</th>
@@ -211,7 +383,8 @@ const R1 = () => {
                   name="feesPaid"
                   value={formData.feesPaid}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                 >
                   <option value="Yes">Yes</option>
                   <option value="No">No</option>
@@ -225,7 +398,8 @@ const R1 = () => {
                   name="receivedFinance"
                   value={formData.receivedFinance}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                 >
                   <option value="Yes">Yes</option>
                   <option value="No">No</option>
@@ -238,7 +412,8 @@ const R1 = () => {
                     name="financeDetails"
                     value={formData.financeDetails}
                     onChange={handleChange}
-                    className="w-full p-1 border border-gray-300 rounded"
+                    disabled={viewOnly}
+                    className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                     placeholder="Provide details"
                   />
                 )}
@@ -258,7 +433,8 @@ const R1 = () => {
               name="paperTitle"
               value={formData.paperTitle}
               onChange={handleChange}
-              className="w-full p-1 border border-gray-300 rounded"
+              disabled={viewOnly}
+              className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
             />
           </div>
           
@@ -269,7 +445,8 @@ const R1 = () => {
               name="paperLink"
               value={formData.paperLink}
               onChange={handleChange}
-              className="w-full p-1 border border-gray-300 rounded"
+              disabled={viewOnly}
+              className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
             />
           </div>
           
@@ -282,7 +459,8 @@ const R1 = () => {
                     type="text"
                     value={author}
                     onChange={(e) => handleAuthorChange(index, e.target.value)}
-                    className="w-full p-1 border border-gray-300 rounded"
+                    disabled={viewOnly}
+                    className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                     placeholder={`Author ${index + 1}`}
                   />
                 </div>
@@ -302,7 +480,8 @@ const R1 = () => {
               name="sttpTitle"
               value={formData.sttpTitle}
               onChange={handleChange}
-              className="w-full p-1 border border-gray-300 rounded"
+              disabled={viewOnly}
+              className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
             />
           </div>
           
@@ -313,7 +492,8 @@ const R1 = () => {
               name="organizers"
               value={formData.organizers}
               onChange={handleChange}
-              className="w-full p-1 border border-gray-300 rounded"
+              disabled={viewOnly}
+              className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
             />
           </div>
           
@@ -323,7 +503,8 @@ const R1 = () => {
               name="reasonForAttending"
               value={formData.reasonForAttending}
               onChange={handleChange}
-              className="w-full p-1 border border-gray-300 rounded h-20"
+              disabled={viewOnly}
+              className="w-full p-1 border border-gray-300 rounded h-20 disabled:bg-gray-100"
             />
           </div>
           
@@ -335,7 +516,8 @@ const R1 = () => {
                 name="numberOfDays"
                 value={formData.numberOfDays}
                 onChange={handleChange}
-                className="w-full p-1 border border-gray-300 rounded"
+                disabled={viewOnly}
+                className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
               />
             </div>
             <div>
@@ -345,7 +527,8 @@ const R1 = () => {
                 name="dateFrom"
                 value={formData.dateFrom}
                 onChange={handleChange}
-                className="w-full p-1 border border-gray-300 rounded"
+                disabled={viewOnly}
+                className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
               />
             </div>
             <div>
@@ -355,7 +538,8 @@ const R1 = () => {
                 name="dateTo"
                 value={formData.dateTo}
                 onChange={handleChange}
-                className="w-full p-1 border border-gray-300 rounded"
+                disabled={viewOnly}
+                className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
               />
             </div>
           </div>
@@ -377,7 +561,8 @@ const R1 = () => {
                   name="registrationFee"
                   value={formData.registrationFee}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                   placeholder="Rs.___________"
                 />
               </td>
@@ -390,7 +575,8 @@ const R1 = () => {
                   name="beneficiary"
                   value={formData.bankDetails.beneficiary}
                   onChange={handleBankChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                 />
               </td>
             </tr>
@@ -402,7 +588,8 @@ const R1 = () => {
                   name="ifsc"
                   value={formData.bankDetails.ifsc}
                   onChange={handleBankChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                 />
               </td>
             </tr>
@@ -414,7 +601,8 @@ const R1 = () => {
                   name="bankName"
                   value={formData.bankDetails.bankName}
                   onChange={handleBankChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                 />
               </td>
             </tr>
@@ -426,7 +614,8 @@ const R1 = () => {
                   name="branch"
                   value={formData.bankDetails.branch}
                   onChange={handleBankChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                 />
               </td>
             </tr>
@@ -438,7 +627,8 @@ const R1 = () => {
                   name="accountType"
                   value={formData.bankDetails.accountType}
                   onChange={handleBankChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                 />
               </td>
             </tr>
@@ -450,7 +640,8 @@ const R1 = () => {
                   name="accountNumber"
                   value={formData.bankDetails.accountNumber}
                   onChange={handleBankChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                 />
               </td>
             </tr>
@@ -461,36 +652,12 @@ const R1 = () => {
         <div className="mb-6 space-y-4">
           <div>
             <label className="block font-semibold mb-2">Attach proof documents:</label>
-            <div className="flex items-center">
-              <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                Choose File
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => handleFileChange('proofDocument', e)}
-                />
-              </label>
-              <span className="ml-2 text-sm">
-                {files.proofDocument ? files.proofDocument.name : "No file chosen"}
-              </span>
-            </div>
+            {renderFileDisplay('proofDocument', 'Proof Document')}
           </div>
 
           <div>
             <label className="block font-semibold mb-2">Attach registration fee receipt:</label>
-            <div className="flex items-center">
-              <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                Choose File
-                <input
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => handleFileChange('receiptCopy', e)}
-                />
-              </label>
-              <span className="ml-2 text-sm">
-                {files.receiptCopy ? files.receiptCopy.name : "No file chosen"}
-              </span>
-            </div>
+            {renderFileDisplay('receiptCopy', 'Receipt Copy')}
           </div>
         </div>
 
@@ -503,45 +670,20 @@ const R1 = () => {
               name="dateOfSubmission"
               value={formData.dateOfSubmission}
               onChange={handleChange}
-              className="w-full p-1 border border-gray-300 rounded max-w-xs"
+              disabled={viewOnly}
+              className="w-full p-1 border border-gray-300 rounded max-w-xs disabled:bg-gray-100"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block font-semibold mb-2">Signature of the student</label>
-              <div className="flex items-center">
-                <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                  Upload Signature
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={(e) => handleFileChange('studentSignature', e)}
-                  />
-                </label>
-                <span className="ml-2 text-sm">
-                  {files.studentSignature ? files.studentSignature.name : "No file chosen"}
-                </span>
-              </div>
+              {renderFileDisplay('studentSignature', 'Student Signature')}
             </div>
 
             <div>
               <label className="block font-semibold mb-2">Signature of Guide / Co-guide</label>
-              <div className="flex items-center">
-                <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                  Upload Signature
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={(e) => handleFileChange('guideSignature', e)}
-                  />
-                </label>
-                <span className="ml-2 text-sm">
-                  {files.guideSignature ? files.guideSignature.name : "No file chosen"}
-                </span>
-              </div>
+              {renderFileDisplay('guideSignature', 'Guide Signature')}
             </div>
           </div>
 
@@ -551,26 +693,14 @@ const R1 = () => {
               name='remarksByHod'
               value={formData.remarksByHod}
               onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded h-20"
+              disabled={viewOnly}
+              className="w-full p-2 border border-gray-300 rounded h-20 disabled:bg-gray-100"
             ></textarea>
           </div>
 
           <div className="mb-4">
             <label className="block font-semibold mb-2">Signature of HOD</label>
-            <div className="flex items-center">
-              <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                Upload Signature
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                  onChange={(e) => handleFileChange('hodSignature', e)}
-                />
-              </label>
-              <span className="ml-2 text-sm">
-                {files.hodSignature ? files.hodSignature.name : "No file chosen"}
-              </span>
-            </div>
+            {renderFileDisplay('hodSignature', 'HOD Signature')}
           </div>
         </div>
 
@@ -585,7 +715,8 @@ const R1 = () => {
                   name="amountClaimed"
                   value={formData.amountClaimed}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                   placeholder="Rs.___________"
                 />
               </td>
@@ -596,7 +727,8 @@ const R1 = () => {
                   name="finalAmountSanctioned"
                   value={formData.finalAmountSanctioned}
                   onChange={handleChange}
-                  className="w-full p-1 border border-gray-300 rounded"
+                  disabled={viewOnly}
+                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
                   placeholder="Rs.___________"
                 />
               </td>
@@ -605,41 +737,61 @@ const R1 = () => {
               <th className="p-2 border border-gray-300 bg-gray-100">Signature of chairperson of SDC with date:</th>
               <td colSpan="3" className="p-2 border border-gray-300">
                 <div className="flex items-center">
-                  <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                    Upload Signature
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
-                    />
-                  </label>
-                  <input
-                    type="date"
-                    className="ml-2 p-1 border border-gray-300 rounded"
-                  />
+                  {!viewOnly ? (
+                    <>
+                      <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+                        Upload Signature
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange('sdcChairpersonSignature', e)}
+                        />
+                      </label>
+                      <span className="ml-2 text-sm">
+                        {files.sdcChairpersonSignature ? (files.sdcChairpersonSignature.name || 'File selected') : "No file chosen"}
+                      </span>
+                      {/* You might want a separate state for this date if it's not part of formData */}
+                      <input
+                        type="date"
+                        className="ml-2 p-1 border border-gray-300 rounded"
+                        disabled={viewOnly}
+                        // This date should ideally be managed in formData or a separate state
+                        // Example: value={formData.sdcChairpersonDate} onChange={handleChange}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      {renderFileDisplay('sdcChairpersonSignature', 'SDC Chairperson Signature')}
+                      {/* Display the date if it's available in data prop */}
+                      {data?.sdcChairpersonDate && <span className="ml-2 text-sm text-gray-600">({data.sdcChairpersonDate})</span>}
+                    </>
+                  )}
                 </div>
-              </td>
-            </tr>
-            <tr>
-              <th className="p-2 border border-gray-300 bg-gray-100">Approved / Not Approved Principal</th>
-              <td colSpan="3" className="p-2 border border-gray-300">
-                <select className="w-full p-1 border border-gray-300 rounded max-w-xs">
-                  <option>Approved</option>
-                  <option>Not Approved</option>
-                </select>
               </td>
             </tr>
           </tbody>
         </table>
 
         {/* Form Actions */}
-        <div className="flex justify-between">
-          <button  onClick={() => window.history.back()} className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
+        <div className="flex justify-end space-x-4 mt-8">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="px-6 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+          >
             Back
           </button>
-          <button  onClick={handleSubmit} className="submit-btn bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
-            Submit
-          </button>
+          {!viewOnly && (
+            <button
+              type="submit"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className={`px-6 py-2 rounded-md text-white ${isSubmitting ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'}`}
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit'}
+            </button>
+          )}
         </div>
       </div>
     </div>
