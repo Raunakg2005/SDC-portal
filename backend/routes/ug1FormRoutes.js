@@ -23,7 +23,6 @@ conn.once("open", () => {
     storage = new GridFsStorage({
       db: conn.db,
       file: (req, file) => {
-        console.log("--- GridFsStorage.file function called (for reference only) ---");
         return {
           filename: `${Date.now()}-${file.originalname}`,
           bucketName: "uploads",

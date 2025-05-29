@@ -1,85 +1,103 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import "../styles/UG2.css";
 
 const UGForm2 = ({ viewOnly = false, data = null }) => {
   const [formData, setFormData] = useState(() => {
-    return data
-      ? {
-          projectTitle: data.projectTitle || "",
-          projectDescription: data.projectDescription || "",
-          utility: data.projectUtility || "",
-          receivedFinance: data.receivedFinance || false,
-          financeDetails: data.finance || "",
-          guideName: data.guideName || "",
-          guideEmployeeCode: data.employeeCode || "",
-          students: data.students || [],
-          expenses: data.expenses || [],
-          totalBudget: data.amountClaimed || "",
-          groupLeaderSignature: null,
-          guideSignature: null,
-          uploadedFile: null,
-          errorMessage: "",
-          errors: {}, // For field-specific errors
-        }
-      : {
-          projectTitle: "",
-          projectDescription: "",
-          utility: "",
-          receivedFinance: false,
-          financeDetails: "",
-          guideName: "",
-          guideEmployeeCode: "",
-          students: [],
-          expenses: [],
-          totalBudget: "",
-          groupLeaderSignature: null,
-          guideSignature: null,
-          uploadedFile: null,
-          errorMessage: "",
-          errors: {},
-        };
+    if (viewOnly && data) {
+      return {
+        projectTitle: data.projectTitle || "",
+        projectDescription: data.projectDescription || "",
+        utility: data.utility || "",
+        receivedFinance: data.receivedFinance || false,
+        financeDetails: data.financeDetails || "",
+        guideName: data.guideName || "",
+        guideEmployeeCode: data.guideEmployeeCode || "",
+        students: data.students || [],
+        expenses: data.expenses || [],
+        totalBudget: data.totalBudget || "",
+        groupLeaderSignature: data.groupLeaderSignature || null,
+        guideSignature: data.guideSignature || null,
+        uploadedFiles: data.uploadedFiles || [],
+        errorMessage: "",
+        status: data.status || "pending",
+        errors: {},
+      };
+    } else {
+      return {
+        projectTitle: "",
+        projectDescription: "",
+        utility: "",
+        receivedFinance: false,
+        financeDetails: "",
+        guideName: "",
+        guideEmployeeCode: "",
+        students: [],
+        expenses: [],
+        totalBudget: "",
+        groupLeaderSignature: null,
+        guideSignature: null,
+        uploadedFiles: [],
+        status: "pending",
+        errorMessage: "",
+        errors: {},
+      };
+    }
   });
 
-  // Validation function
+  useEffect(() => {
+    if (viewOnly && data) {
+      setFormData({
+        projectTitle: data.projectTitle || "",
+        projectDescription: data.projectDescription || "",
+        utility: data.utility || "",
+        receivedFinance: data.receivedFinance || false,
+        financeDetails: data.financeDetails || "",
+        guideName: data.guideName || "",
+        guideEmployeeCode: data.guideEmployeeCode || "",
+        students: data.students || [],
+        expenses: data.expenses || [],
+        totalBudget: data.totalBudget || "",
+        groupLeaderSignature: data.groupLeaderSignature || null,
+        guideSignature: data.guideSignature || null,
+        uploadedFiles: data.uploadedFiles || [],
+        errorMessage: "",
+        status: "pending",
+        errors: {},
+      });
+    }
+  }, [data, viewOnly]);
+
   const validateForm = () => {
     let errors = {};
 
-    // Required text fields
-    if (!formData.projectTitle.trim()) errors.projectTitle = "Project title is required.";
-    if (!formData.projectDescription.trim()) errors.projectDescription = "Project description is required.";
+    if (!formData.projectTitle.trim())
+      errors.projectTitle = "Project title is required.";
+    if (!formData.projectDescription.trim())
+      errors.projectDescription = "Project description is required.";
     if (!formData.utility.trim()) errors.utility = "Utility is required.";
-
-    // Finance details required if receivedFinance is true
     if (formData.receivedFinance && !formData.financeDetails.trim()) {
       errors.financeDetails = "Finance details are required if finance received.";
     }
-
-    // Guide details
     if (!formData.guideName.trim()) errors.guideName = "Guide name is required.";
-    if (!formData.guideEmployeeCode.trim()) errors.guideEmployeeCode = "Guide employee code is required.";
+    if (!formData.guideEmployeeCode.trim())
+      errors.guideEmployeeCode = "Guide employee code is required.";
 
-    // Students validation
     if (formData.students.length === 0) {
       errors.students = "At least one student is required.";
     } else {
       formData.students.forEach((student, idx) => {
-        if (!student.name.trim()) {
+        if (!student.name.trim())
           errors[`studentName_${idx}`] = "Student name is required.";
-        }
-        if (!student.year.trim()) {
+        if (!student.year.trim())
           errors[`studentYear_${idx}`] = "Year of study is required.";
-        }
-        if (!student.class.trim()) {
+        if (!student.class.trim())
           errors[`studentClass_${idx}`] = "Class is required.";
-        }
-        if (!student.div.trim()) {
-          errors[`studentDiv_${idx}`] = "Div is required.";
-        }
-        if (!student.branch.trim()) {
+        if (!student.div.trim()) errors[`studentDiv_${idx}`] = "Div is required.";
+        if (!student.branch.trim())
           errors[`studentBranch_${idx}`] = "Branch is required.";
-        }
-        if (!student.rollNo.trim()) {
+        if (!student.rollNo.trim())
           errors[`studentRollNo_${idx}`] = "Roll No. is required.";
-        }
         if (!student.mobileNo.trim()) {
           errors[`studentMobileNo_${idx}`] = "Mobile No. is required.";
         } else if (!/^\d{10}$/.test(student.mobileNo.trim())) {
@@ -88,61 +106,107 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
       });
     }
 
-    // Expenses validation (optional, but if filled, must have amount and category)
     formData.expenses.forEach((expense, idx) => {
-      if (!expense.category.trim()) {
+      if (!expense.category.trim())
         errors[`expenseCategory_${idx}`] = "Category is required.";
-      }
-      if (!expense.amount.trim()) {
+      if (!expense.amount.trim())
         errors[`expenseAmount_${idx}`] = "Amount is required.";
-      } else if (isNaN(expense.amount) || Number(expense.amount) <= 0) {
+      else if (isNaN(expense.amount) || Number(expense.amount) <= 0)
         errors[`expenseAmount_${idx}`] = "Amount must be a positive number.";
-      }
     });
 
-    // Total budget must be positive number
-    if (!formData.totalBudget.trim()) {
+    if (!formData.totalBudget.trim())
       errors.totalBudget = "Total budget is required.";
-    } else if (isNaN(formData.totalBudget) || Number(formData.totalBudget) <= 0) {
+    else if (isNaN(formData.totalBudget) || Number(formData.totalBudget) <= 0)
       errors.totalBudget = "Total budget must be a positive number.";
-    }
 
-    // Signatures validation (required)
-    if (!formData.groupLeaderSignature) {
-      errors.groupLeaderSignature = "Group leader signature is required.";
-    } else if (formData.groupLeaderSignature.type !== "image/jpeg") {
-      errors.groupLeaderSignature = "Group leader signature must be a JPEG image.";
-    }
-
-    if (!formData.guideSignature) {
-      errors.guideSignature = "Guide signature is required.";
-    } else if (formData.guideSignature.type !== "image/jpeg") {
-      errors.guideSignature = "Guide signature must be a JPEG image.";
-    }
-
-    // Uploaded document optional but if present, must be PDF and <= 5MB
-    if (formData.uploadedFile) {
-      if (formData.uploadedFile.type !== "application/pdf") {
-        errors.uploadedFile = "Additional document must be a PDF.";
+    if (!viewOnly) {
+      if (!formData.groupLeaderSignature) {
+        errors.groupLeaderSignature = "Group leader signature is required.";
+      } else if (
+        formData.groupLeaderSignature.type &&
+        formData.groupLeaderSignature.type !== "image/jpeg"
+      ) {
+        errors.groupLeaderSignature = "Group leader signature must be a JPEG image.";
+      } else if (
+        formData.groupLeaderSignature.size &&
+        formData.groupLeaderSignature.size > 5 * 1024 * 1024
+      ) {
+        errors.groupLeaderSignature = "Group leader signature must be under 5MB.";
       }
-      if (formData.uploadedFile.size > 5 * 1024 * 1024) {
-        errors.uploadedFile = "Additional document must be under 5MB.";
+
+      const isValidSignature = (sig) => {
+        if (!sig) return false;
+        if (sig instanceof File) {
+          return sig.type === "image/jpeg" && sig.size <= 5 * 1024 * 1024;
+        }
+        return sig.url || sig.name; // assumes already uploaded
+      };
+      
+      if (!isValidSignature(formData.groupLeaderSignature)) {
+        errors.groupLeaderSignature = "Group leader signature is required and must be a JPEG under 5MB.";
+      }
+      
+      if (!isValidSignature(formData.guideSignature)) {
+        errors.guideSignature = "Guide signature is required and must be a JPEG under 5MB.";
+      }
+
+      if (formData.uploadedFiles.length === 0) {
+        errors.uploadedFiles = "At least one additional document is required.";
+      } else if (formData.uploadedFiles.length <= 5) {
+        formData.uploadedFiles.forEach((file, idx) => {
+          if (!file.type || file.type !== "application/pdf") {
+            errors[`uploadedFile_${idx}`] = `File "${file.name}" must be a PDF.`;
+          }
+          if (!file.size || file.size > 5 * 1024 * 1024) {
+            errors[`uploadedFile_${idx}`] = `File "${file.name}" must be under 5MB.`;
+          }
+        });
+      } else {
+        // More than 5 files uploaded
+        if (formData.uploadedFiles.length !== 1) {
+          errors.uploadedFiles = "If more than 5 files, you must upload exactly one ZIP archive.";
+        } else {
+          const file = formData.uploadedFiles[0];
+          const isZip =
+            file.type === "application/zip" ||
+            file.type === "application/x-zip-compressed" ||
+            file.name.endsWith(".zip");
+          const isUnder25MB = file.size <= 25 * 1024 * 1024;
+
+          if (!isZip) {
+            errors.uploadedFiles = "If more than 5 files, the single uploaded file must be a ZIP archive.";
+          }
+          if (!isUnder25MB) {
+            errors.uploadedFiles = "ZIP file must be under 25MB.";
+          }
+        }
       }
     }
 
-    setFormData(prev => ({ ...prev, errors }));
+    setFormData((prev) => ({ ...prev, errors }));
 
-    return Object.keys(errors).length === 0; // valid if no errors
+    return Object.keys(errors).length === 0;
   };
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value, errors: { ...formData.errors, [name]: null } });
+    const { name, value, type, checked } = e.target;
+    setFormData({
+      ...formData,
+      [name]: type === "checkbox" ? checked : value,
+      errors: { ...formData.errors, [name]: null },
+    });
   };
 
   const updateStudentField = (e, index, field) => {
     const updatedStudents = [...formData.students];
     updatedStudents[index][field] = e.target.value;
+    setFormData({ ...formData, students: updatedStudents });
+  };
+
+  const removeStudentRow = (index) => {
+    const updatedStudents = [...formData.students];
+    updatedStudents.splice(index, 1);
     setFormData({ ...formData, students: updatedStudents });
   };
 
@@ -152,87 +216,202 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
     setFormData({ ...formData, expenses: updatedExpenses });
   };
 
-
-  const handleFileUpload = (e) => {
-    const { name } = e.target;
-    const file = e.target.files[0];
-
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File size must be under 5MB.");
-        return;
-      }
-      setFormData({ ...formData, [name]: file, errors: { ...formData.errors, [name]: null } });
-    }
-  };
-
   const removeExpenseRow = (index) => {
     const updatedExpenses = [...formData.expenses];
     updatedExpenses.splice(index, 1);
     setFormData({ ...formData, expenses: updatedExpenses });
   };
 
-  // Other handlers stay the same...
+  const handleFileUpload = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+    const errors = {};
+    const updatedFiles = [];
+    let zipFound = false;
+
+    selectedFiles.forEach((file, index) => {
+      const isPDF = file.type === "application/pdf";
+      const isZIP =
+        file.type === "application/zip" ||
+        file.type === "application/x-zip-compressed" ||
+        file.name.endsWith(".zip");
+
+      if (isPDF) {
+        if (file.size > 5 * 1024 * 1024) {
+          errors[`file_${index}`] = `${file.name} exceeds 5MB size limit.`;
+        } else {
+          updatedFiles.push(file);
+        }
+      } else if (isZIP) {
+        if (file.size > 25 * 1024 * 1024) {
+          errors[`file_${index}`] = `${file.name} exceeds 25MB size limit.`;
+        } else {
+          updatedFiles.push(file);
+          zipFound = true;
+        }
+      } else {
+        errors[`file_${index}`] = `${file.name} is not a valid PDF or ZIP file.`;
+      }
+    });
+
+    if (!viewOnly) {
+      if (zipFound && updatedFiles.length > 1) {
+        errors.uploadedFiles = "If uploading a ZIP file, only one ZIP archive is allowed.";
+      }
+      if (!zipFound && updatedFiles.length > 5) {
+        errors.uploadedFiles = "You can upload up to 5 PDF files or a single ZIP file.";
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        errorMessage: "Please fix file upload errors before submitting.",
+        errors: { ...prev.errors, ...errors },
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        uploadedFiles: updatedFiles,
+        errorMessage: "",
+        errors: { ...prev.errors, uploadedFiles: null },
+      }));
+    }
+  };
+
+  const handleGroupLeaderSignatureUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData((prev) => ({
+        ...prev,
+        groupLeaderSignature: file,
+        errors: { ...prev.errors, groupLeaderSignature: null },
+      }));
+    }
+  };
+  
+  const handleGuideSignatureUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData((prev) => ({
+        ...prev,
+        guideSignature: file,
+        errors: { ...prev.errors, guideSignature: null },
+      }));
+    }
+  };
+  
+  const addStudentRow = () => {
+    setFormData({
+      ...formData,
+      students: [
+        ...formData.students,
+        { name: "", year: "", class: "", div: "", branch: "", rollNo: "", mobileNo: "" },
+      ],
+    });
+  };
+
+  const addExpenseRow = () => {
+    setFormData({
+      ...formData,
+      expenses: [...formData.expenses, { category: "", amount: "" }],
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!validateForm()) {
       alert("Please fix the errors in the form.");
       return;
     }
-
     try {
-      const formDataToSend = {
-        projectTitle: formData.projectTitle,
-        projectDescription: formData.projectDescription,
-        projectUtility: formData.utility,
-        finance: formData.financeDetails,
-        employeeCode: formData.guideEmployeeCode,
-        amountClaimed: formData.totalBudget,
-        receivedFinance: formData.receivedFinance,
-        guideName: formData.guideName,
-        students: formData.students,
-        expenses: formData.expenses,
-      };
+      const formPayload = new FormData();
 
-      const response = await fetch("http://localhost:5000/api/ug2form/saveFormData", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formDataToSend),
-      });
+      // Append all text/json fields
+      formPayload.append("projectTitle", formData.projectTitle);
+      formPayload.append("projectDescription", formData.projectDescription);
+      formPayload.append("utility", formData.utility);
+      formPayload.append("receivedFinance", formData.receivedFinance);
+      formPayload.append("financeDetails", formData.financeDetails);
+      formPayload.append("guideName", formData.guideName);
+      formPayload.append("guideEmployeeCode", formData.guideEmployeeCode);
+      formPayload.append("totalBudget", formData.totalBudget);
 
-      const data = await response.json();
+      // Append arrays as JSON strings
+      formPayload.append("students", JSON.stringify(formData.students));
+      formPayload.append("expenses", JSON.stringify(formData.expenses));
+      formPayload.append("status", formData.status);
 
-      if (response.ok) {
-        alert("Form submitted successfully!");
+      // Append file inputs (only if they are File objects, not URL objects from view mode)
+      if (formData.groupLeaderSignature instanceof File) {
+        formPayload.append("groupLeaderSignature", formData.groupLeaderSignature);
+      }
+      if (formData.guideSignature instanceof File) {
+        formPayload.append("guideSignature", formData.guideSignature);
+      }
+
+      // Append multiple uploaded files with the same key (only if they are File objects)
+      if (Array.isArray(formData.uploadedFiles)) {
+        formData.uploadedFiles.forEach(file => {
+          if (file instanceof File) {
+            formPayload.append("uploadedFiles", file);
+          }
+        });
+      }
+      const response = await axios.post(
+        "http://localhost:5000/api/ug2form/saveFormData",
+        formPayload,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      if (response.status === 200 || response.status === 201) {
+        alert("Form submitted successfully! Submission ID: ${response.data.id}");
+        // Optionally clear form or redirect to view the newly created submission
+        //setFormData(initialState);
       } else {
-        console.error("❌ Submission Failed:", data);
-        alert("Error: " + (data.message || "Something went wrong"));
+        console.error("❌ Submission Failed:", response.data);
+        alert("Error: " + (response.data.message || "Something went wrong"));
       }
     } catch (error) {
       console.error("❌ Error submitting form:", error);
-      alert("Submission failed! Please try again.");
+      if (error.response) {
+          console.error("Response data:", error.response.data);
+          console.error("Response status:", error.response.status);
+          console.error("Response headers:", error.response.headers);
+          alert("Submission failed! " + (error.response.data.message || "Server responded with an error."));
+      } else if (error.request) {
+          console.error("Request data:", error.request);
+          alert("Submission failed! No response from server. Check network connection.");
+      } else {
+          console.error("Error message:", error.message);
+          alert("Submission failed! An error occurred before sending the request.");
+      }
     }
   };
 
-  const addStudentRow = () => {
-    setFormData(prevData => ({
-      ...prevData,
-      students: [...prevData.students, { name: '', usn: '', email: '', department: '' }]
-    }));
-  };
-
-  const addExpenseRow = () => {
-    setFormData(prevData => ({
-      ...prevData,
-      expenses: [...prevData.expenses, { category: "", amount: "", details: "" }],
-    }));
+  // Render helpers for signatures and uploaded files in view-only mode
+  const renderFileLink = (file) => {
+    if (!file) return null;
+    if (typeof file === "string") {
+      // file is URL or filename string
+      return (
+        <a href={file} target="_blank" rel="noopener noreferrer">
+          {file.split("/").pop()}
+        </a>
+      );
+    } else if (file.name) {
+      // file is a File object (in editing mode)
+      return <span>{file.name}</span>;
+    }
+    return null;
   };
 
   return (
     <div className="form-container">
       <h2>Under Graduate Form 2</h2>
+      {viewOnly && data && data.id && <p className="submission-id">Submission ID: {data.id}</p>}
       <p className="form-category">Interdisciplinary Projects (FY to LY Students)</p>
       <form onSubmit={handleSubmit}>
         <label>Title of Proposed Project:</label>
@@ -333,7 +512,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
               <th>Branch</th>
               <th>Roll No.</th>
               <th>Mobile No.</th>
-              <th>Action</th>
+              {!viewOnly && <th>Action</th>}
             </tr>
           </thead>
           <tbody>
@@ -347,7 +526,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
                     onChange={(e) => updateStudentField(e, index, "name")}
                     disabled={viewOnly}
                   />
-                  {formData.errors[`studentName_${index}`] && (
+                  {!viewOnly && formData.errors[`studentName_${index}`] && (
                     <p className="error-message">{formData.errors[`studentName_${index}`]}</p>
                   )}
                 </td>
@@ -358,7 +537,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
                     onChange={(e) => updateStudentField(e, index, "year")}
                     disabled={viewOnly}
                   />
-                  {formData.errors[`studentYear_${index}`] && (
+                  {!viewOnly && formData.errors[`studentYear_${index}`] && (
                     <p className="error-message">{formData.errors[`studentYear_${index}`]}</p>
                   )}
                 </td>
@@ -369,7 +548,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
                     onChange={(e) => updateStudentField(e, index, "class")}
                     disabled={viewOnly}
                   />
-                  {formData.errors[`studentClass_${index}`] && (
+                  {!viewOnly && formData.errors[`studentClass_${index}`] && (
                     <p className="error-message">{formData.errors[`studentClass_${index}`]}</p>
                   )}
                 </td>
@@ -380,7 +559,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
                     onChange={(e) => updateStudentField(e, index, "div")}
                     disabled={viewOnly}
                   />
-                  {formData.errors[`studentDiv_${index}`] && (
+                  {!viewOnly && formData.errors[`studentDiv_${index}`] && (
                     <p className="error-message">{formData.errors[`studentDiv_${index}`]}</p>
                   )}
                 </td>
@@ -391,7 +570,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
                     onChange={(e) => updateStudentField(e, index, "branch")}
                     disabled={viewOnly}
                   />
-                  {formData.errors[`studentBranch_${index}`] && (
+                  {!viewOnly && formData.errors[`studentBranch_${index}`] && (
                     <p className="error-message">{formData.errors[`studentBranch_${index}`]}</p>
                   )}
                 </td>
@@ -402,7 +581,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
                     onChange={(e) => updateStudentField(e, index, "rollNo")}
                     disabled={viewOnly}
                   />
-                  {formData.errors[`studentRollNo_${index}`] && (
+                  {!viewOnly && formData.errors[`studentRollNo_${index}`] && (
                     <p className="error-message">{formData.errors[`studentRollNo_${index}`]}</p>
                   )}
                 </td>
@@ -413,17 +592,17 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
                     onChange={(e) => updateStudentField(e, index, "mobileNo")}
                     disabled={viewOnly}
                   />
-                  {formData.errors[`studentMobileNo_${index}`] && (
+                  {!viewOnly && formData.errors[`studentMobileNo_${index}`] && (
                     <p className="error-message">{formData.errors[`studentMobileNo_${index}`]}</p>
                   )}
                 </td>
-                <td>
-                  {!viewOnly && (
-                    <button type="button" className="remove-btn" onClick={() => removeStudentRow(index)}>
-                      ❌
-                    </button>
-                  )}
-                </td>
+                {!viewOnly && (
+                    <td>
+                        <button type="button" className="remove-btn" onClick={() => removeStudentRow(index)}>
+                        ❌
+                        </button>
+                    </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -441,7 +620,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
               <th>Expense Category</th>
               <th>Amount</th>
               <th>Details</th>
-              <th>Action</th>
+              {!viewOnly && <th>Action</th>}
             </tr>
           </thead>
           <tbody>
@@ -454,7 +633,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
                     onChange={(e) => updateExpenseField(e, index, "category")}
                     disabled={viewOnly}
                   />
-                  {formData.errors[`expenseCategory_${index}`] && (
+                  {!viewOnly && formData.errors[`expenseCategory_${index}`] && (
                     <p className="error-message">{formData.errors[`expenseCategory_${index}`]}</p>
                   )}
                 </td>
@@ -465,7 +644,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
                     onChange={(e) => updateExpenseField(e, index, "amount")}
                     disabled={viewOnly}
                   />
-                  {formData.errors[`expenseAmount_${index}`] && (
+                  {!viewOnly && formData.errors[`expenseAmount_${index}`] && (
                     <p className="error-message">{formData.errors[`expenseAmount_${index}`]}</p>
                   )}
                 </td>
@@ -476,13 +655,13 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
                     disabled={viewOnly}
                   />
                 </td>
-                <td>
-                  {!viewOnly && (
-                    <button type="button" className="remove-btn" onClick={() => removeExpenseRow(index)}>
-                      ❌
-                    </button>
-                  )}
-                </td>
+                {!viewOnly && (
+                    <td>
+                        <button type="button" className="remove-btn" onClick={() => removeExpenseRow(index)}>
+                        ❌
+                        </button>
+                    </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -503,46 +682,107 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
         />
         {formData.errors.totalBudget && <p className="error-message">{formData.errors.totalBudget}</p>}
 
-        <div className="signatures">
-          <div>
-            <label>Signature of Group Leader (JPEG Only)</label>
+        {/* Signatures */}
+      <div className="signatures">
+        <div>
+          <label>Signature of Group Leader (JPEG Only)</label>
+          {!viewOnly && (
             <input
               type="file"
-              accept="image/jpeg"
+              accept=".jpeg,.jpg,image/jpeg,image/jpg"
               name="groupLeaderSignature"
-              onChange={handleFileUpload}
+              onChange={handleGroupLeaderSignatureUpload}
               disabled={viewOnly}
             />
-            {formData.groupLeaderSignature && <p className="file-name">{formData.groupLeaderSignature.name}</p>}
-            {formData.errors.groupLeaderSignature && (
-              <p className="error-message">{formData.errors.groupLeaderSignature}</p>
-            )}
-          </div>
-
-          <div>
-            <label>Signature of Guide (JPEG Only)</label>
-            <input
-              type="file"
-              accept="image/jpeg"
-              name="guideSignature"
-              onChange={handleFileUpload}
-              disabled={viewOnly}
+          )}
+          {viewOnly && formData.groupLeaderSignature?.url ? (
+            <img
+              src={formData.groupLeaderSignature.url}
+              alt="Group Leader Signature"
+              className="signature-display"
             />
-            {formData.guideSignature && <p className="file-name">{formData.guideSignature.name}</p>}
-            {formData.errors.guideSignature && <p className="error-message">{formData.errors.guideSignature}</p>}
-          </div>
+          ) : formData.groupLeaderSignature?.name ? (
+            <p className="file-name">{formData.groupLeaderSignature.name}</p>
+          ) : null}
+          {!viewOnly && formData.errors.groupLeaderSignature && (
+            <p className="error-message">{formData.errors.groupLeaderSignature}</p>
+          )}
         </div>
 
-        <label>Upload Additional Document (PDF, max 5MB):</label>
-        <input
-          type="file"
-          accept="application/pdf"
-          name="uploadedFile"
-          onChange={handleFileUpload}
-          disabled={viewOnly}
-        />
-        {formData.uploadedFile && <p className="file-name">{formData.uploadedFile.name}</p>}
-        {formData.errors.uploadedFile && <p className="error-message">{formData.errors.uploadedFile}</p>}
+        <div>
+          <label>Signature of Guide (JPEG Only)</label>
+          {!viewOnly && (
+            <input
+              type="file"
+              accept=".jpeg,.jpg,image/jpeg,image/jpg"
+              name="guideSignature"
+              onChange={handleGuideSignatureUpload}
+              disabled={viewOnly}
+            />
+          )}
+          {viewOnly && formData.guideSignature?.url ? (
+            <img
+              src={formData.guideSignature.url}
+              alt="Guide Signature"
+              className="signature-display"
+            />
+          ) : formData.guideSignature?.name ? (
+            <p className="file-name">{formData.guideSignature.name}</p>
+          ) : null}
+          {!viewOnly && formData.errors.guideSignature && (
+            <p className="error-message">{formData.errors.guideSignature}</p>
+          )}
+        </div>
+      </div>
+        <label>
+          Upload Additional Documents (Max 5 PDF files, 5MB each OR one ZIP file up to 25MB):
+        </label>
+        {!viewOnly && (
+          <input
+            type="file"
+            accept=".pdf, application/pdf, .zip, application/zip, application/x-zip-compressed"
+            multiple
+            name="uploadedFiles"
+            onChange={handleFileUpload}
+            disabled={viewOnly}
+          />
+        )}
+        {formData.uploadedFiles.length > 0 && (
+          <div className="uploaded-files-list">
+            <h4>Uploaded Files:</h4>
+            <ul>
+              {formData.uploadedFiles.map((file, index) => (
+                <li key={index}>
+                  {viewOnly && file.url ? (
+                      <a href={file.url} target="_blank" rel="noopener noreferrer">
+                          {file.originalName} ({file.mimetype}, {(file.size / (1024 * 1024)).toFixed(2)} MB)
+                      </a>
+                  ) : (
+                      <>
+                          {file.name || file.originalName} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+                          {!viewOnly && (
+                              <button
+                                  type="button"
+                                  className="remove-file-btn"
+                                  onClick={() => removeUploadedFile(index)}
+                              >
+                                  ❌
+                              </button>
+                          )}
+                      </>
+                  )}
+                  {!viewOnly && formData.errors[`uploadedFile_${index}`] && (
+                    <p className="error-message">
+                      {formData.errors[`uploadedFile_${index}`]}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {/* General error for uploadedFiles (e.g., if more than 5 files are not a single zip) */}
+        {!viewOnly && formData.errors.uploadedFiles && <p className="error-message">{formData.errors.uploadedFiles}</p>}
 
         {!viewOnly && (
           <button type="submit" className="submit-btn">

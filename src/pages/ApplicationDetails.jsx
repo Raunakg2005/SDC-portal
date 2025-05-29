@@ -17,7 +17,7 @@ const ApplicationDetails = () => {
         const res = await fetch(`http://localhost:5000/api/application/${id}`);
         if (!res.ok) throw new Error(`Failed to fetch application details (status ${res.status})`);
         const data = await res.json();
-        setApplication(data);
+        setApplication(data);  // full form data directly
       } catch (err) {
         setError(err.message);
       } finally {
@@ -38,7 +38,7 @@ const ApplicationDetails = () => {
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Application Details</h1>
       <div className="mb-4 text-gray-600 space-y-1">
-        <p><strong>Topic:</strong> {application.topic}</p>
+        <p><strong>Topic:</strong> {application.projectTitle || application.topic}</p>
         <p><strong>Applicant Roll No:</strong> {application.name}</p>
         <p><strong>Submitted on:</strong> {new Date(application.submitted).toLocaleDateString()}</p>
         <p><strong>Branch:</strong> {application.branch}</p>
@@ -47,7 +47,7 @@ const ApplicationDetails = () => {
       </div>
 
       {FormComponent ? (
-        <FormComponent data={application.formData} viewOnly={true} />
+        <FormComponent data={application} viewOnly={true} />
       ) : (
         <p className="text-red-500">Unknown form type: {application.formType}</p>
       )}
