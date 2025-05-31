@@ -1,4 +1,11 @@
-import mongoose from "mongoose"; // ✅ Use ES module import
+import mongoose from "mongoose";
+
+const fileInfoSchema = new mongoose.Schema({
+  filename: String,
+  originalname: String,
+  mimetype: String,
+  size: Number
+}, { _id: false });
 
 const bankDetailsSchema = new mongoose.Schema({
   beneficiary: { type: String, required: true },
@@ -28,38 +35,40 @@ const UG3BFormSchema = new mongoose.Schema({
   amountReceived: { type: String },
   amountSanctioned: { type: String },
 
-  // Files - store file info (filename, path, or GridFS id)
-  paperCopy: {
-    filename: String,
-    originalname: String,
-    mimetype: String,
-    size: Number
+  // Single files
+  paperCopy: fileInfoSchema,
+  groupLeaderSignature: fileInfoSchema,
+  additionalDocuments: fileInfoSchema,
+  guideSignature: fileInfoSchema,
+
+  // Multiple PDFs (max 5)
+  pdfDocuments: {
+    type: [fileInfoSchema],
+    validate: [arrayLimitPDF, '{PATH} exceeds the limit of 5']
   },
-  groupLeaderSignature: {
-    filename: String,
-    originalname: String,
-    mimetype: String,
-    size: Number
+
+  // Multiple ZIPs (max 2)
+  zipFiles: {
+    type: [fileInfoSchema],
+    validate: [arrayLimitZIP, '{PATH} exceeds the limit of 2']
   },
-  additionalDocuments: {
-    filename: String,
-    originalname: String,
-    mimetype: String,
-    size: Number
-  },
-  guideSignature: {
-    filename: String,
-    originalname: String,
-    mimetype: String,
-    size: Number
-  },
+
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],
     default: 'pending',
-  },
+  }
 }, { timestamps: true });
+
+// Custom validators
+function arrayLimitPDF(val) {
+  return val.length <= 5;
+}
+
+function arrayLimitZIP(val) {
+  return val.length <= 2;
+}
 
 const UG3BForm = mongoose.model("UG3BForm", UG3BFormSchema);
 
-export default UG3BForm; // ✅ Use ES module export
+export default UG3BForm;

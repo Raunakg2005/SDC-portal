@@ -76,9 +76,6 @@ const processFormForDisplay = async (form, formType) => {
     // or use a single common route like /api/files/:fileId if all forms use the same file serving route.
     // For this example, I'll assume distinct file serving routes for each form.
     let fileBaseUrl = `/api/application/file`; // Generic base for now, adjust per specific form if needed.
-    if (formType === "UG_2") {
-        fileBaseUrl = `/api/ug2form/file`; // Example: if UG2 has its own specific file route
-    }
     // Add more specific base URLs here if needed (e.g., /api/ug3aform/file)
     // For simplicity, I'll use a generic /api/application/file route for all for this example.
     // If you have a shared file retrieval endpoint, like `router.get('/file/:fileId', ...)`
@@ -172,104 +169,6 @@ const processFormForDisplay = async (form, formType) => {
             }
             break;
         // --- END NEW CASE FOR UG3AForm ---
-
-        // Add cases for other form types (UG3BForm, PG1Form, etc.)
-        // Ensure you handle their specific file fields and data structures as needed.
-        case "UG_3_B":
-            // Add processing for UG3BForm
-            processedForm.name = form.applicantName || "N/A";
-            processedForm.branch = form.branch || "N/A";
-            processedForm.projectTitle = form.projectTitle;
-            processedForm.guideName = form.guideName;
-            processedForm.students = form.students;
-            processedForm.expenses = form.expenses;
-            processedForm.totalAmount = form.totalAmount;
-            processedForm.bankDetails = form.bankDetails;
-
-            if (form.groupLeaderSignature && form.groupLeaderSignature.fileId) {
-                processedForm.groupLeaderSignature = await getFileDetailsAndUrl(form.groupLeaderSignature.fileId, fileBaseUrl);
-            }
-            if (form.guideSignature && form.guideSignature.fileId) {
-                processedForm.guideSignature = await getFileDetailsAndUrl(form.guideSignature.fileId, fileBaseUrl);
-            }
-            // Add other UG3B specific fields/files
-            break;
-
-        case "PG_1":
-            // Add processing for PG1Form
-            processedForm.name = form.applicantName || "N/A";
-            processedForm.branch = form.branch || "N/A";
-            processedForm.projectTitle = form.projectTitle;
-            processedForm.guideName = form.guideName;
-            processedForm.studentDetails = form.studentDetails; // Assuming a 'studentDetails' array/object
-            processedForm.financialDetails = form.financialDetails;
-            processedForm.totalAmount = form.totalAmount;
-            processedForm.bankDetails = form.bankDetails;
-
-            if (form.hodSignature && form.hodSignature.fileId) {
-                processedForm.hodSignature = await getFileDetailsAndUrl(form.hodSignature.fileId, fileBaseUrl);
-            }
-            if (form.principalSignature && form.principalSignature.fileId) {
-                processedForm.principalSignature = await getFileDetailsAndUrl(form.principalSignature.fileId, fileBaseUrl);
-            }
-            // Add other PG1 specific fields/files
-            break;
-
-        case "PG_2_A":
-            // Add processing for PG2AForm
-            processedForm.name = form.applicantName || "N/A";
-            processedForm.branch = form.branch || "N/A";
-            processedForm.projectTitle = form.projectTitle;
-            processedForm.students = form.students;
-            processedForm.guideName = form.guideName;
-            processedForm.expenses = form.expenses;
-            processedForm.totalAmount = form.totalAmount;
-            processedForm.bankDetails = form.bankDetails;
-
-            if (form.studentSignature && form.studentSignature.fileId) {
-                processedForm.studentSignature = await getFileDetailsAndUrl(form.studentSignature.fileId, fileBaseUrl);
-            }
-            if (form.guideSignature && form.guideSignature.fileId) {
-                processedForm.guideSignature = await getFileDetailsAndUrl(form.guideSignature.fileId, fileBaseUrl);
-            }
-            // Add other PG2A specific fields/files
-            break;
-
-        case "PG_2_B":
-            // Add processing for PG2BForm
-            processedForm.name = form.applicantName || "N/A";
-            processedForm.branch = form.branch || "N/A";
-            processedForm.projectTitle = form.projectTitle;
-            processedForm.students = form.students;
-            processedForm.guideName = form.guideName;
-            processedForm.expenses = form.expenses;
-            processedForm.totalAmount = form.totalAmount;
-            processedForm.bankDetails = form.bankDetails;
-
-            if (form.studentSignature && form.studentSignature.fileId) {
-                processedForm.studentSignature = await getFileDetailsAndUrl(form.studentSignature.fileId, fileBaseUrl);
-            }
-            if (form.guideSignature && form.guideSignature.fileId) {
-                processedForm.guideSignature = await getFileDetailsAndUrl(form.guideSignature.fileId, fileBaseUrl);
-            }
-            // Add other PG2B specific fields/files
-            break;
-
-        case "R1":
-            // Add processing for R1Form
-            processedForm.name = form.applicantName || "N/A";
-            processedForm.branch = form.branch || "N/A";
-            processedForm.researchTopic = form.researchTopic;
-            processedForm.totalAmount = form.totalAmount;
-            processedForm.bankDetails = form.bankDetails;
-
-            if (form.applicantSignature && form.applicantSignature.fileId) {
-                processedForm.applicantSignature = await getFileDetailsAndUrl(form.applicantSignature.fileId, fileBaseUrl);
-            }
-            // Add other R1 specific fields/files
-            break;
-
-
         default:
             console.warn(`No specific processing defined for form type: ${formType}. Returning raw form data with generic name/branch.`);
             processedForm.name = form.name || form.applicantName || form.studentName || "N/A";

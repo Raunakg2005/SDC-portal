@@ -390,24 +390,6 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
       }
     }
   };
-
-  // Render helpers for signatures and uploaded files in view-only mode
-  const renderFileLink = (file) => {
-    if (!file) return null;
-    if (typeof file === "string") {
-      // file is URL or filename string
-      return (
-        <a href={file} target="_blank" rel="noopener noreferrer">
-          {file.split("/").pop()}
-        </a>
-      );
-    } else if (file.name) {
-      // file is a File object (in editing mode)
-      return <span>{file.name}</span>;
-    }
-    return null;
-  };
-
   return (
     <div className="form-container">
       <h2>Under Graduate Form 2</h2>

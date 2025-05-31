@@ -1,72 +1,170 @@
-import React, { useState } from 'react';
+import React, { useState , useEffect} from 'react';
 
-const UG_3_B = ({ readonly = false, initialData = null }) => {
-  const [formData, setFormData] = useState(initialData || {
-    studentName: '',
-    yearOfAdmission: '',
-    feesPaid: 'No',
-    projectTitle: '',
-    guideName: '',
-    employeeCode: '',
-    conferenceDate: '',
-    organization: '',
-    publisher: '',
-    paperLink: '',
-    authors: ['', '', '', ''],
-    bankDetails: {
-      beneficiary: '',
-      ifsc: '',
-      bankName: '',
-      branch: '',
-      accountType: '',
-      accountNumber: ''
-    },
-    registrationFee: '',
-    previousClaim: 'No',
-    claimDate: '',
-    amountReceived: '',
-    amountSanctioned: ''
+const UG_3_B = ({ viewOnly = false, data = null }) => {
+  const [formData, setFormData] = useState(() => {
+    if (viewOnly && data) {
+      return {
+        studentName: data.studentName || '',
+        yearOfAdmission: data.yearOfAdmission || '',
+        feesPaid: data.feesPaid || 'No',
+        projectTitle: data.projectTitle || '',
+        guideName: data.guideName || '',
+        employeeCode: data.employeeCode || '',
+        conferenceDate: data.conferenceDate || '',
+        organization: data.organization || '',
+        publisher: data.publisher || '',
+        paperLink: data.paperLink || '',
+        authors: data.authors || ['', '', '', ''],
+        bankDetails: data.bankDetails || {
+          beneficiary: '',
+          ifsc: '',
+          bankName: '',
+          branch: '',
+          accountType: '',
+          accountNumber: ''
+        },
+        registrationFee: data.registrationFee || '',
+        previousClaim: data.previousClaim || 'No',
+        claimDate: data.claimDate || '',
+        amountReceived: data.amountReceived || '',
+        amountSanctioned: data.amountSanctioned || '',
+        status: data.status || 'pending'
+      };
+    } else {
+      return {
+        studentName: '',
+        yearOfAdmission: '',
+        feesPaid: 'No',
+        projectTitle: '',
+        guideName: '',
+        employeeCode: '',
+        conferenceDate: '',
+        organization: '',
+        publisher: '',
+        paperLink: '',
+        authors: ['', '', '', ''],
+        bankDetails: {
+          beneficiary: '',
+          ifsc: '',
+          bankName: '',
+          branch: '',
+          accountType: '',
+          accountNumber: ''
+        },
+        registrationFee: '',
+        previousClaim: 'No',
+        claimDate: '',
+        amountReceived: '',
+        amountSanctioned: '',
+        status: 'pending'
+      };
+    }
   });
-
+  
+  useEffect(() => {
+    if (viewOnly && data) {
+      setFormData({
+        studentName: data.studentName || '',
+        yearOfAdmission: data.yearOfAdmission || '',
+        feesPaid: data.feesPaid || 'No',
+        projectTitle: data.projectTitle || '',
+        guideName: data.guideName || '',
+        employeeCode: data.employeeCode || '',
+        conferenceDate: data.conferenceDate || '',
+        organization: data.organization || '',
+        publisher: data.publisher || '',
+        paperLink: data.paperLink || '',
+        authors: data.authors || ['', '', '', ''],
+        bankDetails: data.bankDetails || {
+          beneficiary: '',
+          ifsc: '',
+          bankName: '',
+          branch: '',
+          accountType: '',
+          accountNumber: ''
+        },
+        registrationFee: data.registrationFee || '',
+        previousClaim: data.previousClaim || 'No',
+        claimDate: data.claimDate || '',
+        amountReceived: data.amountReceived || '',
+        amountSanctioned: data.amountSanctioned || '',
+        status: data.status || 'pending'
+      });
+  
+      if (data.files) {
+        setFiles({
+          paperCopy: data.files.paperCopy || null,
+          groupLeaderSignature: data.files.groupLeaderSignature || null,
+          guideSignature: data.files.guideSignature || null,
+          additionalDocuments: data.files.additionalDocuments || null,
+          pdfDocuments: data.files.pdfDocuments || [],
+          zipFiles: data.files.zipFiles || []
+        });
+      }
+    }
+  }, [data, viewOnly]);
+  
   const [files, setFiles] = useState({
     paperCopy: null,
     groupLeaderSignature: null,
-    additionalDocuments: null,
-    guideSignature: null
+    guideSignature: null,
+    pdfDocuments: [],
+    zipFiles: []
   });
-
+  const [errors, setErrors] = useState({});
+  
   const handleChange = (e) => {
-    if (readonly) return;
+    if (viewOnly) return;
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-
+  
   const handleBankChange = (e) => {
-    if (readonly) return;
+    if (viewOnly) return;
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       bankDetails: { ...prev.bankDetails, [name]: value }
     }));
   };
-
+  
   const handleAuthorChange = (index, value) => {
-    if (readonly) return;
+    if (viewOnly) return;
     const newAuthors = [...formData.authors];
     newAuthors[index] = value;
     setFormData(prev => ({ ...prev, authors: newAuthors }));
   };
-
+  
   const handleFileChange = (field, e) => {
-    if (readonly) return;
-    const file = e.target.files[0];
-    if (file && file.size > 5 * 1024 * 1024) {
-      alert("File size must be under 5MB");
-      return;
+    if (viewOnly) return;
+    const selectedFiles = Array.from(e.target.files);
+  
+    // Validate file sizes
+    for (const file of selectedFiles) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Each file must be under 5MB");
+        return;
+      }
     }
-    setFiles(prev => ({ ...prev, [field]: file }));
+  
+    if (field === 'pdfDocuments') {
+      if (selectedFiles.length > 5) {
+        alert("You can upload a maximum of 5 PDF files");
+        return;
+      }
+      setFiles(prev => ({ ...prev, [field]: selectedFiles }));
+    } else if (field === 'zipFiles') {
+      if (selectedFiles.length > 2) {
+        alert("You can upload a maximum of 2 ZIP files");
+        return;
+      }
+      setFiles(prev => ({ ...prev, [field]: selectedFiles }));
+    } else {
+      const file = selectedFiles[0];
+      setFiles(prev => ({ ...prev, [field]: file }));
+    }
   };
-
+  
   const validateForm = () => {
     const newErrors = {};
   
@@ -81,19 +179,27 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
     if (!formData.publisher.trim()) newErrors.publisher = 'Publisher name is required';
     if (!formData.registrationFee.trim()) newErrors.registrationFee = 'Registration fee is required';
   
-    // Optional field with format validation
-    if (formData.paperLink && !/^https?:\/\/\S+\.\S+$/.test(formData.paperLink)) {
+    if (
+      formData.paperLink.trim() &&
+      !/^https?:\/\/\S+\.\S+$/.test(formData.paperLink.trim()) &&
+      formData.paperLink.trim().toLowerCase() !== 'no'
+    ) {
       newErrors.paperLink = 'Invalid paper link URL';
     }
   
-    // Authors
+    // Author validation: at least one author is required
+    const nonEmptyAuthors = formData.authors.filter(author => author.trim() !== '');
+    if (nonEmptyAuthors.length === 0) {
+      newErrors.author0 = 'At least one author name is required';
+    }
+  
+    // Optional: log specific empty authors (only for debugging)
     formData.authors.forEach((author, idx) => {
-      if (!author.trim()) {
+      if (!author.trim() && idx < nonEmptyAuthors.length) {
         newErrors[`author${idx}`] = `Author ${idx + 1} name is required`;
       }
     });
   
-    // Bank details
     const { beneficiary, ifsc, bankName, branch, accountType, accountNumber } = formData.bankDetails;
     if (!beneficiary.trim()) newErrors.beneficiary = 'Beneficiary name is required';
     if (!ifsc.trim()) newErrors.ifsc = 'IFSC code is required';
@@ -102,72 +208,102 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
     if (!accountType.trim()) newErrors.accountType = 'Account type is required';
     if (!accountNumber.trim()) newErrors.accountNumber = 'Account number is required';
   
-    // Conditional: if previousClaim is "Yes", require claimDate, amountReceived, amountSanctioned
     if (formData.previousClaim === 'Yes') {
       if (!formData.claimDate.trim()) newErrors.claimDate = 'Claim date is required';
       if (!formData.amountReceived.trim()) newErrors.amountReceived = 'Amount received is required';
       if (!formData.amountSanctioned.trim()) newErrors.amountSanctioned = 'Amount sanctioned is required';
     }
   
-    // File validations
     if (!files.paperCopy) newErrors.paperCopy = 'Paper copy is required';
     if (!files.groupLeaderSignature) newErrors.groupLeaderSignature = 'Group leader signature is required';
     if (!files.guideSignature) newErrors.guideSignature = 'Guide signature is required';
+  
+    // ✅ Log all validation errors to debug
+    console.log("❌ Validation Errors:", newErrors);
   
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
   
   const handleSubmit = async () => {
-    if (!validateForm()) {
+    console.log('handleSubmit called');
+  
+    const valid = validateForm();
+    console.log('validateForm result:', valid);
+    if (!valid) return;
+  
+    if (viewOnly) {
+      console.log('Form is view only, submission blocked');
       return;
     }
-    if (readonly) return;    
+  
+    console.log('formData:', formData);
+    console.log('files:', files);
+  
     const submitData = new FormData();
-    // Append form data
+  
+    // Append regular fields
     for (const key in formData) {
       if (key === 'authors') {
-        formData.authors.forEach((author, index) => {
-          submitData.append(`authors[${index}]`, author);
+        formData.authors.forEach(author => {
+          submitData.append('authors', author);
         });
       } else if (key === 'bankDetails') {
-        // Send bankDetails as a stringified JSON object
         submitData.append('bankDetails', JSON.stringify(formData.bankDetails));
       } else {
         submitData.append(key, formData[key]);
       }
     }
   
-    // Append files
-    for (const fileKey in files) {
-      if (files[fileKey]) {
-        submitData.append(fileKey, files[fileKey]);
+    // Append single files
+    ['paperCopy', 'groupLeaderSignature', 'guideSignature', 'additionalDocuments'].forEach(key => {
+      if (files[key]) {
+        console.log(`Appending file: ${key}`, files[key]);
+        submitData.append(key, files[key]);
       }
+    });
+  
+    // ✅ Append multiple files correctly (same field name)
+    if (files.pdfDocuments && files.pdfDocuments.length > 0) {
+      files.pdfDocuments.slice(0, 5).forEach(file => {
+        console.log(`Appending pdfDocuments`, file);
+        submitData.append('pdfDocuments', file);
+      });
+    }
+  
+    if (files.zipFiles && files.zipFiles.length > 0) {
+      files.zipFiles.slice(0, 2).forEach(file => {
+        console.log(`Appending zipFiles`, file);
+        submitData.append('zipFiles', file);
+      });
     }
   
     try {
       const response = await fetch('http://localhost:5000/api/ug3bform/submit', {
         method: 'POST',
-        body: submitData
+        body: submitData,
       });
-      
+  
       if (response.ok) {
         alert('Form submitted successfully!');
         console.log(await response.json());
       } else {
-        throw new Error('Submission failed');
+        const errorText = await response.text();
+        console.error('Server responded with error:', response.status, errorText);
+        alert('Submission failed: ' + errorText);
       }
     } catch (error) {
       console.error('Form submission failed:', error);
       alert('Submission failed. Please try again.');
     }
   };
-
-  const inputClasses = readonly 
+  
+  
+  const inputClasses = viewOnly 
     ? "w-full p-1 border border-gray-300 rounded bg-gray-100 cursor-not-allowed" 
     : "w-full p-1 border border-gray-300 rounded";
 
-  const selectClasses = readonly 
+  const selectClasses = viewOnly 
     ? "w-full p-1 border border-gray-300 rounded bg-gray-100 cursor-not-allowed" 
     : "w-full p-1 border border-gray-300 rounded";
 
@@ -175,7 +311,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
     <div className="form-container max-w-4xl mx-auto p-5 bg-gray-50 rounded-lg shadow-md">
       <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
         Under Graduate Form 3B - Reputed Conference
-        {readonly && <span className="text-red-600 ml-2">(Read Only)</span>}
+        {viewOnly && <span className="text-red-600 ml-2">(Read Only)</span>}
       </h1>
       
       <div className="mb-8">
@@ -193,7 +329,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.studentName}
                   onChange={handleChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Year of Admission</th>
@@ -204,7 +340,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.yearOfAdmission}
                   onChange={handleChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Whether Paid fees for Current Academic Year</th>
@@ -214,7 +350,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.feesPaid}
                   onChange={handleChange}
                   className={selectClasses}
-                  disabled={readonly}
+                  disabled={viewOnly}
                 >
                   <option value="Yes">Yes</option>
                   <option value="No">No</option>
@@ -230,7 +366,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.projectTitle}
                   onChange={handleChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -249,7 +385,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.guideName}
                   onChange={handleChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Employee Code:</th>
@@ -260,7 +396,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.employeeCode}
                   onChange={handleChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -273,7 +409,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.conferenceDate}
                   onChange={handleChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Name and address of organization / institution</th>
@@ -284,7 +420,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.organization}
                   onChange={handleChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -303,7 +439,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.publisher}
                   onChange={handleChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -316,7 +452,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.paperLink}
                   onChange={handleChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -333,7 +469,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                 value={author}
                 onChange={(e) => handleAuthorChange(index, e.target.value)}
                 className={inputClasses}
-                readOnly={readonly}
+                disabled={viewOnly}
               />
             </div>
           ))}
@@ -356,7 +492,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.bankDetails.beneficiary}
                   onChange={handleBankChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -369,7 +505,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.bankDetails.ifsc}
                   onChange={handleBankChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -382,7 +518,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.bankDetails.bankName}
                   onChange={handleBankChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -395,7 +531,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.bankDetails.branch}
                   onChange={handleBankChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -408,7 +544,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.bankDetails.accountType}
                   onChange={handleBankChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -421,7 +557,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.bankDetails.accountNumber}
                   onChange={handleBankChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -441,7 +577,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   onChange={handleChange}
                   className={inputClasses}
                   placeholder="Rs.___________"
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Have you claimed previously for any paper / project competition under this scheme:</th>
@@ -451,7 +587,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.previousClaim}
                   onChange={handleChange}
                   className={selectClasses}
-                  disabled={readonly}
+                  disabled={viewOnly}
                 >
                   <option value="Yes">Yes</option>
                   <option value="No">No</option>
@@ -465,7 +601,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   value={formData.claimDate}
                   onChange={handleChange}
                   className={inputClasses}
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Amount Received</th>
@@ -477,7 +613,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   onChange={handleChange}
                   className={inputClasses}
                   placeholder="Rs.___________"
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -491,7 +627,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
                   onChange={handleChange}
                   className={inputClasses}
                   placeholder="Rs.___________"
-                  readOnly={readonly}
+                  disabled={viewOnly}
                 />
               </td>
             </tr>
@@ -499,10 +635,10 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
         </table>
 
         <p className="mb-6 text-gray-700">The participation by the BE / B. Tech student was relevant to their Final Year BE / B. Tech project and affiliation to the institute was clearly mentioned.</p>
-
         {/* File Uploads */}
-        {!readonly && (
+        {!viewOnly && (
           <div className="mb-6 space-y-4">
+            {/* Paper Copy */}
             <div>
               <label className="block font-semibold mb-2">*Attach proof documents:</label>
               <div className="flex items-center">
@@ -520,6 +656,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
               </div>
             </div>
 
+            {/* Signatures */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block font-semibold mb-2">Signature of Group Leader (JPEG Only)</label>
@@ -558,19 +695,46 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
               </div>
             </div>
 
+            {/* Multiple PDF Uploads */}
             <div>
-              <label className="block font-semibold mb-2">Upload Additional Documents (Max 5MB)</label>
+              <label className="block font-semibold mb-2">Upload PDF Documents (Max 5 files)</label>
               <div className="flex items-center">
                 <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                  Choose File
+                  Choose PDF Files
                   <input
                     type="file"
                     className="hidden"
-                    onChange={(e) => handleFileChange('additionalDocuments', e)}
+                    accept="application/pdf"
+                    multiple
+                    onChange={(e) => handleFileChange('pdfDocuments', e)}
                   />
                 </label>
                 <span className="ml-2 text-sm">
-                  {files.additionalDocuments ? files.additionalDocuments.name : "No file chosen"}
+                  {files.pdfDocuments?.length
+                    ? `${files.pdfDocuments.length} file(s) selected`
+                    : "No files chosen"}
+                </span>
+              </div>
+            </div>
+
+            {/* Multiple ZIP Uploads */}
+            <div>
+              <label className="block font-semibold mb-2">Upload ZIP Files (Max 2 files)</label>
+              <div className="flex items-center">
+                <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+                  Choose ZIP Files
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".zip"
+                    multiple
+                    onChange={(e) => handleFileChange('zipFiles', e)}
+                  />
+                </label>
+                <span className="ml-2 text-sm">
+                  {files.zipFiles?.length
+                    ? `${files.zipFiles.length} file(s) selected`
+                    : "No files chosen"}
                 </span>
               </div>
             </div>
@@ -578,7 +742,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
         )}
 
         {/* Readonly file display */}
-        {readonly && (
+        {viewOnly && (
           <div className="mb-6 space-y-4">
             <div>
               <label className="block font-semibold mb-2">Attached Documents:</label>
@@ -588,15 +752,6 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
             </div>
           </div>
         )}
-
-        {/* Signatures */}
-        <div className="flex justify-between mb-6">
-          <div className="w-1/2 pr-2">
-            <p className="font-semibold mb-2">Signature of the Guide/Co-Guide HOD</p>
-            <div className="h-12 border-t border-gray-400"></div>
-          </div>
-        </div>
-
         {/* Form Actions */}
         <div className="flex justify-between">
           <button 
@@ -605,7 +760,7 @@ const UG_3_B = ({ readonly = false, initialData = null }) => {
           >
             Back
           </button>
-          {!readonly && (
+          {!viewOnly && (
             <button 
               onClick={handleSubmit} 
               className="submit-btn bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600"

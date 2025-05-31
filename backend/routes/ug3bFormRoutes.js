@@ -7,13 +7,15 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 const router = express.Router();
-const upload = multer(); // use memory storage
+const upload = multer(); // memory storage
 
 router.post('/submit', upload.fields([
   { name: 'paperCopy', maxCount: 1 },
   { name: 'groupLeaderSignature', maxCount: 1 },
   { name: 'additionalDocuments', maxCount: 1 },
-  { name: 'guideSignature', maxCount: 1 }
+  { name: 'guideSignature', maxCount: 1 },
+  { name: 'pdfDocuments', maxCount: 5 },      // New: multiple PDFs
+  { name: 'zipFiles', maxCount: 2 }           // New: multiple ZIPs
 ]), async (req, res) => {
   try {
     const {
@@ -34,7 +36,7 @@ router.post('/submit', upload.fields([
       amountSanctioned,
     } = req.body;
 
-    // ✅ Parse and sort authors properly
+    // Parse authors
     const authors = Object.keys(req.body)
       .filter(key => key.startsWith('authors['))
       .sort((a, b) => {
@@ -44,7 +46,7 @@ router.post('/submit', upload.fields([
       })
       .map(key => req.body[key]);
 
-    // ✅ Parse bankDetails
+    // Parse bankDetails
     const parsedBankDetails = typeof req.body.bankDetails === 'string'
       ? JSON.parse(req.body.bankDetails)
       : req.body.bankDetails;
@@ -52,25 +54,41 @@ router.post('/submit', upload.fields([
     const db = mongoose.connection.db;
     const bucket = new GridFSBucket(db, { bucketName: 'ug3bFiles' });
 
-    // 🔧 Helper to upload file from memory
+    // Helper to upload a single file buffer to GridFS and return the file ID + metadata
     const uploadFile = (file) => {
       return new Promise((resolve, reject) => {
         const uploadStream = bucket.openUploadStream(file.originalname, {
           contentType: file.mimetype
         });
         uploadStream.end(file.buffer);
-        uploadStream.on('finish', () => resolve(uploadStream.id));
+        uploadStream.on('finish', () => resolve({
+          id: uploadStream.id,
+          filename: file.originalname,
+          originalname: file.originalname,
+          mimetype: file.mimetype,
+          size: file.size
+        }));
         uploadStream.on('error', reject);
       });
     };
 
-    // ✅ Upload all files
-    const paperCopyId = req.files.paperCopy ? await uploadFile(req.files.paperCopy[0]) : null;
-    const groupLeaderSignatureId = req.files.groupLeaderSignature ? await uploadFile(req.files.groupLeaderSignature[0]) : null;
-    const additionalDocumentsId = req.files.additionalDocuments ? await uploadFile(req.files.additionalDocuments[0]) : null;
-    const guideSignatureId = req.files.guideSignature ? await uploadFile(req.files.guideSignature[0]) : null;
+    // Upload single files
+    const paperCopyData = req.files.paperCopy ? await uploadFile(req.files.paperCopy[0]) : null;
+    const groupLeaderSignatureData = req.files.groupLeaderSignature ? await uploadFile(req.files.groupLeaderSignature[0]) : null;
+    const additionalDocumentsData = req.files.additionalDocuments ? await uploadFile(req.files.additionalDocuments[0]) : null;
+    const guideSignatureData = req.files.guideSignature ? await uploadFile(req.files.guideSignature[0]) : null;
 
-    // ✅ Create and save document
+    // Upload multiple PDFs (max 5)
+    const pdfDocumentsData = req.files.pdfDocuments
+      ? await Promise.all(req.files.pdfDocuments.map(uploadFile))
+      : [];
+
+    // Upload multiple ZIPs (max 2)
+    const zipFilesData = req.files.zipFiles
+      ? await Promise.all(req.files.zipFiles.map(uploadFile))
+      : [];
+
+    // Create and save document
     const newEntry = new UG3BForm({
       studentName,
       yearOfAdmission,
@@ -96,10 +114,12 @@ router.post('/submit', upload.fields([
       claimDate,
       amountReceived,
       amountSanctioned,
-      paperCopy: paperCopyId,
-      groupLeaderSignature: groupLeaderSignatureId,
-      additionalDocuments: additionalDocumentsId,
-      guideSignature: guideSignatureId,
+      paperCopy: paperCopyData,
+      groupLeaderSignature: groupLeaderSignatureData,
+      additionalDocuments: additionalDocumentsData,
+      guideSignature: guideSignatureData,
+      pdfDocuments: pdfDocumentsData,
+      zipFiles: zipFilesData,
     });
 
     await newEntry.save();
