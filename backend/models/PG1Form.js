@@ -36,15 +36,40 @@ const pg1FormSchema = new mongoose.Schema({
   amountSanctioned: { type: String },
 
   files: {
-    receiptCopy: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'pg1files.files' },
-    additionalDocuments: { type: mongoose.Schema.Types.ObjectId, ref: 'pg1files.files' },
-    guideSignature: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'pg1files.files' },
+    receiptCopy: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      ref: 'pg1files.files'
+    },
+    additionalDocuments: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'pg1files.files'
+    },
+    guideSignature: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      ref: 'pg1files.files'
+    },
+    pdfDocuments: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'pg1files.files'
+      }
+    ],
+    zipFiles: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'pg1files.files'
+      }
+    ]
   },
+
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],
     default: 'pending',
   },
+
   createdAt: { type: Date, default: Date.now },
 });
 

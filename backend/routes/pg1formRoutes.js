@@ -8,20 +8,21 @@ import { GridFSBucket } from 'mongodb';
 dotenv.config();
 
 const router = express.Router();
-
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
+// Upload configuration: single + multiple files
 const uploadFields = upload.fields([
   { name: 'receiptCopy', maxCount: 1 },
   { name: 'additionalDocuments', maxCount: 1 },
   { name: 'guideSignature', maxCount: 1 },
+  { name: 'pdfDocuments', maxCount: 5 },
+  { name: 'zipFiles', maxCount: 2 },
 ]);
 
 router.post('/submit', uploadFields, async (req, res) => {
   try {
     const bankDetails = JSON.parse(req.body.bankDetails);
-
     const conn = mongoose.connection;
     const bucket = new GridFSBucket(conn.db, { bucketName: 'pg1files' });
 
@@ -36,6 +37,7 @@ router.post('/submit', uploadFields, async (req, res) => {
       });
     };
 
+    // Required single file uploads
     const receiptCopy = req.files?.receiptCopy?.[0];
     const guideSignature = req.files?.guideSignature?.[0];
 
@@ -43,11 +45,24 @@ router.post('/submit', uploadFields, async (req, res) => {
       return res.status(400).json({ error: 'Required files missing' });
     }
 
+    // Upload required files
     const receiptCopyId = await uploadFile(receiptCopy);
+    const guideSignatureId = await uploadFile(guideSignature);
+
+    // Upload optional single file
     const additionalDocumentsId = req.files?.additionalDocuments?.[0]
       ? await uploadFile(req.files.additionalDocuments[0])
       : null;
-    const guideSignatureId = await uploadFile(guideSignature);
+
+    // Upload multiple PDF files (max 5)
+    const pdfDocuments = req.files?.pdfDocuments || [];
+    const pdfDocumentIds = await Promise.all(pdfDocuments.map(uploadFile));
+
+    // Upload multiple ZIP files (max 2)
+    const zipFiles = req.files?.zipFiles || [];
+    const zipFileIds = await Promise.all(zipFiles.map(uploadFile));
+
+    // Save form with all files
     const newForm = new PG1Form({
       studentName: req.body.studentName,
       yearOfAdmission: req.body.yearOfAdmission,
@@ -69,8 +84,10 @@ router.post('/submit', uploadFields, async (req, res) => {
       amountSanctioned: req.body.amountSanctioned,
       files: {
         receiptCopy: receiptCopyId,
-        additionalDocuments: additionalDocumentsId,
         guideSignature: guideSignatureId,
+        additionalDocuments: additionalDocumentsId,
+        pdfDocuments: pdfDocumentIds,
+        zipFiles: zipFileIds
       },
       status: req.body.status || 'pending',
     });
