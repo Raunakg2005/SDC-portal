@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState , useEffect} from 'react';
 import axios from 'axios';
 
-const PG_2_B = () => {
+const PG_2_B = ({ viewOnly = false, initialData = {} }) => {
   const [formData, setFormData] = useState({
     studentName: '',
     yearOfAdmission: '',
@@ -27,15 +27,26 @@ const PG_2_B = () => {
     claimDate: '',
     amountReceived: '',
     amountSanctioned: '',
-    status: 'pending'
+    status: 'pending',
+    ...initialData
   });
 
   const [files, setFiles] = useState({
     paperCopy: null,
     groupLeaderSignature: null,
     guideSignature: null,
-    additionalDocuments: null, // will hold FileList for multiple files
+    additionalDocuments: null,
   });
+
+  // Pre-fill in viewOnly mode
+  useEffect(() => {
+    if (viewOnly && initialData) {
+      setFormData(initialData.formData || formData);
+      setFiles(initialData.files || files);
+    }
+  }, [viewOnly, initialData]);
+
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -51,59 +62,178 @@ const PG_2_B = () => {
   };
 
   const handleAuthorChange = (index, value) => {
-    const newAuthors = [...formData.authors];
-    newAuthors[index] = value;
-    setFormData(prev => ({ ...prev, authors: newAuthors }));
+    const updatedAuthors = [...formData.authors];
+    updatedAuthors[index] = value;
+    setFormData(prev => ({ ...prev, authors: updatedAuthors }));
   };
 
-  const handleFileChange = (field, e) => {
-    if (field === 'additionalDocuments') {
-      setFiles(prev => ({ ...prev, additionalDocuments: e.target.files }));
-    } else {
-      setFiles(prev => ({ ...prev, [field]: e.target.files[0] }));
-    }
-  };
-
-  // Submit handler
-const handleSubmit = async () => {
-  try {
-    const submissionData = new FormData();
-
-    // Append form data fields
-    Object.entries(formData).forEach(([key, value]) => {
-      if (key === 'bankDetails' || key === 'authors') {
-        submissionData.append(key, JSON.stringify(value));
-      } else {
-        submissionData.append(key, value);
-      }
+  const handleRemoveFile = (field, index) => {
+    setFiles((prev) => {
+      const updated = Array.from(prev[field]);
+      updated.splice(index, 1);
+      return {
+        ...prev,
+        [field]: updated
+      };
     });
+  };
 
-    // Append single files
-    if (files.paperCopy) submissionData.append('paperCopy', files.paperCopy);
-    if (files.groupLeaderSignature) submissionData.append('groupLeaderSignature', files.groupLeaderSignature);
-    if (files.guideSignature) submissionData.append('guideSignature', files.guideSignature);
-
-    // Append multiple files correctly
-    if (files.additionalDocuments) {
-      for (let i = 0; i < files.additionalDocuments.length; i++) {
-        submissionData.append('additionalDocuments', files.additionalDocuments[i]);
+  const handleFileChange = (field, event) => {
+    const selected = event.target.files;
+  
+    if (!selected || selected.length === 0) return;
+  
+    if (field === 'additionalDocuments') {
+      const newFiles = Array.from(selected);
+      const allFiles = [...(files.additionalDocuments || []), ...newFiles];
+  
+      // Filter by file types
+      const validFiles = allFiles.filter(file =>
+        ['application/pdf', 'application/zip', 'application/x-zip-compressed'].includes(file.type) ||
+        file.name.endsWith('.zip') // fallback for zip mime-type
+      );
+  
+      // Enforce limit: 5 PDFs + 2 ZIPs max
+      let pdfCount = 0, zipCount = 0;
+      const finalFiles = [];
+  
+      for (const file of validFiles) {
+        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+          if (pdfCount < 5) {
+            finalFiles.push(file);
+            pdfCount++;
+          }
+        } else if (
+          file.type === 'application/zip' ||
+          file.type === 'application/x-zip-compressed' ||
+          file.name.endsWith('.zip')
+        ) {
+          if (zipCount < 2) {
+            finalFiles.push(file);
+            zipCount++;
+          }
+        }
+      }
+  
+      setFiles((prev) => ({
+        ...prev,
+        additionalDocuments: finalFiles
+      }));
+    } else {
+      // Single file fields
+      setFiles((prev) => ({
+        ...prev,
+        [field]: selected[0]
+      }));
+    }
+  };
+  
+  const validateForm = () => {
+    const requiredFields = [
+      "studentName", "yearOfAdmission", "projectTitle", "guideName",
+      "conferenceDate", "organization", "publisher", "paperLink",
+      "registrationFee"
+    ];
+    for (const field of requiredFields) {
+      if (!formData[field]) {
+        alert(`Please fill the field: ${field}`);
+        return false;
       }
     }
 
-    // Axios POST request
-    const response = await axios.post(
-      'http://localhost:5000/api/pg2bform/submit',
-      submissionData,
-      { headers: { 'Content-Type': 'multipart/form-data' } }
-    );
+    if (!files.paperCopy || !files.groupLeaderSignature || !files.guideSignature) {
+      alert("Please upload required signatures and paper copy.");
+      return false;
+    }
 
-    alert('Form submitted successfully!');
-    console.log(response.data);
-  } catch (error) {
-    console.error('Error submitting form:', error.response?.data || error.message);
-    alert(`Form submission failed: ${error.response?.data?.error || error.message}`);
-  }
-};
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (viewOnly || !validateForm()) return;
+  
+    setLoading(true);
+    try {
+      const submissionData = new FormData();
+  
+      // Append string and structured fields
+      Object.entries(formData).forEach(([key, value]) => {
+        submissionData.append(
+          key,
+          ['authors', 'bankDetails'].includes(key) ? JSON.stringify(value) : value
+        );
+      });
+  
+      // Append single files
+      if (files.paperCopy) submissionData.append('paperCopy', files.paperCopy);
+      if (files.groupLeaderSignature) submissionData.append('groupLeaderSignature', files.groupLeaderSignature);
+      if (files.guideSignature) submissionData.append('guideSignature', files.guideSignature);
+  
+      // Append additional documents (multiple)
+      if (files.additionalDocuments) {
+        Array.from(files.additionalDocuments).forEach(file =>
+          submissionData.append('additionalDocuments', file)
+        );
+      }
+  
+      // Append up to 5 PDF files
+      if (files.pdfDocuments && files.pdfDocuments.length > 0) {
+        files.pdfDocuments.slice(0, 5).forEach(file => {
+          if (file.type === 'application/pdf') {
+            submissionData.append('pdfDocuments', file);
+          }
+        });
+      }
+  
+      // Append ZIP file (optional)
+      if (files.zipFile) {
+        if (
+          files.zipFile.type === 'application/zip' ||
+          files.zipFile.name.toLowerCase().endsWith('.zip')
+        ) {
+          submissionData.append('zipFile', files.zipFile);
+        }
+      }
+  
+      // POST request
+      const response = await axios.post(
+        'http://localhost:5000/api/pg2bform/submit',
+        submissionData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+  
+      alert('Form submitted successfully!');
+      console.log(response.data);
+  
+      // Reset form
+      setFormData({
+        studentName: '', yearOfAdmission: '', feesPaid: 'No', projectTitle: '',
+        guideName: '', coGuideName: '', conferenceDate: '', organization: '',
+        publisher: '', paperLink: '', authors: ['', '', '', ''],
+        bankDetails: {
+          beneficiary: '', ifsc: '', bankName: '', branch: '',
+          accountType: '', accountNumber: ''
+        },
+        registrationFee: '', previousClaim: 'No', claimDate: '',
+        amountReceived: '', amountSanctioned: '', status: 'pending'
+      });
+  
+      setFiles({
+        paperCopy: null,
+        groupLeaderSignature: null,
+        guideSignature: null,
+        additionalDocuments: null,
+        pdfDocuments: [],
+        zipFile: null
+      });
+  
+    } catch (error) {
+      console.error('Error submitting form:', error.response?.data || error.message);
+      alert(`Form submission failed: ${error.response?.data?.error || error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="form-container max-w-4xl mx-auto p-5 bg-gray-50 rounded-lg shadow-md">
@@ -123,6 +253,7 @@ const handleSubmit = async () => {
                   name="studentName"
                   value={formData.studentName}
                   onChange={handleChange}
+                  disabled={viewOnly}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
               </td>
@@ -133,6 +264,7 @@ const handleSubmit = async () => {
                   name="yearOfAdmission"
                   value={formData.yearOfAdmission}
                   onChange={handleChange}
+                  disabled={viewOnly}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
               </td>
@@ -142,6 +274,7 @@ const handleSubmit = async () => {
                   name="feesPaid"
                   value={formData.feesPaid}
                   onChange={handleChange}
+                  disabled={viewOnly}
                   className="w-full p-1 border border-gray-300 rounded"
                 >
                   <option value="Yes">Yes</option>
@@ -156,6 +289,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="projectTitle"
                   value={formData.projectTitle}
+                  disabled={viewOnly}
                   onChange={handleChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -174,6 +308,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="guideName"
                   value={formData.guideName}
+                  disabled={viewOnly}
                   onChange={handleChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -184,6 +319,7 @@ const handleSubmit = async () => {
                   type="date"
                   name="conferenceDate"
                   value={formData.conferenceDate}
+                  disabled={viewOnly}
                   onChange={handleChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -196,6 +332,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="organization"
                   value={formData.organization}
+                  disabled={viewOnly}
                   onChange={handleChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -214,6 +351,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="publisher"
                   value={formData.publisher}
+                  disabled={viewOnly}
                   onChange={handleChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -226,6 +364,7 @@ const handleSubmit = async () => {
                   type="url"
                   name="paperLink"
                   value={formData.paperLink}
+                  disabled={viewOnly}
                   onChange={handleChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -242,6 +381,7 @@ const handleSubmit = async () => {
               <input
                 type="text"
                 value={author}
+                disabled={viewOnly}
                 onChange={(e) => handleAuthorChange(index, e.target.value)}
                 className="w-full p-1 border border-gray-300 rounded"
               />
@@ -264,6 +404,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="beneficiary"
                   value={formData.bankDetails.beneficiary}
+                  disabled={viewOnly}
                   onChange={handleBankChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -276,6 +417,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="ifsc"
                   value={formData.bankDetails.ifsc}
+                  disabled={viewOnly}
                   onChange={handleBankChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -288,6 +430,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="bankName"
                   value={formData.bankDetails.bankName}
+                  disabled={viewOnly}
                   onChange={handleBankChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -300,6 +443,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="branch"
                   value={formData.bankDetails.branch}
+                  disabled={viewOnly}
                   onChange={handleBankChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -312,6 +456,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="accountType"
                   value={formData.bankDetails.accountType}
+                  disabled={viewOnly}
                   onChange={handleBankChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -324,6 +469,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="accountNumber"
                   value={formData.bankDetails.accountNumber}
+                  disabled={viewOnly}
                   onChange={handleBankChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -342,6 +488,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="registrationFee"
                   value={formData.registrationFee}
+                  disabled={viewOnly}
                   onChange={handleChange}
                   className="w-full p-1 border border-gray-300 rounded"
                   placeholder="Rs.___________"
@@ -352,6 +499,7 @@ const handleSubmit = async () => {
                 <select
                   name="previousClaim"
                   value={formData.previousClaim}
+                  disabled={viewOnly}
                   onChange={handleChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 >
@@ -365,6 +513,7 @@ const handleSubmit = async () => {
                   type="date"
                   name="claimDate"
                   value={formData.claimDate}
+                  disabled={viewOnly}
                   onChange={handleChange}
                   className="w-full p-1 border border-gray-300 rounded"
                 />
@@ -375,6 +524,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="amountReceived"
                   value={formData.amountReceived}
+                  disabled={viewOnly}
                   onChange={handleChange}
                   className="w-full p-1 border border-gray-300 rounded"
                   placeholder="Rs.___________"
@@ -388,6 +538,7 @@ const handleSubmit = async () => {
                   type="text"
                   name="amountSanctioned"
                   value={formData.amountSanctioned}
+                  disabled={viewOnly}
                   onChange={handleChange}
                   className="w-full p-1 border border-gray-300 rounded"
                   placeholder="Rs.___________"
@@ -399,86 +550,111 @@ const handleSubmit = async () => {
 
         <p className="mb-6 text-gray-700">The participation by the student was relevant to their Final Year project and affiliation to the institute was clearly mentioned.</p>
 
-         {/* File Uploads */}
-      <div className="mb-6 space-y-4">
-        <div>
-          <label className="block font-semibold mb-2">*Attach proof documents:</label>
-          <div className="flex items-center">
-            <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-              Choose Paper Copy
-              <input
-                type="file"
-                className="hidden"
-                onChange={(e) => handleFileChange('paperCopy', e)}
-              />
-            </label>
-            <span className="ml-2 text-sm">
-              {files.paperCopy ? files.paperCopy.name : "No file chosen"}
-            </span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
+        {/* File Uploads */}
+        <div className="mb-6 space-y-4">
+          {/* Paper Copy Upload */}
           <div>
-            <label className="block font-semibold mb-2">Signature of Student (JPEG Only)</label>
+            <label className="block font-semibold mb-2">*Attach proof documents:</label>
             <div className="flex items-center">
               <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                Choose File
+                Choose Paper Copy
                 <input
                   type="file"
                   className="hidden"
-                  accept="image/jpeg"
-                  onChange={(e) => handleFileChange('groupLeaderSignature', e)}
+                  disabled={viewOnly}
+                  onChange={(e) => handleFileChange('paperCopy', e)}
                 />
               </label>
               <span className="ml-2 text-sm">
-                {files.groupLeaderSignature ? files.groupLeaderSignature.name : "No file chosen"}
+                {files.paperCopy ? files.paperCopy.name : "No file chosen"}
               </span>
             </div>
           </div>
 
+          {/* Signatures */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block font-semibold mb-2">Signature of Student (JPEG Only)</label>
+              <div className="flex items-center">
+                <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+                  Choose File
+                  <input
+                    type="file"
+                    className="hidden"
+                    disabled={viewOnly}
+                    accept="image/jpeg"
+                    onChange={(e) => handleFileChange('groupLeaderSignature', e)}
+                  />
+                </label>
+                <span className="ml-2 text-sm">
+                  {files.groupLeaderSignature ? files.groupLeaderSignature.name : "No file chosen"}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold mb-2">Signature of Guide (JPEG Only)</label>
+              <div className="flex items-center">
+                <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+                  Choose File
+                  <input
+                    type="file"
+                    className="hidden"
+                    disabled={viewOnly}
+                    accept="image/jpeg"
+                    onChange={(e) => handleFileChange('guideSignature', e)}
+                  />
+                </label>
+                <span className="ml-2 text-sm">
+                  {files.guideSignature ? files.guideSignature.name : "No file chosen"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Documents Upload */}
           <div>
-            <label className="block font-semibold mb-2">Signature of Guide (JPEG Only)</label>
+            <label className="block font-semibold mb-2">Upload Additional Documents (PDF & ZIP only)</label>
             <div className="flex items-center">
               <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-                Choose File
+                Choose File(s)
                 <input
                   type="file"
                   className="hidden"
-                  accept="image/jpeg"
-                  onChange={(e) => handleFileChange('guideSignature', e)}
+                  multiple
+                  disabled={viewOnly}
+                  accept=".pdf,.zip"
+                  onChange={(e) => handleFileChange('additionalDocuments', e)}
                 />
               </label>
-              <span className="ml-2 text-sm">
-                {files.guideSignature ? files.guideSignature.name : "No file chosen"}
-              </span>
+            </div>
+
+            {/* Show selected files with remove option */}
+            <div className="ml-2 mt-2 text-sm space-y-1">
+              {files.additionalDocuments && files.additionalDocuments.length > 0 ? (
+                Array.from(files.additionalDocuments).map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between bg-gray-100 px-2 py-1 rounded"
+                  >
+                    <span className="truncate">{file.name}</span>
+                    {!viewOnly && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile('additionalDocuments', index)}
+                        className="text-red-600 hover:underline text-xs ml-2"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <span>No file chosen</span>
+              )}
             </div>
           </div>
         </div>
-
-        <div>
-          <label className="block font-semibold mb-2">Upload Additional Documents</label>
-          <div className="flex items-center">
-            <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
-              Choose File(s)
-              <input
-                type="file"
-                className="hidden"
-                multiple
-                onChange={(e) => handleFileChange('additionalDocuments', e)}
-              />
-            </label>
-            <span className="ml-2 text-sm">
-              {files.additionalDocuments && files.additionalDocuments.length > 0
-                ? Array.from(files.additionalDocuments)
-                    .map((file) => file.name)
-                    .join(', ')
-                : "No file chosen"}
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* Signatures */}
       <div className="flex justify-between mb-6">
         <div className="w-1/2 pr-2">

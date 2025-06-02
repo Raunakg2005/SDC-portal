@@ -20,11 +20,18 @@ const PG2BFormSchema = new mongoose.Schema({
   organization: { type: String, required: true },
   publisher: { type: String, required: true },
   paperLink: { type: String },
-  authors: { 
-    type: [String], 
-    validate: [arr => arr.length === 4, 'Authors array must have exactly 4 strings'], 
-    required: true 
+
+  authors: {
+    type: [String],
+    validate: {
+      validator: function (arr) {
+        return Array.isArray(arr) && arr.length === 4;
+      },
+      message: 'Authors array must have exactly 4 strings',
+    },
+    required: true,
   },
+
   bankDetails: { type: bankDetailsSchema, required: true },
 
   registrationFee: { type: String, required: true },
@@ -32,15 +39,38 @@ const PG2BFormSchema = new mongoose.Schema({
   claimDate: { type: Date },
   amountReceived: { type: String },
   amountSanctioned: { type: String },
-  status: { type: String, default: 'pending' },
 
-  // Store GridFS file IDs here:
-  paperCopyFilename: { type: mongoose.Schema.Types.ObjectId, required: true },
-  groupLeaderSignatureFilename: { type: mongoose.Schema.Types.ObjectId, required: true },
-  guideSignatureFilename: { type: mongoose.Schema.Types.ObjectId, required: true },
-  additionalDocumentsFilename: [{ type: mongoose.Schema.Types.ObjectId }], // array of ObjectIds, optional
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected', 'under Review'],
+    default: 'pending',
+  },
 
-}, { timestamps: true });
+  // GridFS File IDs
+  paperCopyFilename: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+    ref: 'uploads.files',
+  },
+  groupLeaderSignatureFilename: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+    ref: 'uploads.files',
+  },
+  guideSignatureFilename: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+    ref: 'uploads.files',
+  },
+  additionalDocumentsFilename: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'uploads.files',
+    },
+  ],
+}, {
+  timestamps: true,
+});
 
 const PG2BForm = mongoose.model("PG2BForm", PG2BFormSchema);
 
