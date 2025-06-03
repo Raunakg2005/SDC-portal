@@ -31,12 +31,6 @@ const pg2aFormSchema = new mongoose.Schema({
   expenses: { type: [expenseSchema], required: true },
 
   bankDetails: { type: bankDetailsSchema, required: true },
-
-  amountClaimed: { type: Number, required: true },
-  amountRecommended: { type: Number },
-  comments: { type: String },
-  finalAmount: { type: Number },
-
   remarks: { type: String },
   date: { type: Date },
 
@@ -53,7 +47,6 @@ const pg2aFormSchema = new mongoose.Schema({
     },
     studentSignature: { type: mongoose.Schema.Types.ObjectId, ref: 'pg2afiles.files', required: true },
     guideSignature: { type: mongoose.Schema.Types.ObjectId, ref: 'pg2afiles.files', required: true },
-    hodSignature: { type: mongoose.Schema.Types.ObjectId, ref: 'pg2afiles.files', required: true },
   },
 
   status: {

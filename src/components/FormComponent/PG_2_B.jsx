@@ -2,50 +2,85 @@ import React, { useState , useEffect} from 'react';
 import axios from 'axios';
 
 const PG_2_B = ({ viewOnly = false, initialData = {} }) => {
-  const [formData, setFormData] = useState({
-    studentName: '',
-    yearOfAdmission: '',
-    feesPaid: 'No',
-    projectTitle: '',
-    guideName: '',
-    coGuideName: '',
-    conferenceDate: '',
-    organization: '',
-    publisher: '',
-    paperLink: '',
-    authors: ['', '', '', ''],
-    bankDetails: {
-      beneficiary: '',
-      ifsc: '',
-      bankName: '',
-      branch: '',
-      accountType: '',
-      accountNumber: ''
-    },
-    registrationFee: '',
-    previousClaim: 'No',
-    claimDate: '',
-    amountReceived: '',
-    amountSanctioned: '',
-    status: 'pending',
-    ...initialData
-  });
-
-  const [files, setFiles] = useState({
-    paperCopy: null,
-    groupLeaderSignature: null,
-    guideSignature: null,
-    additionalDocuments: null,
-  });
-
-  // Pre-fill in viewOnly mode
-  useEffect(() => {
+  const [formData, setFormData] = useState(() => {
     if (viewOnly && initialData) {
-      setFormData(initialData.formData || formData);
-      setFiles(initialData.files || files);
+      return {
+        studentName: initialData.studentName || '',
+        yearOfAdmission: initialData.yearOfAdmission || '',
+        feesPaid: initialData.feesPaid || 'No',
+        projectTitle: initialData.projectTitle || '',
+        guideName: initialData.guideName || '',
+        coGuideName: initialData.coGuideName || '',
+        conferenceDate: initialData.conferenceDate || '',
+        organization: initialData.organization || '',
+        publisher: initialData.publisher || '',
+        paperLink: initialData.paperLink || '',
+        authors: Array.isArray(initialData.authors)
+          ? initialData.authors.map(a => a || '')
+          : ['', '', '', ''],
+        bankDetails: {
+          beneficiary: initialData.bankDetails?.beneficiary || '',
+          ifsc: initialData.bankDetails?.ifsc || '',
+          bankName: initialData.bankDetails?.bankName || '',
+          branch: initialData.bankDetails?.branch || '',
+          accountType: initialData.bankDetails?.accountType || '',
+          accountNumber: initialData.bankDetails?.accountNumber || ''
+        },
+        registrationFee: initialData.registrationFee || '',
+        previousClaim: initialData.previousClaim || 'No',
+        claimDate: initialData.claimDate || '',
+        amountReceived: initialData.amountReceived || '',
+        amountSanctioned: initialData.amountSanctioned || '',
+        status: initialData.status || 'pending'
+      };
     }
-  }, [viewOnly, initialData]);
-
+  
+    // Default values if not viewOnly or no initialData
+    return {
+      studentName: '',
+      yearOfAdmission: '',
+      feesPaid: 'No',
+      projectTitle: '',
+      guideName: '',
+      coGuideName: '',
+      conferenceDate: '',
+      organization: '',
+      publisher: '',
+      paperLink: '',
+      authors: ['', '', '', ''],
+      bankDetails: {
+        beneficiary: '',
+        ifsc: '',
+        bankName: '',
+        branch: '',
+        accountType: '',
+        accountNumber: ''
+      },
+      registrationFee: '',
+      previousClaim: 'No',
+      claimDate: '',
+      amountReceived: '',
+      amountSanctioned: '',
+      status: 'pending'
+    };
+  });
+  
+  const [files, setFiles] = useState(() => {
+    if (viewOnly && initialData) {
+      return {
+        paperCopy: initialData.files?.paperCopy || null,
+        groupLeaderSignature: initialData.files?.groupLeaderSignature || null,
+        guideSignature: initialData.files?.guideSignature || null,
+        additionalDocuments: initialData.files?.additionalDocuments || null
+      };
+    }
+    return {
+      paperCopy: null,
+      groupLeaderSignature: null,
+      guideSignature: null,
+      additionalDocuments: null
+    };
+  });
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {

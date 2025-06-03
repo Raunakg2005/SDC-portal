@@ -2,55 +2,103 @@ import React, { useState , useEffect} from 'react';
 import axios from 'axios';
 
 const PG_2_A = ({ viewOnly = false, data = null }) => {
-  const [formData, setFormData] = useState({
-    organizingInstitute: '',
-    projectTitle: '',
-    teamName: '',
-    guideName: '',
-    department: '',
-    date: '',
-    hodRemarks: '',
-    studentDetails: [{
-      name: '',
-      class: '',
-      division: '',
-      branch: '',
-      rollNo: '',
-      mobileNo: ''
-    }],
-    expenses: [{
-      description: '',
-      amount: ''
-    }],
-    bankDetails: {
-      beneficiary: '',
-      ifsc: '',
-      bankName: '',
-      branch: '',
-      accountType: '',
-      accountNumber: ''
-    },
-    amountClaimed: '',
-    amountRecommended: '',
-    comments: '',
-    finalAmount: '',
-    status: 'Pending'
-  });
-
-  const [files, setFiles] = useState({
-    bills: [],
-    zips: [],
-    studentSignature: null,
-    guideSignature: null,
+  const [formData, setFormData] = useState(() => {
+    if (viewOnly && data) {
+      return {
+        organizingInstitute: data.organizingInstitute || '',
+        projectTitle: data.projectTitle || '',
+        teamName: data.teamName || '',
+        guideName: data.guideName || '',
+        department: data.department || '',
+        date: data.date || '',
+        hodRemarks: data.hodRemarks || '',
+        studentDetails: data.studentDetails?.length
+          ? data.studentDetails.map(student => ({
+              name: student.name || '',
+              class: student.class || '',
+              division: student.division || '',
+              branch: student.branch || '',
+              rollNo: student.rollNo || '',
+              mobileNo: student.mobileNo || '',
+            }))
+          : [{
+              name: '',
+              class: '',
+              division: '',
+              branch: '',
+              rollNo: '',
+              mobileNo: '',
+            }],
+        expenses: data.expenses?.length
+          ? data.expenses.map(expense => ({
+              description: expense.description || '',
+              amount: expense.amount || '',
+            }))
+          : [{
+              description: '',
+              amount: '',
+            }],
+        bankDetails: {
+          beneficiary: data.bankDetails?.beneficiary || '',
+          ifsc: data.bankDetails?.ifsc || '',
+          bankName: data.bankDetails?.bankName || '',
+          branch: data.bankDetails?.branch || '',
+          accountType: data.bankDetails?.accountType || '',
+          accountNumber: data.bankDetails?.accountNumber || '',
+        },
+        status: data.status || 'pending',
+      };
+    }
+  
+    // Default values if not viewOnly or no data
+    return {
+      organizingInstitute: '',
+      projectTitle: '',
+      teamName: '',
+      guideName: '',
+      department: '',
+      date: '',
+      hodRemarks: '',
+      studentDetails: [{
+        name: '',
+        class: '',
+        division: '',
+        branch: '',
+        rollNo: '',
+        mobileNo: '',
+      }],
+      expenses: [{
+        description: '',
+        amount: '',
+      }],
+      bankDetails: {
+        beneficiary: '',
+        ifsc: '',
+        bankName: '',
+        branch: '',
+        accountType: '',
+        accountNumber: '',
+      },
+      status: 'pending',
+    };
   });
   
-  // Pre-fill in viewOnly mode
-  useEffect(() => {
+  const [files, setFiles] = useState(() => {
     if (viewOnly && data) {
-      setFormData(data.formData || formData);
-      setFiles(data.files || files);
+      return {
+        bills: data.files?.bills || [],
+        zips: data.files?.zips || [],
+        studentSignature: data.files?.studentSignature || null,
+        guideSignature: data.files?.guideSignature || null,
+      };
     }
-  }, [viewOnly, data]);
+    return {
+      bills: [],
+      zips: [],
+      studentSignature: null,
+      guideSignature: null,
+    };
+  });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -68,8 +116,22 @@ const PG_2_A = ({ viewOnly = false, data = null }) => {
 
   const handleExpenseChange = (index, field, value) => {
     if (viewOnly) return;
+  
+    // Validate amount input
+    if (field === 'amount') {
+      // Allow empty string (for clearing input)
+      if (value !== '') {
+        // Prevent non-numeric or negative
+        const num = Number(value);
+        if (isNaN(num) || num < 0) return;
+        value = num; // convert to number for consistent type
+      }
+    }
     const newExpenses = [...formData.expenses];
-    newExpenses[index][field] = value;
+    newExpenses[index] = {
+      ...newExpenses[index],
+      [field]: value,
+    };
     setFormData(prev => ({ ...prev, expenses: newExpenses }));
   };
 
@@ -120,7 +182,7 @@ const PG_2_A = ({ viewOnly = false, data = null }) => {
     if (viewOnly) return;
     setFormData(prev => ({
       ...prev,
-      expenses: [...prev.expenses, { description: '', amount: '' }]
+      expenses: [...prev.expenses, { description: '', amount: '' }],
     }));
   };
 
@@ -312,7 +374,6 @@ const PG_2_A = ({ viewOnly = false, data = null }) => {
   
       if (files.studentSignature) formPayload.append("studentSignature", files.studentSignature);
       if (files.guideSignature) formPayload.append("guideSignature", files.guideSignature);
-      if (files.hodSignature) formPayload.append("hodSignature", files.hodSignature);
   
       // Debug payload keys and values (files will just show file names)
       for (let [key, value] of formPayload.entries()) {
@@ -479,6 +540,8 @@ const PG_2_A = ({ viewOnly = false, data = null }) => {
                       onChange={(e) => handleExpenseChange(index, 'amount', e.target.value)}
                       disabled={viewOnly}
                       className="w-full p-1 border border-gray-300 rounded"
+                      min="0"
+                      step="0.01"
                     />
                   </td>
                 </tr>
@@ -487,7 +550,9 @@ const PG_2_A = ({ viewOnly = false, data = null }) => {
                 <td className="p-2 border border-gray-300 font-semibold">Total</td>
                 <td className="p-2 border border-gray-300"></td>
                 <td className="p-2 border border-gray-300">
-                  {formData.expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0)}
+                  {formData.expenses
+                    .reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0)
+                    .toFixed(2)}
                 </td>
               </tr>
             </tbody>
@@ -655,12 +720,16 @@ const PG_2_A = ({ viewOnly = false, data = null }) => {
         </div>
         {/* Form Actions */}
         <div className="flex justify-between">
-          <button onClick={() => window.history.back()} className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
-            Back
-          </button>
-          <button onClick={handleSubmit} className="submit-btn bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
-            Submit
-          </button>
+        {!viewOnly && (
+          <>
+            <button onClick={handleSubmit} className="submit-btn bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600">
+              Submit
+            </button>
+            <button onClick={() => window.history.back()} className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
+              Back
+            </button>
+          </>
+        )}
         </div>
       </div>
     </div>
