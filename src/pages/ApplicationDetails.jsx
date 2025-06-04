@@ -39,7 +39,7 @@ const ApplicationDetails = () => {
       <h1 className="text-2xl font-bold mb-4">Application Details</h1>
       <div className="mb-4 text-gray-600 space-y-1">
         <p><strong>Topic:</strong> {application.projectTitle || application.topic}</p>
-        <p><strong>Applicant Roll No:</strong> {application.name}</p>
+        <p><strong>Applicant Name:</strong> {application.name}</p>
         <p><strong>Submitted on:</strong> {new Date(application.submitted).toLocaleDateString()}</p>
         <p><strong>Branch:</strong> {application.branch}</p>
         <p><strong>Form Type:</strong> {application.formType}</p>

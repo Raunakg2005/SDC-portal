@@ -26,7 +26,9 @@ const bankDetailsSchema = new mongoose.Schema({
 const pg2aFormSchema = new mongoose.Schema({
   organizingInstitute: { type: String, required: true },
   projectTitle: { type: String, required: true },
-
+  teamName: { type: String, required: false },
+  guideName: { type: String, required: false },
+  department: { type: String, required: false },
   studentDetails: { type: [studentDetailSchema], required: true },
   expenses: { type: [expenseSchema], required: true },
 
