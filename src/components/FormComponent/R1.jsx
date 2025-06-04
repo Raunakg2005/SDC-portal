@@ -45,7 +45,9 @@ const R1 = ({ data = null, viewOnly = false }) => {
     studentSignature: data?.studentSignatureUrl ? { name: 'Student Signature', url: data.studentSignatureUrl } : null,
     guideSignature: data?.guideSignatureUrl ? { name: 'Guide Signature', url: data.guideSignatureUrl } : null,
     hodSignature: data?.hodSignatureUrl ? { name: 'HOD Signature', url: data.hodSignatureUrl } : null,
-    sdcChairpersonSignature: data?.sdcChairpersonSignatureUrl ? { name: 'SDC Chairperson Signature', url: data.sdcChairpersonSignatureUrl } : null, // Added for SDC Chairperson
+    sdcChairpersonSignature: data?.sdcChairpersonSignatureUrl ? { name: 'SDC Chairperson Signature', url: data.sdcChairpersonSignatureUrl } : null,
+    pdfs: data?.pdfsUrls ? data.pdfsUrls.map((url, i) => ({ name: `Document ${i + 1}`, url })) : [],
+    zip: data?.zipUrl ? { name: 'ZIP File', url: data.zipUrl } : null
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -126,23 +128,69 @@ const R1 = ({ data = null, viewOnly = false }) => {
 
   const handleFileChange = (field, e) => {
     if (viewOnly) return;
-    const file = e.target.files[0];
-    if (!file) return;
+    const selectedFiles = e.target.files;
 
-    // File validation
-    if (field.includes('Signature') && !file.type.startsWith('image/')) {
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    // Handle multiple PDFs
+    if (field === 'pdfs') {
+      const newFiles = Array.from(selectedFiles);
+      if (newFiles.length > 5) {
+        alert('❌ Maximum 5 PDF files allowed.');
+        return;
+      }
+
+      for (const file of newFiles) {
+        if (file.type !== 'application/pdf') {
+          alert('❌ Only PDF files allowed in PDFs upload.');
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          alert(`❌ PDF file ${file.name} must be less than 5MB.`);
+          return;
+        }
+      }
+
+      setFiles(prev => ({
+        ...prev,
+        pdfs: newFiles
+      }));
+      return;
+    }
+
+    // Handle ZIP file
+    if (field === 'zip') {
+      const file = selectedFiles[0];
+      if (!file.name.endsWith('.zip')) {
+        alert('❌ Only ZIP file is allowed.');
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        alert('❌ ZIP file must be less than 10MB.');
+        return;
+      }
+
+      setFiles(prev => ({
+        ...prev,
+        zip: file
+      }));
+      return;
+    }
+
+    // Signature files
+    if (field.includes('Signature') && !selectedFiles[0].type.startsWith('image/')) {
       alert('❌ Only image files are allowed for signatures.');
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (selectedFiles[0].size > 5 * 1024 * 1024) {
       alert('❌ File must be less than 5MB.');
       return;
     }
 
     setFiles(prev => ({
       ...prev,
-      [field]: file
+      [field]: selectedFiles[0]
     }));
   };
 
@@ -171,18 +219,15 @@ const R1 = ({ data = null, viewOnly = false }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (viewOnly || isSubmitting) return;
-
+  
     setErrorMessage('');
     
-    if (!validateForm()) {
-      return;
-    }
-
+    if (!validateForm()) return;
+  
     setIsSubmitting(true);
-
+  
     const submissionData = new FormData();
-
-    // Append primitive fields
+  
     for (const [key, value] of Object.entries(formData)) {
       if (Array.isArray(value)) {
         submissionData.append(key, JSON.stringify(value));
@@ -192,14 +237,23 @@ const R1 = ({ data = null, viewOnly = false }) => {
         submissionData.append(key, value);
       }
     }
-
-    // Append files individually (only if they're actual files, not URLs)
-    Object.entries(files).forEach(([key, file]) => {
-      if (file && file instanceof File) {
+  
+    // Append single files
+    for (const [key, file] of Object.entries(files)) {
+      if (key === 'pdfs') {
+        if (Array.isArray(file)) {
+          file.forEach((pdfFile, index) => {
+            if (pdfFile instanceof File) {
+              submissionData.append('pdfs', pdfFile); // key can repeat for FormData
+            }
+          });
+        }
+      } else if (key === 'zip' && file instanceof File) {
+        submissionData.append('zip', file);
+      } else if (file instanceof File) {
         submissionData.append(key, file);
       }
-    });
-
+    }
     try {
       const response = await axios.post("http://localhost:5000/api/r1form/submit", submissionData, {
         headers: {
@@ -207,7 +261,6 @@ const R1 = ({ data = null, viewOnly = false }) => {
         },
       });
       alert("✅ Form submitted successfully!");
-      // Optionally redirect or clear form
     } catch (error) {
       console.error("❌ Error submitting form:", error);
       setErrorMessage("Error submitting form. Please try again.");
@@ -223,19 +276,72 @@ const R1 = ({ data = null, viewOnly = false }) => {
   // Helper function to render file display
   const renderFileDisplay = (fileKey, label) => {
     const file = files[fileKey];
-    
-    if (viewOnly && file && file.url) {
-      return (
-        <div className="flex items-center">
-          <a 
-            href={file.url} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 underline"
-          >
-            View {label}
+  
+    if (fileKey === 'pdfs') {
+      if (viewOnly && Array.isArray(file)) {
+        return (
+          <div className="flex flex-col space-y-1">
+            {file.map((pdf, i) => (
+              <a key={i} href={pdf.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                View {pdf.name}
+              </a>
+            ))}
+          </div>
+        );
+      } else if (!viewOnly) {
+        return (
+          <div className="flex flex-col">
+            <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+              Upload PDFs (max 5)
+              <input
+                type="file"
+                multiple
+                accept="application/pdf"
+                onChange={(e) => handleFileChange('pdfs', e)}
+                className="hidden"
+              />
+            </label>
+            <span className="mt-1 text-sm text-gray-600">
+              {Array.isArray(file) && file.length > 0 ? file.map(f => f.name || f).join(', ') : "No PDFs chosen"}
+            </span>
+          </div>
+        );
+      }
+    }
+  
+    if (fileKey === 'zip') {
+      if (viewOnly && file?.url) {
+        return (
+          <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+            View ZIP File
           </a>
-        </div>
+        );
+      } else if (!viewOnly) {
+        return (
+          <div className="flex items-center">
+            <label className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-blue-600">
+              Upload ZIP
+              <input
+                type="file"
+                accept=".zip"
+                onChange={(e) => handleFileChange('zip', e)}
+                className="hidden"
+              />
+            </label>
+            <span className="ml-2 text-sm text-gray-600">
+              {file ? file.name : "No ZIP selected"}
+            </span>
+          </div>
+        );
+      }
+    }
+  
+    // Default for other single files
+    if (viewOnly && file?.url) {
+      return (
+        <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+          View {label}
+        </a>
       );
     } else if (!viewOnly) {
       return (
@@ -250,14 +356,12 @@ const R1 = ({ data = null, viewOnly = false }) => {
             />
           </label>
           <span className="ml-2 text-sm">
-            {file ? (file.name || 'File selected') : "No file chosen"}
+            {file ? file.name || 'File selected' : "No file chosen"}
           </span>
         </div>
       );
-    } else if (file) { // For viewOnly when a file object (not a URL) is present, perhaps from initial data
-      return <span className="text-sm text-gray-600">{file.name}</span>;
     }
-    
+  
     return <span className="text-sm text-gray-400">No file uploaded</span>;
   };
 
@@ -650,17 +754,49 @@ const R1 = ({ data = null, viewOnly = false }) => {
 
         {/* File Uploads */}
         <div className="mb-6 space-y-4">
-          <div>
-            <label className="block font-semibold mb-2">Attach proof documents:</label>
-            {renderFileDisplay('proofDocument', 'Proof Document')}
-          </div>
-
-          <div>
-            <label className="block font-semibold mb-2">Attach registration fee receipt:</label>
-            {renderFileDisplay('receiptCopy', 'Receipt Copy')}
-          </div>
+        {/* Multiple PDFs (max 5) */}
+        <div>
+          <label className="block font-semibold mb-2">Attach up to 5 proof documents (PDF):</label>
+          {viewOnly ? (
+            files.pdfs && files.pdfs.length > 0 ? (
+              files.pdfs.map((file, idx) => (
+                <div key={idx}>{renderFileDisplay(`pdfs[${idx}]`, `Proof Document ${idx + 1}`)}</div>
+              ))
+            ) : (
+              <p className="text-gray-500">No proof documents uploaded.</p>
+            )
+          ) : (
+            <input
+              type="file"
+              accept="application/pdf"
+              multiple
+              onChange={(e) => {
+                const selectedFiles = Array.from(e.target.files).slice(0, 5); // limit to 5 PDFs
+                setFiles(prev => ({ ...prev, pdfs: selectedFiles }));
+              }}
+            />
+          )}
         </div>
 
+        {/* ZIP file */}
+        <div>
+          <label className="block font-semibold mb-2">Attach ZIP file (optional):</label>
+          {viewOnly ? (
+            renderFileDisplay('zip', 'ZIP File')
+          ) : (
+            <input
+              type="file"
+              accept=".zip,application/zip,application/x-zip-compressed"
+              onChange={(e) => {
+                const selectedFile = e.target.files[0];
+                if (selectedFile) {
+                  setFiles(prev => ({ ...prev, zip: selectedFile }));
+                }
+              }}
+            />
+          )}
+        </div>
+      </div>
         {/* Signatures */}
         <div className="mb-6">
           <div className="mb-4">

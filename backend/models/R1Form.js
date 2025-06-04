@@ -28,7 +28,6 @@ const R1FormSchema = new mongoose.Schema({
     type: [String],
     validate: {
       validator: function(arr) {
-        // You can define length validation here if needed, e.g. min 1 author
         return arr.length > 0;
       },
       message: 'Authors array must have at least one author.'
@@ -50,12 +49,14 @@ const R1FormSchema = new mongoose.Schema({
   finalAmountSanctioned: { type: String, default: '' },
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
 
-  // Use ObjectId for files stored in GridFS or similar
   proofDocumentFileId: { type: mongoose.Schema.Types.ObjectId, required: true },
   receiptCopyFileId: { type: mongoose.Schema.Types.ObjectId, required: true },
   studentSignatureFileId: { type: mongoose.Schema.Types.ObjectId, required: true },
   guideSignatureFileId: { type: mongoose.Schema.Types.ObjectId, required: true },
   hodSignatureFileId: { type: mongoose.Schema.Types.ObjectId, required: true },
+
+  pdfFileIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'r1files' }],
+  zipFileId: { type: mongoose.Schema.Types.ObjectId, ref: 'r1files' },
 
   dateOfSubmission: { type: Date, default: Date.now },
   remarksByHOD: { type: String, default: '' },

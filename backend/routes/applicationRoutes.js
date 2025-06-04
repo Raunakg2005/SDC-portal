@@ -99,22 +99,28 @@ const processFormForDisplay = async (form, formType) => {
     // --- Specific file and field processing based on formType ---
     switch (formType) {
         case "UG_1":
-            processedForm.name = form.name || (form.students?.[0]?.name || "N/A");
-            processedForm.branch = form.branch || (form.students?.[0]?.branch || "N/A");
-
+            // Debug: log raw form data to see what fields it has
+            processedForm.name = form.name 
+            || (form.studentDetails && form.studentDetails.length > 0 ? form.studentDetails[0].studentName : "N/A");
+            
+            // Branch fallback from first student's branch
+            processedForm.branch = form.branch 
+            || (form.studentDetails && form.studentDetails.length > 0 ? form.studentDetails[0].branch : "N/A");
+            
+            // Get pdf files URLs
             if (form.pdfFileIds && form.pdfFileIds.length > 0) {
                 const pdfFileDetailsPromises = form.pdfFileIds.map(id => getFileDetailsAndUrl(id, fileBaseUrl));
                 processedForm.pdfFileUrls = (await Promise.all(pdfFileDetailsPromises)).filter(Boolean);
             }
-            if (form.zipFileId) {
-                processedForm.zipFile = await getFileDetailsAndUrl(form.zipFileId, fileBaseUrl);
-            }
+            // Signature files
             if (form.groupLeaderSignatureId) {
                 processedForm.groupLeaderSignature = await getFileDetailsAndUrl(form.groupLeaderSignatureId, fileBaseUrl);
             }
             if (form.guideSignatureId) {
                 processedForm.guideSignature = await getFileDetailsAndUrl(form.guideSignatureId, fileBaseUrl);
             }
+            
+            // Guides details
             processedForm.guideNames = form.guides ? form.guides.map(g => g.guideName || "") : [];
             processedForm.employeeCodes = form.guides ? form.guides.map(g => g.employeeCode || "") : [];
             break;
@@ -168,6 +174,48 @@ const processFormForDisplay = async (form, formType) => {
                 processedForm.zipFile = await getFileDetailsAndUrl(form.uploadedZipFile.fileId, fileBaseUrl);
             }
             break;
+            case "PG_2_A":
+                processedForm.organizingInstitute = form.organizingInstitute || "N/A";
+                processedForm.projectTitle = form.projectTitle || form.topic || "Untitled Project";
+                processedForm.studentDetails = form.studentDetails || [];
+                processedForm.expenses = form.expenses || [];
+                processedForm.bankDetails = form.bankDetails || {};
+                
+                // Process files from form.files (bills array, zips array, signatures)
+                if (form.files) {
+                    if (form.files.bills && form.files.bills.length > 0) {
+                        const billFilePromises = form.files.bills.map(id => getFileDetailsAndUrl(id, fileBaseUrl));
+                        processedForm.bills = (await Promise.all(billFilePromises)).filter(Boolean);
+                    } else {
+                        processedForm.bills = [];
+                    }
+            
+                    if (form.files.zips && form.files.zips.length > 0) {
+                        const zipFilePromises = form.files.zips.map(id => getFileDetailsAndUrl(id, fileBaseUrl));
+                        processedForm.zips = (await Promise.all(zipFilePromises)).filter(Boolean);
+                    } else {
+                        processedForm.zips = [];
+                    }
+            
+                    if (form.files.studentSignature) {
+                        processedForm.studentSignature = await getFileDetailsAndUrl(form.files.studentSignature, fileBaseUrl);
+                    } else {
+                        processedForm.studentSignature = null;
+                    }
+            
+                    if (form.files.guideSignature) {
+                        processedForm.guideSignature = await getFileDetailsAndUrl(form.files.guideSignature, fileBaseUrl);
+                    } else {
+                        processedForm.guideSignature = null;
+                    }
+            
+                    if (form.files.groupLeaderSignature) {
+                        processedForm.groupLeaderSignature = await getFileDetailsAndUrl(form.files.groupLeaderSignature, fileBaseUrl);
+                    } else {
+                        processedForm.groupLeaderSignature = null;
+                    }
+                }
+                break;
         // --- END NEW CASE FOR UG3AForm ---
         default:
             console.warn(`No specific processing defined for form type: ${formType}. Returning raw form data with generic name/branch.`);
