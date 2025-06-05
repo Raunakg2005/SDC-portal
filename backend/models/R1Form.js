@@ -50,7 +50,6 @@ const R1FormSchema = new mongoose.Schema({
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
 
   proofDocumentFileId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  receiptCopyFileId: { type: mongoose.Schema.Types.ObjectId, required: true },
   studentSignatureFileId: { type: mongoose.Schema.Types.ObjectId, required: true },
   guideSignatureFileId: { type: mongoose.Schema.Types.ObjectId, required: true },
   hodSignatureFileId: { type: mongoose.Schema.Types.ObjectId, required: true },

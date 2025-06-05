@@ -8,24 +8,31 @@ import R1Form from '../models/R1Form.js';
 dotenv.config();
 const router = express.Router();
 
+// === Multer Setup ===
 const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max per file
 }).fields([
-  { name: 'bills', maxCount: 10 }, // PDF
-  { name: 'zipFiles', maxCount: 2 }, // ZIP
-  { name: 'studentSignature', maxCount: 1 }, // PDF/PNG
-  { name: 'sdcCoordinatorSignature', maxCount: 1 }, // PDF/PNG
-  { name: 'sdcChairpersonSignature', maxCount: 1 }, // PDF/PNG
-  { name: 'principalSignature', maxCount: 1 }, // PDF/PNG
+  { name: 'proofDocument', maxCount: 1 },
+  { name: 'studentSignature', maxCount: 1 },
+  { name: 'guideSignature', maxCount: 1 },
+  { name: 'hodSignature', maxCount: 1 },
+  { name: 'sdcChairpersonSignature', maxCount: 1 }, // optional
+  { name: 'pdfs', maxCount: 5 },
+  { name: 'zipFile', maxCount: 1 }, // <--- CHANGED THIS BACK TO 'zipFile'
 ]);
 
+// === POST /submit route ===
 router.post('/submit', upload, async (req, res) => {
   try {
     const conn = mongoose.connection;
     const bucket = new GridFSBucket(conn.db, { bucketName: 'r1files' });
+
+    // Debug logs
+    console.log('Received body:', req.body);
+    console.log('Received files:', Object.keys(req.files || {}));
 
     const uploadFile = (file) => {
       return new Promise((resolve, reject) => {
@@ -38,38 +45,58 @@ router.post('/submit', upload, async (req, res) => {
       });
     };
 
+    // Parse JSON fields
     const authors = req.body.authors ? JSON.parse(req.body.authors) : [];
     const bankDetails = req.body.bankDetails ? JSON.parse(req.body.bankDetails) : null;
 
-    const proofDocumentFile = req.files?.proofDocument?.[0];
-    const receiptCopyFile = req.files?.receiptCopy?.[0];
-    const studentSignatureFile = req.files?.studentSignature?.[0];
-    const guideSignatureFile = req.files?.guideSignature?.[0];
-    const hodSignatureFile = req.files?.hodSignature?.[0];
-    const pdfFiles = req.files?.pdfFiles || [];
-    const zipFile = req.files?.zipFile?.[0] || null;
+    // Extract files from req.files
+    const {
+      proofDocument, // This will now be the single proof document, if any
+      studentSignature,
+      guideSignature,
+      hodSignature,
+      sdcChairpersonSignature,
+      pdfs = [],
+      zipFile, // <--- CHANGED THIS BACK TO 'zipFile'
+    } = req.files || {};
 
-    if (!proofDocumentFile || !receiptCopyFile || !studentSignatureFile || !guideSignatureFile || !hodSignatureFile) {
-      return res.status(400).json({ error: 'Missing required files.' });
+    // --- IMPORTANT CHANGE: Updated required files check ---
+    // Now, 'proofDocument' can be fulfilled by either the single 'proofDocument' field
+    // or by the 'pdfs' array. The backend should check for AT LEAST ONE.
+    if (!studentSignature?.[0] || !guideSignature?.[0] || !hodSignature?.[0] || (!proofDocument?.[0] && pdfs.length === 0)) {
+        return res.status(400).json({ error: 'Missing one or more required files (studentSignature, guideSignature, hodSignature, or proofDocument/pdfs).' });
     }
 
-    const proofDocumentFileId = await uploadFile(proofDocumentFile);
-    const receiptCopyFileId = await uploadFile(receiptCopyFile);
-    const studentSignatureFileId = await uploadFile(studentSignatureFile);
-    const guideSignatureFileId = await uploadFile(guideSignatureFile);
-    const hodSignatureFileId = await uploadFile(hodSignatureFile);
+    // Upload required files to GridFS
+    const studentSignatureFileId = await uploadFile(studentSignature[0]);
+    const guideSignatureFileId = await uploadFile(guideSignature[0]);
+    const hodSignatureFileId = await uploadFile(hodSignature[0]);
 
+    let proofDocumentFileId = null;
+    if (proofDocument?.[0]) {
+        proofDocumentFileId = await uploadFile(proofDocument[0]);
+    }
+
+    // Optional signature
+    let sdcChairpersonSignatureFileId = null;
+    if (sdcChairpersonSignature?.[0]) {
+      sdcChairpersonSignatureFileId = await uploadFile(sdcChairpersonSignature[0]);
+    }
+
+    // Upload PDF files (sent as 'pdfs' from frontend)
     const pdfFileIds = [];
-    for (const file of pdfFiles) {
+    for (const file of pdfs) {
       const id = await uploadFile(file);
       pdfFileIds.push(id);
     }
 
+    // Upload ZIP if present (sent as 'zipFile' from frontend)
     let zipFileId = null;
-    if (zipFile) {
-      zipFileId = await uploadFile(zipFile);
+    if (zipFile?.[0]) { // <--- CHANGED THIS BACK TO 'zipFile'
+      zipFileId = await uploadFile(zipFile[0]); // <--- CHANGED THIS BACK TO 'zipFile'
     }
 
+    // Create and save form document
     const newForm = new R1Form({
       guideName: req.body.guideName,
       coGuideName: req.body.coGuideName || '',
@@ -101,14 +128,14 @@ router.post('/submit', upload, async (req, res) => {
       finalAmountSanctioned: req.body.finalAmountSanctioned || '',
       status: req.body.status || 'pending',
 
-      proofDocumentFileId,
-      receiptCopyFileId,
+      proofDocumentFileId: proofDocumentFileId,
       studentSignatureFileId,
       guideSignatureFileId,
       hodSignatureFileId,
+      sdcChairpersonSignatureFileId,
 
       pdfFileIds,
-      zipFileId,
+      zipFileId, // Retain the variable name for the model
 
       dateOfSubmission: req.body.dateOfSubmission ? new Date(req.body.dateOfSubmission) : undefined,
       remarksByHOD: req.body.remarksByHOD || '',
@@ -116,9 +143,9 @@ router.post('/submit', upload, async (req, res) => {
 
     await newForm.save();
 
-    res.json({ message: 'R1 form submitted successfully!' });
+    res.json({ message: '✅ R1 form submitted successfully!' });
   } catch (error) {
-    console.error('R1 form submission error:', error);
+    console.error('❌ R1 form submission error:', error);
     res.status(500).json({ error: 'Failed to submit R1 form' });
   }
 });

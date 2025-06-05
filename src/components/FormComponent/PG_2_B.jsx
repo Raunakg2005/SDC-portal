@@ -2,22 +2,55 @@ import React, { useState , useEffect} from 'react';
 import axios from 'axios';
 
 const PG_2_B = ({ viewOnly = false, initialData = {} }) => {
-  const [formData, setFormData] = useState(() => {
-    if (viewOnly && initialData) {
-      return {
+  const [formData, setFormData] = useState({
+    studentName: '',
+    yearOfAdmission: '',
+    feesPaid: 'No',
+    projectTitle: '',
+    guideName: '',
+    coGuideName: '',
+    conferenceDate: '',
+    organization: '',
+    publisher: '',
+    paperLink: '',
+    authors: ['', '', '', ''],
+    bankDetails: {
+      beneficiary: '',
+      ifsc: '',
+      bankName: '',
+      branch: '',
+      accountType: '',
+      accountNumber: ''
+    },
+    registrationFee: '',
+    previousClaim: 'No',
+    claimDate: '',
+    amountReceived: '',
+    amountSanctioned: '',
+    status: 'pending'
+  });
+
+  const [files, setFiles] = useState({
+    paperCopy: null,
+    groupLeaderSignature: null,
+    guideSignature: null,
+    additionalDocuments: []
+  });
+
+  useEffect(() => {
+    if (viewOnly && initialData && Object.keys(initialData).length > 0) {
+      setFormData({
         studentName: initialData.studentName || '',
         yearOfAdmission: initialData.yearOfAdmission || '',
         feesPaid: initialData.feesPaid || 'No',
         projectTitle: initialData.projectTitle || '',
         guideName: initialData.guideName || '',
         coGuideName: initialData.coGuideName || '',
-        conferenceDate: initialData.conferenceDate || '',
+        conferenceDate: initialData.conferenceDate?.slice(0, 10) || '',
         organization: initialData.organization || '',
         publisher: initialData.publisher || '',
         paperLink: initialData.paperLink || '',
-        authors: Array.isArray(initialData.authors)
-          ? initialData.authors.map(a => a || '')
-          : ['', '', '', ''],
+        authors: Array.isArray(initialData.authors) ? initialData.authors.map(a => a || '') : ['', '', '', ''],
         bankDetails: {
           beneficiary: initialData.bankDetails?.beneficiary || '',
           ifsc: initialData.bankDetails?.ifsc || '',
@@ -28,59 +61,21 @@ const PG_2_B = ({ viewOnly = false, initialData = {} }) => {
         },
         registrationFee: initialData.registrationFee || '',
         previousClaim: initialData.previousClaim || 'No',
-        claimDate: initialData.claimDate || '',
+        claimDate: initialData.claimDate?.slice(0, 10) || '',
         amountReceived: initialData.amountReceived || '',
         amountSanctioned: initialData.amountSanctioned || '',
         status: initialData.status || 'pending'
-      };
+      });
+
+      setFiles({
+        paperCopy: initialData.paperCopyFilename,
+        groupLeaderSignature: initialData.groupLeaderSignatureFilename,
+        guideSignature: initialData.guideSignatureFilename,
+        additionalDocuments: initialData.additionalDocumentsFilename || []
+      });
     }
+  }, [initialData, viewOnly]);
   
-    // Default values if not viewOnly or no initialData
-    return {
-      studentName: '',
-      yearOfAdmission: '',
-      feesPaid: 'No',
-      projectTitle: '',
-      guideName: '',
-      coGuideName: '',
-      conferenceDate: '',
-      organization: '',
-      publisher: '',
-      paperLink: '',
-      authors: ['', '', '', ''],
-      bankDetails: {
-        beneficiary: '',
-        ifsc: '',
-        bankName: '',
-        branch: '',
-        accountType: '',
-        accountNumber: ''
-      },
-      registrationFee: '',
-      previousClaim: 'No',
-      claimDate: '',
-      amountReceived: '',
-      amountSanctioned: '',
-      status: 'pending'
-    };
-  });
-  
-  const [files, setFiles] = useState(() => {
-    if (viewOnly && initialData) {
-      return {
-        paperCopy: initialData.files?.paperCopy || null,
-        groupLeaderSignature: initialData.files?.groupLeaderSignature || null,
-        guideSignature: initialData.files?.guideSignature || null,
-        additionalDocuments: initialData.files?.additionalDocuments || null
-      };
-    }
-    return {
-      paperCopy: null,
-      groupLeaderSignature: null,
-      guideSignature: null,
-      additionalDocuments: null
-    };
-  });
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {

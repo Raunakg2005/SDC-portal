@@ -40,15 +40,29 @@ const R1 = ({ data = null, viewOnly = false }) => {
   });
 
   const [files, setFiles] = useState({
-    proofDocument: data?.proofDocumentUrl ? { name: 'Proof Document', url: data.proofDocumentUrl } : null,
-    receiptCopy: data?.receiptCopyUrl ? { name: 'Receipt Copy', url: data.receiptCopyUrl } : null,
-    studentSignature: data?.studentSignatureUrl ? { name: 'Student Signature', url: data.studentSignatureUrl } : null,
-    guideSignature: data?.guideSignatureUrl ? { name: 'Guide Signature', url: data.guideSignatureUrl } : null,
-    hodSignature: data?.hodSignatureUrl ? { name: 'HOD Signature', url: data.hodSignatureUrl } : null,
-    sdcChairpersonSignature: data?.sdcChairpersonSignatureUrl ? { name: 'SDC Chairperson Signature', url: data.sdcChairpersonSignatureUrl } : null,
-    pdfs: data?.pdfsUrls ? data.pdfsUrls.map((url, i) => ({ name: `Document ${i + 1}`, url })) : [],
-    zip: data?.zipUrl ? { name: 'ZIP File', url: data.zipUrl } : null
+    proofDocument: data?.proofDocumentUrl
+      ? { name: 'Proof Document', url: data.proofDocumentUrl }
+      : null,
+    receiptCopy: data?.receiptCopyUrl
+      ? { name: 'Receipt Copy', url: data.receiptCopyUrl }
+      : null,
+    studentSignature: data?.studentSignatureUrl
+      ? { name: 'Student Signature', url: data.studentSignatureUrl }
+      : null,
+    guideSignature: data?.guideSignatureUrl
+      ? { name: 'Guide Signature', url: data.guideSignatureUrl }
+      : null,
+    hodSignature: data?.hodSignatureUrl
+      ? { name: 'HOD Signature', url: data.hodSignatureUrl }
+      : null,
+    pdfFiles: data?.pdfsUrls
+      ? data.pdfsUrls.map((url, i) => ({ name: `Document ${i + 1}`, url }))
+      : [],
+    zipFile: data?.zipUrl
+      ? { name: 'ZIP File', url: data.zipUrl }
+      : null,
   });
+  
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -128,12 +142,12 @@ const R1 = ({ data = null, viewOnly = false }) => {
 
   const handleFileChange = (field, e) => {
     if (viewOnly) return;
-    const selectedFiles = e.target.files;
 
+    const selectedFiles = e.target.files;
     if (!selectedFiles || selectedFiles.length === 0) return;
 
-    // Handle multiple PDFs
-    if (field === 'pdfs') {
+    // This block now handles the 'pdfs' field from your UI
+    if (field === 'pdfs') { // Changed from 'pdfFiles' to 'pdfs'
       const newFiles = Array.from(selectedFiles);
       if (newFiles.length > 5) {
         alert('❌ Maximum 5 PDF files allowed.');
@@ -142,7 +156,7 @@ const R1 = ({ data = null, viewOnly = false }) => {
 
       for (const file of newFiles) {
         if (file.type !== 'application/pdf') {
-          alert('❌ Only PDF files allowed in PDFs upload.');
+          alert('❌ Only PDF files allowed.');
           return;
         }
         if (file.size > 5 * 1024 * 1024) {
@@ -151,15 +165,12 @@ const R1 = ({ data = null, viewOnly = false }) => {
         }
       }
 
-      setFiles(prev => ({
-        ...prev,
-        pdfs: newFiles
-      }));
+      setFiles(prev => ({ ...prev, pdfs: newFiles })); // Changed from 'pdfFiles' to 'pdfs'
       return;
     }
 
-    // Handle ZIP file
-    if (field === 'zip') {
+    // This block now handles the 'zip' field from your UI
+    if (field === 'zip') { // Changed from 'zipFile' to 'zip'
       const file = selectedFiles[0];
       if (!file.name.endsWith('.zip')) {
         alert('❌ Only ZIP file is allowed.');
@@ -170,29 +181,24 @@ const R1 = ({ data = null, viewOnly = false }) => {
         return;
       }
 
-      setFiles(prev => ({
-        ...prev,
-        zip: file
-      }));
+      setFiles(prev => ({ ...prev, zip: file })); // Changed from 'zipFile' to 'zip'
       return;
     }
 
-    // Signature files
-    if (field.includes('Signature') && !selectedFiles[0].type.startsWith('image/')) {
+    // For signature/image files (studentSignature, guideSignature, hodSignature, sdcChairpersonSignature)
+    const file = selectedFiles[0];
+    if (field.includes('Signature') && !file.type.startsWith('image/')) {
       alert('❌ Only image files are allowed for signatures.');
       return;
     }
 
-    if (selectedFiles[0].size > 5 * 1024 * 1024) {
+    if (file.size > 5 * 1024 * 1024) {
       alert('❌ File must be less than 5MB.');
       return;
     }
 
-    setFiles(prev => ({
-      ...prev,
-      [field]: selectedFiles[0]
-    }));
-  };
+    setFiles(prev => ({ ...prev, [field]: file }));
+};
 
   const validateForm = () => {
     // Basic validation
@@ -221,54 +227,92 @@ const R1 = ({ data = null, viewOnly = false }) => {
     if (viewOnly || isSubmitting) return;
   
     setErrorMessage('');
-    
+    // Assuming validateForm() handles overall form validation
+    // You might want to adjust validateForm if it still checks for receiptCopy
     if (!validateForm()) return;
   
     setIsSubmitting(true);
   
     const submissionData = new FormData();
   
+    // Append non-file fields (this section seems okay)
     for (const [key, value] of Object.entries(formData)) {
-      if (Array.isArray(value)) {
+      if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
         submissionData.append(key, JSON.stringify(value));
-      } else if (typeof value === 'object' && value !== null) {
-        submissionData.append(key, JSON.stringify(value));
-      } else {
+      } else if (value !== undefined && value !== null) {
         submissionData.append(key, value);
       }
     }
   
-    // Append single files
-    for (const [key, file] of Object.entries(files)) {
-      if (key === 'pdfs') {
-        if (Array.isArray(file)) {
-          file.forEach((pdfFile, index) => {
-            if (pdfFile instanceof File) {
-              submissionData.append('pdfs', pdfFile); // key can repeat for FormData
-            }
-          });
-        }
-      } else if (key === 'zip' && file instanceof File) {
-        submissionData.append('zip', file);
-      } else if (file instanceof File) {
-        submissionData.append(key, file);
+    // --- IMPORTANT CHANGE HERE: Removed 'receiptCopy' ---
+    const mandatoryFileFields = [
+      'studentSignature',
+      'guideSignature',
+      'hodSignature',
+    ];
+  
+    let trulyMissingFiles = [];
+  
+    // Append and Validate Mandatory Single Files (Signatures)
+    mandatoryFileFields.forEach((field) => {
+      if (files[field] instanceof File) {
+        submissionData.append(field, files[field]);
+      } else {
+        trulyMissingFiles.push(field);
       }
-    }
-    try {
-      const response = await axios.post("http://localhost:5000/api/r1form/submit", submissionData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+    });
+  
+    // --- Handle 'proofDocument' Requirement via 'pdfs' array ---
+    // Based on your JSX, 'Attach up to 5 proof documents (PDF)' updates `files.pdfs`
+    if (Array.isArray(files.pdfs) && files.pdfs.length > 0) {
+      files.pdfs.forEach((file) => {
+        if (file instanceof File) {
+          submissionData.append('proofDocument', file); // Append each PDF with the 'proofDocument' key
+        }
       });
-      alert("✅ Form submitted successfully!");
+    } else {
+      // If no PDFs are uploaded, 'proofDocument' is missing and should be flagged
+      trulyMissingFiles.push('proofDocument');
+    }
+  
+    // --- Handle Optional ZIP file ---
+    // Your UI updates `files.zip`
+    if (files.zip instanceof File) {
+      submissionData.append('zipFile', files.zip); // Backend likely expects 'zipFile'
+    }
+  
+    // --- Handle Optional SDC Chairperson Signature ---
+    // Your UI updates `files.sdcChairpersonSignature`
+    if (files.sdcChairpersonSignature instanceof File) {
+      submissionData.append('sdcChairpersonSignature', files.sdcChairpersonSignature);
+    }
+  
+    // --- Final Check for Missing Mandatory Files ---
+    if (trulyMissingFiles.length > 0) {
+      setErrorMessage(`Please upload required file(s): ${trulyMissingFiles.join(', ')}`);
+      setIsSubmitting(false);
+      return;
+    }
+  
+    // --- Submit Form ---
+    try {
+      const response = await axios.post(
+        'http://localhost:5000/api/r1form/submit',
+        submissionData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
+      );
+      alert('✅ Form submitted successfully!');
+      console.log('Server response:', response.data);
     } catch (error) {
-      console.error("❌ Error submitting form:", error);
-      setErrorMessage("Error submitting form. Please try again.");
+      console.error('❌ Error submitting form:', error.response?.data || error.message);
+      setErrorMessage('Error submitting form. Please check your input and try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
-
+  
   const handleBack = () => {
     window.history.back();
   };
@@ -408,14 +452,23 @@ const R1 = ({ data = null, viewOnly = false }) => {
               </td>
               <th className="p-2 border border-gray-300 bg-gray-100">Employee Codes</th>
               <td className="p-2 border border-gray-300">
+                {!viewOnly ? (
                 <input
                   type="text"
                   name="employeeCodes"
-                  value={formData.employeeCodes}
+                  value={formData.employeeCodes || ''}
                   onChange={handleChange}
-                  disabled={viewOnly}
-                  className="w-full p-1 border border-gray-300 rounded disabled:bg-gray-100"
+                  className="w-full p-1 border border-gray-300 rounded"
+                  placeholder="e.g., 35363, 12345"
                 />
+              ) : (
+                <p className="text-gray-700">
+                  {/* THIS IS THE CRITICAL LINE THAT NEEDS THE TYPE CHECK */}
+                  {typeof formData.employeeCodes === 'string' && formData.employeeCodes.trim() !== ''
+                    ? formData.employeeCodes // Display the string value
+                    : 'N/A'}
+                </p>
+              )}
               </td>
             </tr>
             <tr>
@@ -754,49 +807,64 @@ const R1 = ({ data = null, viewOnly = false }) => {
 
         {/* File Uploads */}
         <div className="mb-6 space-y-4">
-        {/* Multiple PDFs (max 5) */}
-        <div>
-          <label className="block font-semibold mb-2">Attach up to 5 proof documents (PDF):</label>
-          {viewOnly ? (
-            files.pdfs && files.pdfs.length > 0 ? (
-              files.pdfs.map((file, idx) => (
-                <div key={idx}>{renderFileDisplay(`pdfs[${idx}]`, `Proof Document ${idx + 1}`)}</div>
-              ))
+          {/* Multiple PDFs (max 5) */}
+          <div>
+            <label className="block font-semibold mb-2">Attach up to 5 proof documents (PDF):</label>
+            {viewOnly ? (
+              Array.isArray(files.pdfs) && files.pdfs.length > 0 ? (
+                files.pdfs.map((file, idx) => (
+                  <div key={idx}>
+                    {renderFileDisplay(`pdfs[${idx}]`, `Proof Document ${idx + 1}`)}
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500">No proof documents uploaded.</p>
+              )
             ) : (
-              <p className="text-gray-500">No proof documents uploaded.</p>
-            )
-          ) : (
-            <input
-              type="file"
-              accept="application/pdf"
-              multiple
-              onChange={(e) => {
-                const selectedFiles = Array.from(e.target.files).slice(0, 5); // limit to 5 PDFs
-                setFiles(prev => ({ ...prev, pdfs: selectedFiles }));
-              }}
-            />
-          )}
+              <>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  multiple
+                  onChange={(e) => {
+                    const selectedFiles = Array.from(e.target.files).slice(0, 5); // limit to 5 PDFs
+                    setFiles(prev => ({ ...prev, pdfs: selectedFiles }));
+                  }}
+                />
+                {Array.isArray(files.pdfs) && files.pdfs.length > 0 && (
+                  <ul className="text-sm mt-1 list-disc pl-5">
+                    {files.pdfs.map((file, idx) => (
+                      <li key={idx}>{file.name}</li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* ZIP file */}
+          <div>
+            <label className="block font-semibold mb-2">Attach ZIP file (optional):</label>
+            {viewOnly ? (
+              renderFileDisplay('zip', 'ZIP File')
+            ) : (
+              <>
+                <input
+                  type="file"
+                  accept=".zip,application/zip,application/x-zip-compressed"
+                  onChange={(e) => {
+                    const selectedFile = e.target.files[0];
+                    if (selectedFile) {
+                      setFiles(prev => ({ ...prev, zip: selectedFile }));
+                    }
+                  }}
+                />
+                {files.zip && <p className="text-sm mt-1">{files.zip.name}</p>}
+              </>
+            )}
+          </div>
         </div>
 
-        {/* ZIP file */}
-        <div>
-          <label className="block font-semibold mb-2">Attach ZIP file (optional):</label>
-          {viewOnly ? (
-            renderFileDisplay('zip', 'ZIP File')
-          ) : (
-            <input
-              type="file"
-              accept=".zip,application/zip,application/x-zip-compressed"
-              onChange={(e) => {
-                const selectedFile = e.target.files[0];
-                if (selectedFile) {
-                  setFiles(prev => ({ ...prev, zip: selectedFile }));
-                }
-              }}
-            />
-          )}
-        </div>
-      </div>
         {/* Signatures */}
         <div className="mb-6">
           <div className="mb-4">
@@ -812,31 +880,63 @@ const R1 = ({ data = null, viewOnly = false }) => {
           </div>
 
           <div className="grid grid-cols-2 gap-4 mb-4">
+            {/* Student Signature */}
             <div>
               <label className="block font-semibold mb-2">Signature of the student</label>
-              {renderFileDisplay('studentSignature', 'Student Signature')}
+              {!viewOnly && (
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange('studentSignature', e)}
+                />
+              )}
+              {files.studentSignature && !viewOnly && <p className="text-sm mt-1">{files.studentSignature.name}</p>}
             </div>
 
+            {/* Guide Signature */}
             <div>
               <label className="block font-semibold mb-2">Signature of Guide / Co-guide</label>
-              {renderFileDisplay('guideSignature', 'Guide Signature')}
+              {!viewOnly && (
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleFileChange('guideSignature', e)}
+                />
+              )}
+              {files.guideSignature && !viewOnly && <p className="text-sm mt-1">{files.guideSignature.name}</p>}
             </div>
           </div>
 
+          {/* HOD Signature */}
           <div className="mb-4">
             <label className="block font-semibold mb-2">Remarks by HOD:</label>
-            <textarea
-              name='remarksByHod'
-              value={formData.remarksByHod}
-              onChange={handleChange}
-              disabled={viewOnly}
-              className="w-full p-2 border border-gray-300 rounded h-20 disabled:bg-gray-100"
-            ></textarea>
+              {!viewOnly ? (
+                <textarea
+                  name="remarksByHod"
+                  value={formData.remarksByHod || ''} // Ensure value is a string, default to empty string
+                  onChange={handleChange}
+                  className="w-full p-2 border border-gray-300 rounded h-20"
+                  placeholder="Enter remarks here..."
+                ></textarea>
+              ) : (
+                <p className="w-full p-2 border border-gray-300 rounded h-20 bg-gray-100 whitespace-pre-wrap">
+                  {formData.remarksByHod && formData.remarksByHod.trim() !== ''
+                    ? formData.remarksByHod
+                    : 'No remarks provided.'}
+                </p>
+              )}
           </div>
 
           <div className="mb-4">
             <label className="block font-semibold mb-2">Signature of HOD</label>
-            {renderFileDisplay('hodSignature', 'HOD Signature')}
+            {!viewOnly && (
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleFileChange('hodSignature', e)}
+              />
+            )}
+            {files.hodSignature && !viewOnly && <p className="text-sm mt-1">{files.hodSignature.name}</p>}
           </div>
         </div>
 
@@ -885,22 +985,25 @@ const R1 = ({ data = null, viewOnly = false }) => {
                         />
                       </label>
                       <span className="ml-2 text-sm">
-                        {files.sdcChairpersonSignature ? (files.sdcChairpersonSignature.name || 'File selected') : "No file chosen"}
+                        {files.sdcChairpersonSignature
+                          ? files.sdcChairpersonSignature.name || 'File selected'
+                          : 'No file chosen'}
                       </span>
-                      {/* You might want a separate state for this date if it's not part of formData */}
                       <input
                         type="date"
-                        className="ml-2 p-1 border border-gray-300 rounded"
+                        name="sdcChairpersonDate"
+                        value={formData.sdcChairpersonDate}
+                        onChange={handleChange}
                         disabled={viewOnly}
-                        // This date should ideally be managed in formData or a separate state
-                        // Example: value={formData.sdcChairpersonDate} onChange={handleChange}
+                        className="ml-2 p-1 border border-gray-300 rounded"
                       />
                     </>
                   ) : (
                     <>
                       {renderFileDisplay('sdcChairpersonSignature', 'SDC Chairperson Signature')}
-                      {/* Display the date if it's available in data prop */}
-                      {data?.sdcChairpersonDate && <span className="ml-2 text-sm text-gray-600">({data.sdcChairpersonDate})</span>}
+                      {formData?.sdcChairpersonDate && (
+                        <span className="ml-2 text-sm text-gray-600">({formData.sdcChairpersonDate})</span>
+                      )}
                     </>
                   )}
                 </div>
@@ -914,7 +1017,7 @@ const R1 = ({ data = null, viewOnly = false }) => {
           <button
             type="button"
             onClick={handleBack}
-            className="px-6 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+            className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600"
           >
             Back
           </button>
@@ -923,7 +1026,7 @@ const R1 = ({ data = null, viewOnly = false }) => {
               type="submit"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className={`px-6 py-2 rounded-md text-white ${isSubmitting ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'}`}
+              className={`submit-btn bg-green-500 text-white px-6 py-2 rounded hover:bg-green-600 ${isSubmitting ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'}`}
             >
               {isSubmitting ? 'Submitting...' : 'Submit'}
             </button>
