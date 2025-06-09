@@ -11,7 +11,24 @@ const PendingApplications = () => {
   useEffect(() => {
     const fetchApplications = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/application/pending");
+        // 1. Get user's branch from localStorage
+        let userBranch = null;
+        const userString = localStorage.getItem("user");
+        if (userString) {
+          try {
+            const user = JSON.parse(userString);
+            userBranch = user.branch;
+          } catch (e) {
+            console.error("Failed to parse user data from localStorage:", e);
+            // Consider adding user-facing error or logout if localStorage is critical
+          }
+        }
+
+        // 2. Construct the URL with the userBranch as a query parameter
+        const baseUrl = "http://localhost:5000/api/application/pending";
+        const url = userBranch ? `${baseUrl}?userBranch=${encodeURIComponent(userBranch)}` : baseUrl;
+
+        const res = await fetch(url);
         if (!res.ok) {
           const text = await res.text();
           throw new Error(`Failed to fetch pending applications: ${res.status} ${text}`);
@@ -27,10 +44,23 @@ const PendingApplications = () => {
     };
 
     fetchApplications();
-  }, []);
+  }, []); // Empty dependency array means this runs once on component mount
 
   const handleViewClick = (id) => {
-    navigate(`/application/${id}`);
+    // When navigating to a specific application, also send the user's branch
+    // so the detail page can use it for its API call.
+    let userBranch = null;
+    const userString = localStorage.getItem("user");
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        userBranch = user.branch;
+      } catch (e) {
+        console.error("Failed to parse user data for view click:", e);
+      }
+    }
+    const queryParam = userBranch ? `?userBranch=${encodeURIComponent(userBranch)}` : '';
+    navigate(`/application/${id}${queryParam}`);
   };
 
   if (loading) return <div className="p-6">Loading pending applications...</div>;
@@ -69,6 +99,8 @@ const PendingApplications = () => {
                   <td className="p-3">
                     {new Date(app.submitted).toLocaleDateString()}
                   </td>
+                  {/* This 'app.branch' now comes from the backend,
+                      prioritizing the user's branch if sent. */}
                   <td className="p-3">{app.branch}</td>
                   <td className="p-3">
                     <button
