@@ -1,7 +1,7 @@
 import React, { useState , useEffect} from 'react';
 import axios from 'axios';
 
-const PG_2_B = ({ viewOnly = false, initialData = {} }) => {
+const PG_2_B = ({ viewOnly = false, data = {} }) => {
   const [formData, setFormData] = useState({
     studentName: '',
     yearOfAdmission: '',
@@ -38,43 +38,43 @@ const PG_2_B = ({ viewOnly = false, initialData = {} }) => {
   });
 
   useEffect(() => {
-    if (viewOnly && initialData && Object.keys(initialData).length > 0) {
+    if (viewOnly && data && Object.keys(data).length > 0) {
       setFormData({
-        studentName: initialData.studentName || '',
-        yearOfAdmission: initialData.yearOfAdmission || '',
-        feesPaid: initialData.feesPaid || 'No',
-        projectTitle: initialData.projectTitle || '',
-        guideName: initialData.guideName || '',
-        coGuideName: initialData.coGuideName || '',
-        conferenceDate: initialData.conferenceDate?.slice(0, 10) || '',
-        organization: initialData.organization || '',
-        publisher: initialData.publisher || '',
-        paperLink: initialData.paperLink || '',
-        authors: Array.isArray(initialData.authors) ? initialData.authors.map(a => a || '') : ['', '', '', ''],
+        studentName: data.studentName || '',
+        yearOfAdmission: data.yearOfAdmission || '',
+        feesPaid: data.feesPaid || 'No',
+        projectTitle: data.projectTitle || '',
+        guideName: data.guideName || '',
+        coGuideName: data.coGuideName || '',
+        conferenceDate: data.conferenceDate?.slice(0, 10) || '',
+        organization: data.organization || '',
+        publisher: data.publisher || '',
+        paperLink: data.paperLink || '',
+        authors: Array.isArray(data.authors) ? data.authors.map(a => a || '') : ['', '', '', ''],
         bankDetails: {
-          beneficiary: initialData.bankDetails?.beneficiary || '',
-          ifsc: initialData.bankDetails?.ifsc || '',
-          bankName: initialData.bankDetails?.bankName || '',
-          branch: initialData.bankDetails?.branch || '',
-          accountType: initialData.bankDetails?.accountType || '',
-          accountNumber: initialData.bankDetails?.accountNumber || ''
+          beneficiary: data.bankDetails?.beneficiary || '',
+          ifsc: data.bankDetails?.ifsc || '',
+          bankName: data.bankDetails?.bankName || '',
+          branch: data.bankDetails?.branch || '',
+          accountType: data.bankDetails?.accountType || '',
+          accountNumber: data.bankDetails?.accountNumber || ''
         },
-        registrationFee: initialData.registrationFee || '',
-        previousClaim: initialData.previousClaim || 'No',
-        claimDate: initialData.claimDate?.slice(0, 10) || '',
-        amountReceived: initialData.amountReceived || '',
-        amountSanctioned: initialData.amountSanctioned || '',
-        status: initialData.status || 'pending'
+        registrationFee: data.registrationFee || '',
+        previousClaim: data.previousClaim || 'No',
+        claimDate: data.claimDate?.slice(0, 10) || '',
+        amountReceived: data.amountReceived || '',
+        amountSanctioned: data.amountSanctioned || '',
+        status: data.status || 'pending'
       });
 
       setFiles({
-        paperCopy: initialData.paperCopyFilename,
-        groupLeaderSignature: initialData.groupLeaderSignatureFilename,
-        guideSignature: initialData.guideSignatureFilename,
-        additionalDocuments: initialData.additionalDocumentsFilename || []
+        paperCopy: data.paperCopyFilename,
+        groupLeaderSignature: data.groupLeaderSignatureFilename,
+        guideSignature: data.guideSignatureFilename,
+        additionalDocuments: data.additionalDocumentsFilename || []
       });
     }
-  }, [initialData, viewOnly]);
+  }, [data, viewOnly]);
   
   const [loading, setLoading] = useState(false);
 

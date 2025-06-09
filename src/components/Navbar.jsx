@@ -27,7 +27,7 @@ const Navbar = () => {
 
       <div className="navbar-user-home">
         <span className="user-name">{user?.svvNetId || "Guest"}</span>
-        <span className="user-role">{user?.role || "Not Logged In"}</span>
+        <span className="user-role">{user?.branch || "Not Logged In"}</span>
       </div>
     </nav>
   );

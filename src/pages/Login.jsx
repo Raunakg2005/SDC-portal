@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import axios from "axios"; // Keep axios for future API integration
 import "./login.css";
 import logo from "../assets/somaiya-logo.png";
 import logo1 from "../assets/trust.png";
@@ -16,38 +16,69 @@ const Login = () => {
     e.preventDefault();
     setError("");
 
-    // Hardcoded credentials
+    // --- TEMPORARY: Hardcoded credentials with roles and branch for testing ---
     const hardcodedUsers = {
-      "devanshu.d": "Devanshu123",
-      "sohamgore": "12345678",
+      "devanshu.d": { password: "Devanshu123", role: "admin", branch: "(AI & DS)" }, // Example: 'admin' role
+      "sohamgore": { password: "12345678", role: "student", branch: "COMPS" },   // Example: 'student' role
+      "faculty.a": { password: "faculty123", role: "faculty", branch: "COMPS" }, // Example: 'faculty' role
+      // Add more hardcoded users and their roles/branches as needed for development
     };
 
-    if (hardcodedUsers[username] === password) {
-      // Store in localStorage
+    const userEntry = hardcodedUsers[username];
+
+    if (userEntry && userEntry.password === password) {
+      // Store user details including role AND branch in localStorage
       localStorage.setItem("svvNetId", username);
-      localStorage.setItem("user", JSON.stringify({ svvNetId: username, role: "UG (AI&DS)" }));
+      localStorage.setItem("user", JSON.stringify({
+        svvNetId: username,
+        role: userEntry.role,
+        branch: userEntry.branch // Add branch here
+      }));
 
       console.log("Stored svvNetId:", localStorage.getItem("svvNetId")); // Debugging
+      console.log("Stored user role:", userEntry.role); // Debugging
+      console.log("Stored user branch:", userEntry.branch); // Debugging
 
+      // Redirect based on role or to a general home page
+      // You can add more complex routing logic here if needed,
+      // e.g., navigate('/admin-dashboard') for admins
       navigate("/home");
     } else {
-      setError("Invalid credentials!");
+      setError("Invalid SVV Net ID or password.");
     }
 
-    // Optional: Uncomment this if you want to send login requests to an API
-    // try {
-    //   const res = await axios.post("http://localhost:5000/api/auth/login", { svvNetId: username, password });
-    //   if (res.status === 200 && res.data.token) {
-    //     localStorage.setItem("token", res.data.token);
-    //     localStorage.setItem("svvNetId", username);
-    //     localStorage.setItem("user", JSON.stringify({ svvNetId: username, role: "UG (AI&DS)" }));
-    //     navigate("/home");
-    //   } else {
-    //     setError("Login failed. Please try again.");
-    //   }
-    // } catch (err) {
-    //   setError(err.response?.data?.message || "Login failed.");
-    // }
+    // --- SPACE FOR DATABASE INTEGRATION ---
+    // If you plan to use an API for authentication, uncomment and adjust the following block.
+    // This provides a clear section for your backend logic.
+    /*
+    try {
+      // Replace with your actual API endpoint and request body as per your backend
+      const res = await axios.post("http://localhost:5000/api/auth/login", { 
+        svvNetId: username, 
+        password: password 
+      });
+
+      // Assuming your API returns user data including role AND branch upon successful login
+      // Example response structure: { token: "...", user: { svvNetId: "...", role: "student", branch: "..." } }
+      if (res.status === 200 && res.data.token && res.data.user) {
+        localStorage.setItem("token", res.data.token);
+        localStorage.setItem("svvNetId", res.data.user.svvNetId); // Use svvNetId from API response
+        localStorage.setItem("user", JSON.stringify(res.data.user)); // Store full user object including role and branch
+
+        console.log("Logged in via API. User:", res.data.user); // Debugging
+
+        // Navigate to home or role-specific dashboard
+        navigate("/home"); 
+      } else {
+        // Handle cases where API returns 200 but data is not as expected
+        setError("Login failed. Please check your credentials.");
+      }
+    } catch (err) {
+      // Handle network errors or server-side validation errors
+      setError(err.response?.data?.message || "Login failed. Please try again later.");
+    }
+    */
+    // --- END DATABASE INTEGRATION SPACE ---
   };
 
   return (
@@ -68,7 +99,7 @@ const Login = () => {
             <span className="highlight">Development Cell</span>
           </h1>
           <p className="description">
-            The Student Development Policy at K. J. Somaiya College of Engineering reflects our 
+            The Student Development Policy at K. J. Somaiya College of Engineering reflects our
             commitment to fostering a dynamic and enriching academic environment for students across all levels of study.
           </p>
           <h2 className="validator-question">Validator ?</h2>
