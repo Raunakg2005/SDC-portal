@@ -190,46 +190,43 @@ const processFormForDisplay = async (form, formType) => {
             processedForm.bankDetails = form.bankDetails;
             break;
 
-        case "PG_2_A":
-            // Student and branch already handled generically above
-            // processedForm.name = form.studentDetails?.[0]?.name || "N/A";
-            // processedForm.branch = form.department || "NA";
-
-            // Ensure these fields exist if they're accessed later
-            processedForm.department = form.department || "NA";
-            processedForm.studentDetails = form.studentDetails || [];
-            processedForm.expenses = form.expenses || [];
-            processedForm.bankDetails = form.bankDetails || {};
-            processedForm.organizingInstitute = form.organizingInstitute || "N/A";
-
-            // Process files nested under 'files' object
-            if (form.files) {
-                if (form.files.bills && form.files.bills.length > 0) {
-                    const billFilePromises = form.files.bills.map(id => getFileDetailsAndUrl(id, fileBaseUrl));
-                    processedForm.bills = (await Promise.all(billFilePromises)).filter(Boolean);
-                } else {
-                    processedForm.bills = [];
+            case "PG_2_A":
+                processedForm.topic = form.projectTitle || form.paperTitle || form.topic || "Untitled Project";
+                processedForm.name = form.studentDetails?.[0]?.name || "N/A"; // Explicitly set for PG_2_A
+                processedForm.branch = form.department || (form.studentDetails?.[0]?.branch) || "N/A"; // Explicitly set for PG_2_A
+    
+                processedForm.department = form.department || "NA";
+                processedForm.studentDetails = form.studentDetails || [];
+                processedForm.expenses = form.expenses || [];
+                processedForm.bankDetails = form.bankDetails || {};
+                processedForm.organizingInstitute = form.organizingInstitute || "N/A";
+                processedForm.guideNames = form.guideName ? [form.guideName] : [];
+                processedForm.employeeCodes = form.employeeCode ? [form.employeeCode] : [];
+    
+                if (form.files) {
+                    if (form.files.bills && form.files.bills.length > 0) {
+                        const billFilePromises = form.files.bills.map(id => getFileDetailsAndUrl(id, fileBaseUrl));
+                        processedForm.bills = (await Promise.all(billFilePromises)).filter(Boolean);
+                    } else {
+                        processedForm.bills = [];
+                    }
+                    if (form.files.zips && form.files.zips.length > 0) {
+                        const zipFilePromises = form.files.zips.map(id => getFileDetailsAndUrl(id, fileBaseUrl));
+                        processedForm.zipFile = (await Promise.all(zipFilePromises)).filter(Boolean)[0] || null;
+                    } else {
+                        processedForm.zipFile = null;
+                    }
+                    if (form.files.studentSignature) {
+                        processedForm.studentSignature = await getFileDetailsAndUrl(form.files.studentSignature, fileBaseUrl);
+                    }
+                    if (form.files.guideSignature) {
+                        processedForm.guideSignature = await getFileDetailsAndUrl(form.files.guideSignature, fileBaseUrl);
+                    }
+                    if (form.files.groupLeaderSignature) {
+                        processedForm.groupLeaderSignature = await getFileDetailsAndUrl(form.files.groupLeaderSignature, fileBaseUrl);
+                    }
                 }
-
-                if (form.files.zips && form.files.zips.length > 0) {
-                    const zipFilePromises = form.files.zips.map(id => getFileDetailsAndUrl(id, fileBaseUrl));
-                    processedForm.zipFile = (await Promise.all(zipFilePromises)).filter(Boolean)[0] || null; // Assuming only one zip
-                } else {
-                    processedForm.zipFile = null;
-                }
-
-                // Signatures
-                if (form.files.studentSignature) {
-                    processedForm.studentSignature = await getFileDetailsAndUrl(form.files.studentSignature, fileBaseUrl);
-                }
-                if (form.files.guideSignature) {
-                    processedForm.guideSignature = await getFileDetailsAndUrl(form.files.guideSignature, fileBaseUrl);
-                }
-                if (form.files.groupLeaderSignature) { // This might be present depending on schema
-                    processedForm.groupLeaderSignature = await getFileDetailsAndUrl(form.files.groupLeaderSignature, fileBaseUrl);
-                }
-            }
-            break;
+                break;
 
         case "R1":
             // Student name, branch, topic are already handled generically above

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from "axios";
 
-const UG3AForm = ({ initialData = null, readOnly = false }) => {
+const UG3AForm = ({ data = null, viewOnly = false }) => {
   const [formData, setFormData] = useState(
-    initialData ?? {
+    data ?? {
       organizingInstitute: '',
       projectTitle: '',
       students: [
@@ -25,9 +25,9 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
   const [totalAmount, setTotalAmount] = useState(0);
 
   const [files, setFiles] = useState({
-    image: null,     // For the existing image upload (e.g., student group photo or leader's photo)
-    pdfs: [],        // Array to store up to 5 PDF files
-    zipFile: null    // To store the single ZIP file
+    image: { file: null, url: null, name: null },
+    pdfs: [], // Each item is { file: FileObject, url: 'blob:...', name: 'fileName' }
+    zipFile: { file: null, url: null, name: null }
   });
 
   const [validationErrors, setValidationErrors] = useState({});
@@ -39,37 +39,61 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
   const pdfsInputRef = useRef(null);  // Ref for the 'pdfs' input
   const zipFileInputRef = useRef(null); // Ref for the 'zipFile' input
 
-  // Effect to populate form data and files when initialData changes or readOnly mode changes
+  // Effect to populate form data and files when initialData changes or viewOnly mode changes
   useEffect(() => {
-    if (initialData) {
-      // Use initialData values, providing fallbacks for missing fields
-      setFormData({
-        organizingInstitute: initialData.organizingInstitute || '',
-        projectTitle: initialData.projectTitle || '',
-        students: initialData.students || [{ name: "", class: "", div: "", branch: "", rollNo: "", mobileNo: "" }],
-        expenses: initialData.expenses || [{ srNo: "1", description: "", amount: "" }],
-        bankDetails: initialData.bankDetails || {
+  if (data) {
+    setFormData({
+      organizingInstitute: data.organizingInstitute || '',
+        projectTitle: data.projectTitle || data.topic || '',
+        students: data.students && data.students.length > 0
+          ? data.students
+          : [{ name: "", class: "", div: "", branch: "", rollNo: "", mobileNo: "" }],
+        expenses: data.expenses && data.expenses.length > 0
+          ? data.expenses
+          : [{ srNo: "1", description: "", amount: "" }],
+        bankDetails: data.bankDetails || {
           beneficiary: "",
           bankName: "",
           branch: "",
           ifsc: "",
-          accountNumber: ""
+          accountNumber: "",
+          accountType: "",
         },
-        // If other fields exist in initialData but not in default state, they won't be set here
-        // e.g., projectDescription, utility, receivedFinance etc.
-      });
+        guideName: data.guideNames?.[0] || "",
+        employeeCode: data.employeeCodes?.[0] || "",
+        studentName: data.name || data.students?.[0]?.name || "",
+        yearOfAdmission: data.yearOfAdmission || "",
+        feesPaid: data.feesPaid || "Yes",
+        conferenceDate: data.conferenceDate ? new Date(data.conferenceDate).toISOString().split('T')[0] : "",
+        organization: data.organization || "",
+        publisher: data.publisher || "",
+        paperLink: data.paperLink || "",
+        authors: data.authors && Array.isArray(data.authors)
+          ? [...data.authors].concat(["", "", ""]).slice(0, 3)
+          : ["", "", ""],
+        projectDescription: data.projectDescription || "",
+        utility: data.utility || "",
+        receivedFinance: data.receivedFinance || "",
+    });
 
-      // Set file states from initialData if available
-      setFiles({
-        image: initialData.image || null,
-        pdfs: initialData.pdfs || [],
-        zipFile: initialData.zipFile || null
-      });
+    setFiles({
+      image: data.uploadedImage
+        ? { file: null, url: data.uploadedImage, name: data.uploadedImage.split('/').pop() || 'Existing Image' }
+        : { file: null, url: null, name: null },
+      pdfs: data.uploadedPdfs && data.uploadedPdfs.length > 0
+        ? data.uploadedPdfs.map(pdf => ({ file: null, url: pdf.url, name: pdf.originalName || pdf.filename }))
+        : [],
+      zipFile: (data.zipFile || data.uploadedZipFile)
+        ? { file: null, url: (data.zipFile || data.uploadedZipFile).url, name: (data.zipFile || data.uploadedZipFile).originalName || (data.zipFile || data.uploadedZipFile).filename || 'Existing ZIP' }
+        : { file: null, url: null, name: null }
+    });
 
-      setErrorMessage(''); // Clear any previous errors
-      setValidationErrors({}); // Clear validation errors on new data load
-    } else if (!readOnly) {
-      // If no initialData is provided and we are not in readOnly mode, reset to a fresh form state
+    setTotalAmount(data.totalAmount || 0);
+    setErrorMessage('');
+    setValidationErrors({});
+    } else if (!viewOnly) {
+      // If no initialData and not in viewOnly mode, reset to a fresh form state
+      console.log("Resetting form state.");
       setFormData({
         organizingInstitute: '',
         projectTitle: '',
@@ -82,25 +106,39 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
           ifsc: "",
           accountNumber: ""
         },
+        // Reset other fields too
+        studentName: "",
+        yearOfAdmission: "",
+        feesPaid: "Yes",
+        guideName: "",
+        employeeCode: "",
+        conferenceDate: "",
+        organization: "",
+        publisher: "",
+        paperLink: "",
+        authors: ["", "", ""],
+        projectDescription: "",
+        utility: "",
+        receivedFinance: "",
       });
       setFiles({
         image: null,
         pdfs: [],
         zipFile: null
       });
+      setTotalAmount(0);
       setErrorMessage('');
       setValidationErrors({});
     }
-  }, [initialData, readOnly]); // Dependencies: re-run when initialData or readOnly prop changes
-
+  }, [data, viewOnly]);
   // Effect to calculate totalAmount whenever expenses change
   useEffect(() => {
     const sum = formData.expenses.reduce((total, expense) => {
-      const amount = parseFloat(expense.amount) || 0; // Ensure amount is treated as a number
+      const amount = parseFloat(expense.amount) || 0;
       return total + amount;
     }, 0);
     setTotalAmount(sum);
-  }, [formData.expenses]); // Dependency: recalculate when formData.expenses changes
+  }, [formData.expenses]);
 
   // Generic change handler for top-level form fields
   const handleChange = (e) => {
@@ -129,6 +167,57 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
       ...prev,
       students: [...prev.students, { name: "", class: "", div: "", branch: "", rollNo: "", mobileNo: "" }]
     }));
+  };
+
+  const handlePdfsChange = (e) => {
+    setErrorMessage("");
+    const selectedPdfs = Array.from(e.target.files);
+
+    if (selectedPdfs.length === 0) {
+      files.pdfs.forEach(pdf => { // Revoke URLs for current local PDFs
+        if (pdf.file && pdf.url) URL.revokeObjectURL(pdf.url);
+      });
+      setFiles(prev => ({ ...prev, pdfs: [] }));
+      return;
+    }
+
+    if (selectedPdfs.length > 5) {
+      setErrorMessage("You can select a maximum of 5 PDF files.");
+      e.target.value = null;
+      files.pdfs.forEach(pdf => { if (pdf.file && pdf.url) URL.revokeObjectURL(pdf.url); }); // Revoke existing local URLs before clearing
+      setFiles(prev => ({ ...prev, pdfs: [] })); // Clear all selected PDFs if count is too high
+      return;
+    }
+
+    const newPdfFiles = [];
+    for (const file of selectedPdfs) {
+      if (file.type !== "application/pdf") {
+        setErrorMessage(`File "${file.name}" is not a PDF. Please select only PDF files.`);
+        e.target.value = null;
+        files.pdfs.forEach(pdf => { if (pdf.file && pdf.url) URL.revokeObjectURL(pdf.url); }); // Revoke existing local URLs before clearing
+        setFiles(prev => ({ ...prev, pdfs: [] }));
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) { // Example: 5MB limit per PDF
+        setErrorMessage(`PDF file "${file.name}" exceeds the 5MB size limit.`);
+        e.target.value = null;
+        files.pdfs.forEach(pdf => { if (pdf.file && pdf.url) URL.revokeObjectURL(pdf.url); }); // Revoke existing local URLs before clearing
+        setFiles(prev => ({ ...prev, pdfs: [] }));
+        return;
+      }
+      newPdfFiles.push({
+        file: file,
+        url: URL.createObjectURL(file), // Create URL for each new PDF
+        name: file.name
+      });
+    }
+
+    // Revoke old URLs from previous selection if any
+    files.pdfs.forEach(pdf => {
+      if (pdf.file && pdf.url) URL.revokeObjectURL(pdf.url);
+    });
+
+    setFiles(prev => ({ ...prev, pdfs: newPdfFiles }));
   };
 
   // Remove student row
@@ -186,79 +275,73 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
 
   // Handle file input changes with validation
   const handleFileChange = (field, e) => {
-    const selectedFiles = e.target.files;
     setErrorMessage(""); // Clear previous general error
+    const selectedFile = e.target.files[0]; // For single file inputs
 
-    if (!selectedFiles || selectedFiles.length === 0) {
+    if (!selectedFile) {
       // Clear the specific file state if no file is chosen (e.g., user cancels dialog)
-      setFiles(prev => ({ ...prev, [field]: (field === 'pdfs' ? [] : null) }));
+      setFiles(prev => {
+        // Revoke existing object URL if it was a local file
+        if (prev[field] && prev[field].file && prev[field].url) {
+          URL.revokeObjectURL(prev[field].url);
+        }
+        return { ...prev, [field]: { file: null, url: null, name: null } };
+      });
       return;
     }
 
+    // Revoke any previous object URL for this field before creating a new one
+    if (files[field] && files[field].file && files[field].url) {
+      URL.revokeObjectURL(files[field].url);
+    }
+
     if (field === "image") {
-      const file = selectedFiles[0];
-      if (!file.type.startsWith("image/jpeg")) {
+      if (!selectedFile.type.startsWith("image/jpeg")) {
         setErrorMessage("Only JPEG format is allowed for images.");
-        setFiles(prev => ({ ...prev, image: null }));
         e.target.value = null; // Reset file input
+        setFiles(prev => ({ ...prev, image: { file: null, url: null, name: null } }));
         return;
       }
       // Optional: Add size validation for image
-      // if (file.size > 2 * 1024 * 1024) { // Example: 2MB limit
-      //   setErrorMessage("Image size must be less than 2MB.");
-      //   setFiles(prev => ({ ...prev, image: null }));
-      //   e.target.value = null;
-      //   return;
-      // }
-      setFiles(prev => ({ ...prev, image: file }));
-    } else if (field === "pdfs") {
-      const newPdfFiles = Array.from(selectedFiles);
-
-      if (newPdfFiles.length > 5) {
-        setErrorMessage("You can select a maximum of 5 PDF files.");
-        setFiles(prev => ({ ...prev, pdfs: [] })); // Clear all selected PDFs if count is too high
+      if (selectedFile.size > 2 * 1024 * 1024) { // Example: 2MB limit
+        setErrorMessage("Image size must be less than 2MB.");
         e.target.value = null;
+        setFiles(prev => ({ ...prev, image: { file: null, url: null, name: null } }));
         return;
       }
-
-      for (const file of newPdfFiles) {
-        if (file.type !== "application/pdf") {
-          setErrorMessage(`File "${file.name}" is not a PDF. Please select only PDF files.`);
-          setFiles(prev => ({ ...prev, pdfs: [] }));
-          e.target.value = null;
-          return;
+      setFiles(prev => ({
+        ...prev,
+        image: {
+          file: selectedFile,
+          url: URL.createObjectURL(selectedFile),
+          name: selectedFile.name
         }
-        // Optional: Add size validation for each PDF
-        if (file.size > 5 * 1024 * 1024) { // Example: 5MB limit per PDF
-          setErrorMessage(`PDF file "${file.name}" exceeds the 5MB size limit.`);
-          setFiles(prev => ({ ...prev, pdfs: [] }));
-          e.target.value = null;
-          return;
-        }
-      }
-      setFiles(prev => ({ ...prev, pdfs: newPdfFiles }));
+      }));
     } else if (field === "zipFile") {
-      const file = selectedFiles[0];
       // Basic ZIP type check (can be expanded for more MIME types if needed)
-      if (!file.name.toLowerCase().endsWith('.zip') && !["application/zip", "application/x-zip-compressed", "application/octet-stream"].includes(file.type)) {
+      if (!selectedFile.name.toLowerCase().endsWith('.zip') && !["application/zip", "application/x-zip-compressed", "application/octet-stream"].includes(selectedFile.type)) {
         setErrorMessage("Only ZIP files are allowed. Please select a .zip file.");
-        setFiles(prev => ({ ...prev, zipFile: null }));
         e.target.value = null;
+        setFiles(prev => ({ ...prev, zipFile: { file: null, url: null, name: null } }));
         return;
       }
       // Optional: Add size validation for ZIP file
-      if (file.size > 20 * 1024 * 1024) { // Example: 20MB limit for ZIP
+      if (selectedFile.size > 20 * 1024 * 1024) { // Example: 20MB limit for ZIP
         setErrorMessage("ZIP file size must be less than 20MB.");
-        setFiles(prev => ({ ...prev, zipFile: null }));
         e.target.value = null;
+        setFiles(prev => ({ ...prev, zipFile: { file: null, url: null, name: null } }));
         return;
       }
-      setFiles(prev => ({ ...prev, zipFile: file }));
+      setFiles(prev => ({
+        ...prev,
+        zipFile: {
+          file: selectedFile,
+          url: URL.createObjectURL(selectedFile),
+          name: selectedFile.name
+        }
+      }));
     }
-
-    // This line is often helpful for single file inputs to allow re-selecting the same file
-    // after it has been cleared or an error occurred. For multiple files, it clears all.
-    // e.target.value = null; // This will visually clear the input, but the state will hold the file(s)
+    // Note: handlePdfsChange is separate for multiple files
   };
 
   // Callback to remove specific files (useful for displaying selected files with remove buttons)
@@ -325,27 +408,28 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
     if (!bd.bankName.trim()) errors.bankName = "Bank Name is required";
     if (!bd.branch.trim()) errors.branch = "Branch is required";
     if (!bd.ifsc.trim()) errors.ifsc = "IFSC Code is required";
+    // Added validation for accountType as it's now in your bankDetails state
+    if (!bd.accountType || bd.accountType.trim() === "") errors.accountType = "Account Type is required";
     if (!bd.accountNumber.trim()) errors.accountNumber = "Account Number is required";
 
-    // File validations (adapted to your current `files` state and `initialData` existence)
-    // If you always require an image, regardless of initialData:
-    if (!files.image && !initialData?.image) { // If no new file selected and no existing image URL
+
+    // File validations (adapted to use 'data' instead of 'initialData')
+    // Logic: If there's no newly selected file AND no existing file from 'data', then it's an error.
+    if (!files.image && !data?.uploadedImage) { // Check data.uploadedImage (the URL/object from backend)
         errors.image = "A project image is required.";
     }
 
-    // If PDFs are mandatory and none are uploaded (or no existing ones in initialData):
-    if (files.pdfs.length === 0 && (!initialData?.pdfs || initialData.pdfs.length === 0)) {
+    if (files.pdfs.length === 0 && (!data?.uploadedPdfs || data.uploadedPdfs.length === 0)) {
         errors.pdfs = "At least one PDF file is required.";
     }
 
-    // If ZIP file is mandatory:
-    if (!files.zipFile && !initialData?.zipFile) {
+    if (!files.zipFile && (!data?.zipFile && !data?.uploadedZipFile)) { // Check both potential keys for zip file
         errors.zipFile = "A ZIP file is required.";
     }
 
     setValidationErrors(errors);
     return Object.keys(errors).length === 0; // Return true if no errors
-  };
+};
 
   const handleSubmit = async () => {
     if (!validateForm()) {
@@ -403,325 +487,290 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
           <div className="bg-red-200 text-red-800 p-3 mb-4 rounded">{errorMessage}</div>
         )}
 
-        {/* Organizing Institute */}
       <div className="mb-6">
-        <label htmlFor="organizingInstitute" className="block font-semibold mb-2">Name and Address of Organizing Institute:</label>
-        {readOnly ? (
-          <p className="p-2 border border-gray-300 rounded bg-gray-100">{formData.organizingInstitute}</p>
-        ) : (
-          <>
-            <input
+          <label htmlFor="organizingInstitute" className="block font-semibold mb-2">Name and Address of Organizing Institute:</label>
+          <input
               type="text"
               id="organizingInstitute"
               name="organizingInstitute"
               value={formData.organizingInstitute}
               onChange={handleChange}
-              className={`w-full p-2 border rounded ${
-                validationErrors.organizingInstitute ? "border-red-500" : "border-gray-300"
-              }`}
-            />
-            {validationErrors.organizingInstitute && <p className="text-red-500 text-sm mt-1">{validationErrors.organizingInstitute}</p>}
-          </>
-        )}
+              className={`w-full p-2 border rounded 
+                  ${viewOnly ? "bg-gray-100 text-gray-700 cursor-not-allowed" : "border-gray-300"} 
+                  ${validationErrors.organizingInstitute ? "border-red-500" : ""}` // Keep validation styling
+              }
+              disabled={viewOnly} // Disable input when in viewOnly mode
+          />
+          {validationErrors.organizingInstitute && !viewOnly && ( // Only show validation error if not in viewOnly mode
+              <p className="text-red-500 text-sm mt-1">{validationErrors.organizingInstitute}</p>
+          )}
       </div>
 
       {/* Project Title */}
       <div className="mb-6">
-        <label htmlFor="projectTitle" className="block font-semibold mb-2">Title of Project:</label>
-        {readOnly ? (
-          <p className="p-2 border border-gray-300 rounded bg-gray-100">{formData.projectTitle}</p>
-        ) : (
-          <>
-            <input
-              type="text"
-              id="projectTitle"
-              name="projectTitle"
-              value={formData.projectTitle}
-              onChange={handleChange}
-              className={`w-full p-2 border rounded ${
-                validationErrors.projectTitle ? "border-red-500" : "border-gray-300"
-              }`}
-            />
-            {validationErrors.projectTitle && <p className="text-red-500 text-sm mt-1">{validationErrors.projectTitle}</p>}
-          </>
-        )}
+    <label htmlFor="projectTitle" className="block font-semibold mb-2">Title of Project:</label>
+    <input
+        type="text"
+        id="projectTitle"
+        name="projectTitle"
+        value={formData.projectTitle}
+        onChange={handleChange}
+        className={`w-full p-2 border rounded 
+            ${viewOnly ? "bg-gray-100 text-gray-700 cursor-not-allowed" : "border-gray-300"} 
+            ${validationErrors.projectTitle ? "border-red-500" : ""}` // Keep validation styling
+        }
+        disabled={viewOnly} // Disable input when in viewOnly mode
+    />
+    {validationErrors.projectTitle && !viewOnly && ( // Only show validation error if not in viewOnly mode
+        <p className="text-red-500 text-sm mt-1">{validationErrors.projectTitle}</p>
+    )}
       </div>
 
       {/* Student Details */}
-      <div className="mb-6">
-        <h3 className="font-semibold mb-2">Student Details</h3>
-        {readOnly ? (
-          <div className="space-y-4">
-            {formData.students.map((student, index) => (
-              <div key={index} className="p-4 border border-gray-300 rounded bg-gray-50">
-                <h4 className="font-medium mb-2">Student {index + 1}</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <span className="font-semibold">Name: </span>
-                    <span>{student.name}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold">Class: </span>
-                    <span>{student.class}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold">Div: </span>
-                    <span>{student.div}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold">Branch: </span>
-                    <span>{student.branch}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold">Roll No.: </span>
-                    <span>{student.rollNo}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold">Mobile No.: </span>
-                    <span>{student.mobileNo}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <>
-            <table className="w-full mb-4 border border-gray-300">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="p-2 border border-gray-300">Name of Student</th>
-                  <th className="p-2 border border-gray-300">Class</th>
-                  <th className="p-2 border border-gray-300">Div</th>
-                  <th className="p-2 border border-gray-300">Branch</th>
-                  <th className="p-2 border border-gray-300">Roll No.</th>
-                  <th className="p-2 border border-gray-300">Mobile No.</th>
-                  <th className="p-2 border border-gray-300">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {formData.students.map((student, index) => (
-                  <tr key={index}>
-                    <td className="p-2 border border-gray-300">
-                      <input
-                        type="text"
-                        value={student.name}
-                        onChange={(e) => handleStudentChange(index, 'name', e.target.value)}
-                        className={`w-full p-2 border rounded ${
-                          validationErrors[`student_name_${index}`] ? "border-red-500" : "border-gray-300"
-                        }`}
-                      />
-                      {validationErrors[`student_name_${index}`] && (
-                        <p className="text-red-500 text-xs mt-1">{validationErrors[`student_name_${index}`]}</p>
-                      )}
-                    </td>
-                    <td className="p-2 border border-gray-300">
-                      <input
-                        type="text"
-                        value={student.class}
-                        onChange={(e) => handleStudentChange(index, 'class', e.target.value)}
-                        className={`w-full p-2 border rounded ${
-                          validationErrors[`student_class_${index}`] ? "border-red-500" : "border-gray-300"
-                        }`}
-                      />
-                      {validationErrors[`student_class_${index}`] && (
-                        <p className="text-red-500 text-xs mt-1">{validationErrors[`student_class_${index}`]}</p>
-                      )}
-                    </td>
-                    <td className="p-2 border border-gray-300">
-                      <input
-                        type="text"
-                        value={student.div}
-                        onChange={(e) => handleStudentChange(index, 'div', e.target.value)}
-                        className={`w-full p-2 border rounded ${
-                          validationErrors[`student_div_${index}`] ? "border-red-500" : "border-gray-300"
-                        }`}
-                      />
-                      {validationErrors[`student_div_${index}`] && (
-                        <p className="text-red-500 text-xs mt-1">{validationErrors[`student_div_${index}`]}</p>
-                      )}
-                    </td>
-                    <td className="p-2 border border-gray-300">
-                      <input
-                        type="text"
-                        value={student.branch}
-                        onChange={(e) => handleStudentChange(index, 'branch', e.target.value)}
-                        className={`w-full p-2 border rounded ${
-                          validationErrors[`student_branch_${index}`] ? "border-red-500" : "border-gray-300"
-                        }`}
-                      />
-                      {validationErrors[`student_branch_${index}`] && (
-                        <p className="text-red-500 text-xs mt-1">{validationErrors[`student_branch_${index}`]}</p>
-                      )}
-                    </td>
-                    <td className="p-2 border border-gray-300">
-                      <input
-                        type="text"
-                        value={student.rollNo}
-                        onChange={(e) => handleStudentChange(index, 'rollNo', e.target.value)}
-                        className={`w-full p-2 border rounded ${
-                          validationErrors[`student_rollNo_${index}`] ? "border-red-500" : "border-gray-300"
-                        }`}
-                      />
-                      {validationErrors[`student_rollNo_${index}`] && (
-                        <p className="text-red-500 text-xs mt-1">{validationErrors[`student_rollNo_${index}`]}</p>
-                      )}
-                    </td>
-                    <td className="p-2 border border-gray-300">
-                      <input
-                        type="text"
-                        value={student.mobileNo}
-                        onChange={(e) => handleStudentChange(index, 'mobileNo', e.target.value)}
-                        className={`w-full p-2 border rounded ${
-                          validationErrors[`student_mobileNo_${index}`] ? "border-red-500" : "border-gray-300"
-                        }`}
-                      />
-                      {validationErrors[`student_mobileNo_${index}`] && (
-                        <p className="text-red-500 text-xs mt-1">{validationErrors[`student_mobileNo_${index}`]}</p>
-                      )}
-                    </td>
-                    <td className="p-2 border border-gray-300 text-center">
-                      <button
-                        type="button"
-                        className="text-red-500 hover:text-red-700 text-lg"
-                        onClick={() => removeStudent(index)}
-                        disabled={readOnly || formData.students.length <= 1} // Disable if readOnly or only one student
-                      >
-                        ❌
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <button
-              type="button"
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={addStudent}
-              disabled={readOnly} // Disable in readOnly mode
-            >
-              ➕ Add More Student
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Expenses */}
-      <div className="mb-6">
-        <h3 className="font-semibold mb-2">Details of Expenses</h3>
-        {readOnly ? (
-          <div className="space-y-3">
-            {formData.expenses.map((expense, index) => (
-              <div key={index} className="p-3 border border-gray-300 rounded bg-gray-50 flex justify-between items-center">
-                <div className="flex-1">
-                  <span className="font-semibold">Sr. No. {expense.srNo}: </span>
-                  <span>{expense.description}</span>
-                </div>
-                <div className="font-semibold text-green-600">
-                  ₹{parseFloat(expense.amount || 0).toFixed(2)}
-                </div>
-              </div>
-            ))}
-            <div className="p-3 border border-gray-300 rounded bg-gray-100 flex justify-between items-center font-bold text-lg">
-              <span>Total Amount:</span>
-              <span className="text-green-600">₹{totalAmount.toFixed(2)}</span>
-            </div>
-          </div>
-        ) : (
-          <>
-            <table className="w-full mb-4 border border-gray-300">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="p-2 border border-gray-300">Sr. No.</th>
-                  <th className="p-2 border border-gray-300">Description</th>
-                  <th className="p-2 border border-gray-300">Amount (₹)</th>
-                  <th className="p-2 border border-gray-300">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {formData.expenses.map((expense, index) => (
-                  <tr key={index}>
-                    <td className="p-2 border border-gray-300">
-                      <input
-                        type="text"
-                        value={expense.srNo}
-                        readOnly
-                        className="w-full p-2 border border-gray-300 rounded bg-gray-100"
-                      />
-                    </td>
-                    <td className="p-2 border border-gray-300">
-                      <input
-                        type="text"
-                        value={expense.description}
-                        onChange={(e) => handleExpenseChange(index, 'description', e.target.value)}
-                        className={`w-full p-2 border rounded ${
-                          validationErrors[`expense_description_${index}`] ? "border-red-500" : "border-gray-300"
-                        }`}
-                      />
-                      {validationErrors[`expense_description_${index}`] && (
-                        <p className="text-red-500 text-xs mt-1">{validationErrors[`expense_description_${index}`]}</p>
-                      )}
-                    </td>
-                    <td className="p-2 border border-gray-300">
-                      <input
-                        type="number"
-                        value={expense.amount}
-                        onChange={(e) => handleExpenseChange(index, 'amount', e.target.value)}
-                        className={`w-full p-2 border rounded ${
-                          validationErrors[`expense_amount_${index}`] ? "border-red-500" : "border-gray-300"
-                        }`}
-                        min="0"
-                        step="0.01"
-                      />
-                      {validationErrors[`expense_amount_${index}`] && (
-                        <p className="text-red-500 text-xs mt-1">{validationErrors[`expense_amount_${index}`]}</p>
-                      )}
-                    </td>
-                    <td className="p-2 border border-gray-300 text-center">
-                      <button
-                        type="button"
-                        className="text-red-500 hover:text-red-700 text-lg"
-                        onClick={() => removeExpense(index)}
-                        disabled={readOnly || formData.expenses.length <= 1} // Disable if readOnly or only one expense
-                      >
-                        ❌
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                <tr className="bg-gray-50 font-semibold">
-                  <td className="p-2 border border-gray-300" colSpan="2">Total Amount</td>
-                  <td className="p-2 border border-gray-300 text-green-600">
-                    ₹{totalAmount.toFixed(2)}
-                  </td>
-                  <td className="p-2 border border-gray-300"></td> {/* Empty cell for action column */}
-                </tr>
-              </tbody>
-            </table>
-            <button
-              type="button"
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={addExpense}
-              disabled={readOnly} // Disable in readOnly mode
-            >
-              ➕ Add More Expense
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Bank Details */}
-      <div className="mb-6">
-        <h3 className="font-semibold mb-2">Bank Details for RTGS/NEFT</h3>
-        <div className="grid grid-cols-1 gap-4">
-          <div>
-            <label htmlFor="beneficiary" className="block font-semibold mb-1">Beneficiary name, brief address and mobile no.:</label>
-            {readOnly ? (
-              <p className="p-2 border border-gray-300 rounded bg-gray-100">{formData.bankDetails.beneficiary}</p>
-            ) : (
-              <>
+    <div className="mb-6">
+      <h3 className="font-semibold mb-2">Student Details</h3>
+      {/* The table structure is now always rendered, regardless of viewOnly */}
+      <table className="w-full mb-4 border border-gray-300">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="p-2 border border-gray-300 text-left">Name of Student</th>
+            <th className="p-2 border border-gray-300 text-left">Class</th>
+            <th className="p-2 border border-gray-300 text-left">Div</th>
+            <th className="p-2 border border-gray-300 text-left">Branch</th>
+            <th className="p-2 border border-gray-300 text-left">Roll No.</th>
+            <th className="p-2 border border-gray-300 text-left">Mobile No.</th>
+            <th className="p-2 border border-gray-300 text-center">Action</th> {/* Center align action header */}
+          </tr>
+        </thead>
+        <tbody>
+          {formData.students.map((student, index) => (
+            <tr key={index}>
+              {/* Name Input */}
+              <td className="p-0 border border-gray-300"> {/* p-0 on td to allow input to fill cell */}
                 <input
                   type="text"
-                  id="beneficiary"
+                  value={student.name}
+                  onChange={(e) => handleStudentChange(index, 'name', e.target.value)}
+                  className={`w-full p-2 focus:outline-none ${ /* p-2 on input itself for content padding */
+                    viewOnly ? "bg-gray-100 text-gray-700 cursor-not-allowed" : "border rounded border-gray-300"
+                  } ${
+                    validationErrors[`student_name_${index}`] ? "border-red-500" : ""
+                  }`}
+                  disabled={viewOnly}
+                />
+                {validationErrors[`student_name_${index}`] && !viewOnly && (
+                  <p className="text-red-500 text-xs mt-1 px-2">{validationErrors[`student_name_${index}`]}</p> /* Added px-2 */
+                )}
+              </td>
+              {/* Class Input */}
+              <td className="p-0 border border-gray-300">
+                <input
+                  type="text"
+                  value={student.class}
+                  onChange={(e) => handleStudentChange(index, 'class', e.target.value)}
+                  className={`w-full p-2 focus:outline-none ${
+                    viewOnly ? "bg-gray-100 text-gray-700 cursor-not-allowed" : "border rounded border-gray-300"
+                  } ${
+                    validationErrors[`student_class_${index}`] ? "border-red-500" : ""
+                  }`}
+                  disabled={viewOnly}
+                />
+                {validationErrors[`student_class_${index}`] && !viewOnly && (
+                  <p className="text-red-500 text-xs mt-1 px-2">{validationErrors[`student_class_${index}`]}</p>
+                )}
+              </td>
+              {/* Div Input */}
+              <td className="p-0 border border-gray-300">
+                <input
+                  type="text"
+                  value={student.div}
+                  onChange={(e) => handleStudentChange(index, 'div', e.target.value)}
+                  className={`w-full p-2 focus:outline-none ${
+                    viewOnly ? "bg-gray-100 text-gray-700 cursor-not-allowed" : "border rounded border-gray-300"
+                  } ${
+                    validationErrors[`student_div_${index}`] ? "border-red-500" : ""
+                  }`}
+                  disabled={viewOnly}
+                />
+                {validationErrors[`student_div_${index}`] && !viewOnly && (
+                  <p className="text-red-500 text-xs mt-1 px-2">{validationErrors[`student_div_${index}`]}</p>
+                )}
+              </td>
+              {/* Branch Input */}
+              <td className="p-0 border border-gray-300">
+                <input
+                  type="text"
+                  value={student.branch}
+                  onChange={(e) => handleStudentChange(index, 'branch', e.target.value)}
+                  className={`w-full p-2 focus:outline-none ${
+                    viewOnly ? "bg-gray-100 text-gray-700 cursor-not-allowed" : "border rounded border-gray-300"
+                  } ${
+                    validationErrors[`student_branch_${index}`] ? "border-red-500" : ""
+                  }`}
+                  disabled={viewOnly}
+                />
+                {validationErrors[`student_branch_${index}`] && !viewOnly && (
+                  <p className="text-red-500 text-xs mt-1 px-2">{validationErrors[`student_branch_${index}`]}</p>
+                )}
+              </td>
+              {/* Roll No. Input */}
+              <td className="p-0 border border-gray-300">
+                <input
+                  type="text"
+                  value={student.rollNo}
+                  onChange={(e) => handleStudentChange(index, 'rollNo', e.target.value)}
+                  className={`w-full p-2 focus:outline-none ${
+                    viewOnly ? "bg-gray-100 text-gray-700 cursor-not-allowed" : "border rounded border-gray-300"
+                  } ${
+                    validationErrors[`student_rollNo_${index}`] ? "border-red-500" : ""
+                  }`}
+                  disabled={viewOnly}
+                />
+                {validationErrors[`student_rollNo_${index}`] && !viewOnly && (
+                  <p className="text-red-500 text-xs mt-1 px-2">{validationErrors[`student_rollNo_${index}`]}</p>
+                )}
+              </td>
+              {/* Mobile No. Input */}
+              <td className="p-0 border border-gray-300">
+                <input
+                  type="text"
+                  value={student.mobileNo}
+                  onChange={(e) => handleStudentChange(index, 'mobileNo', e.target.value)}
+                  className={`w-full p-2 focus:outline-none ${
+                    viewOnly ? "bg-gray-100 text-gray-700 cursor-not-allowed" : "border rounded border-gray-300"
+                  } ${
+                    validationErrors[`student_mobileNo_${index}`] ? "border-red-500" : ""
+                  }`}
+                  disabled={viewOnly}
+                />
+                {validationErrors[`student_mobileNo_${index}`] && !viewOnly && (
+                  <p className="text-red-500 text-xs mt-1 px-2">{validationErrors[`student_mobileNo_${index}`]}</p>
+                )}
+              </td>
+              {/* Action Button (Remove) */}
+              <td className="p-2 border border-gray-300 text-center">
+                <button
+                  type="button"
+                  className="text-red-500 hover:text-red-700 text-lg"
+                  onClick={() => removeStudent(index)}
+                  disabled={viewOnly || formData.students.length <= 1} /* Disable if viewOnly or only one student */
+                >
+                  ❌
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {/* Add More Student Button */}
+      <button
+          type="button"
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center" /* Added flex and items-center for icon alignment */
+          onClick={addStudent}
+          disabled={viewOnly} /* Disable if viewOnly */
+      >
+      <span className="text-lg mr-2">➕</span> Add More Student {/* Icon and text separation */}
+      </button>
+    </div>
+
+      {/* Expense Details */}
+    <div className="mb-6">
+      <h3 className="font-semibold mb-2">Expense Details</h3>
+      {/* The table structure is now always rendered */}
+      <table className="w-full mb-4 border border-gray-300">
+        <thead>
+          <tr className="bg-gray-100">
+            <th className="p-2 border border-gray-300 text-left">Sr. No.</th>
+            <th className="p-2 border border-gray-300 text-left">Description</th>
+            <th className="p-2 border border-gray-300 text-left">Amount (₹)</th>
+            <th className="p-2 border border-gray-300 text-center">Action</th> {/* Center align action header */}
+          </tr>
+        </thead>
+        <tbody>
+          {formData.expenses.map((expense, index) => (
+            <tr key={index}>
+              <td className="p-2 border border-gray-300">
+                {/* Display Sr. No. */}
+                <span className={viewOnly ? "text-gray-700" : ""}>{expense.srNo}</span>
+              </td>
+              {/* Description Input */}
+              <td className="p-0 border border-gray-300"> {/* p-0 on td to allow input to fill cell */}
+                <input
+                  type="text"
+                  value={expense.description}
+                  onChange={(e) => handleExpenseChange(index, 'description', e.target.value)}
+                  className={`w-full p-2 focus:outline-none ${ /* p-2 on input itself for content padding */
+                    viewOnly ? "bg-gray-100 text-gray-700 cursor-not-allowed" : "border rounded border-gray-300"
+                  } ${
+                    validationErrors[`expense_description_${index}`] ? "border-red-500" : ""
+                  }`}
+                  disabled={viewOnly} // Disable input when in viewOnly mode
+                />
+                {validationErrors[`expense_description_${index}`] && !viewOnly && (
+                  <p className="text-red-500 text-xs mt-1 px-2">{validationErrors[`expense_description_${index}`]}</p>
+                )}
+              </td>
+              {/* Amount Input */}
+              <td className="p-0 border border-gray-300">
+                <input
+                  type="number"
+                  value={expense.amount}
+                  onChange={(e) => handleExpenseChange(index, 'amount', e.target.value)}
+                  className={`w-full p-2 focus:outline-none ${
+                    viewOnly ? "bg-gray-100 text-gray-700 cursor-not-allowed" : "border rounded border-gray-300"
+                  } ${
+                    validationErrors[`expense_amount_${index}`] ? "border-red-500" : ""
+                  }`}
+                  disabled={viewOnly} // Disable input when in viewOnly mode
+                />
+                {validationErrors[`expense_amount_${index}`] && !viewOnly && (
+                  <p className="text-red-500 text-xs mt-1 px-2">{validationErrors[`expense_amount_${index}`]}</p>
+                )}
+              </td>
+              {/* Action Button (Remove) */}
+              <td className="p-2 border border-gray-300 text-center">
+                <button
+                  type="button"
+                  className="text-red-500 hover:text-red-700 text-lg"
+                  onClick={() => removeExpense(index)}
+                  disabled={viewOnly || formData.expenses.length <= 1} /* Disable if viewOnly or only one expense */
+                >
+                  ❌
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {/* Add More Expense Button */}
+      <button
+        type="button"
+        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+        onClick={addExpense}
+        disabled={viewOnly} // Disable if viewOnly
+      >
+        <span className="text-lg mr-2">➕</span> Add More Expense
+      </button>
+      {/* Total Amount Display - This can remain outside the conditional */}
+      <div className="mt-4 p-2 border-t-2 border-gray-300 font-bold text-right">
+        Total Amount: ₹{totalAmount.toFixed(2)}
+      </div>
+    </div>
+
+      {/* Bank Details */}
+    <table className="w-full mb-6 border border-gray-300">
+        <tbody>
+          <tr>
+            <th className="p-2 border border-gray-300 bg-gray-100" colSpan="2">Bank details for RTGS/NEFT</th>
+          </tr>
+          <tr>
+            <th className="p-2 border border-gray-300 bg-gray-100">Beneficiary name, brief address and mobile no. (Student author)</th>
+            <td className="p-2 border border-gray-300">
+              {viewOnly ? (
+                <p className="p-2 bg-gray-100">{formData.bankDetails.beneficiary}</p>
+              ) : (
+                <input
+                  type="text"
                   name="beneficiary"
                   value={formData.bankDetails.beneficiary}
                   onChange={handleBankChange}
@@ -729,109 +778,121 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
                     validationErrors.beneficiary ? "border-red-500" : "border-gray-300"
                   }`}
                 />
-                {validationErrors.beneficiary && <p className="text-red-500 text-sm mt-1">{validationErrors.beneficiary}</p>}
-              </>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="bankName" className="block font-semibold mb-1">Bank Name:</label>
-              {readOnly ? (
-                <p className="p-2 border border-gray-300 rounded bg-gray-100">{formData.bankDetails.bankName}</p>
-              ) : (
-                <>
-                  <input
-                    type="text"
-                    id="bankName"
-                    name="bankName"
-                    value={formData.bankDetails.bankName}
-                    onChange={handleBankChange}
-                    className={`w-full p-2 border rounded ${
-                      validationErrors.bankName ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  {validationErrors.bankName && <p className="text-red-500 text-sm mt-1">{validationErrors.bankName}</p>}
-                </>
               )}
-            </div>
-            <div>
-              <label htmlFor="branch" className="block font-semibold mb-1">Branch:</label>
-              {readOnly ? (
-                <p className="p-2 border border-gray-300 rounded bg-gray-100">{formData.bankDetails.branch}</p>
+               {validationErrors.beneficiary && <p className="text-red-500 text-xs mt-1">{validationErrors.beneficiary}</p>}
+            </td>
+          </tr>
+          <tr>
+            <th className="p-2 border border-gray-300 bg-gray-100">IFSC Code</th>
+            <td className="p-2 border border-gray-300">
+              {viewOnly ? (
+                <p className="p-2 bg-gray-100">{formData.bankDetails.ifsc}</p>
               ) : (
-                <>
-                  <input
-                    type="text"
-                    id="branch"
-                    name="branch"
-                    value={formData.bankDetails.branch}
-                    onChange={handleBankChange}
-                    className={`w-full p-2 border rounded ${
-                      validationErrors.branch ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  {validationErrors.branch && <p className="text-red-500 text-sm mt-1">{validationErrors.branch}</p>}
-                </>
+                <input
+                  type="text"
+                  name="ifsc"
+                  value={formData.bankDetails.ifsc}
+                  onChange={handleBankChange}
+                  className={`w-full p-2 border rounded ${
+                    validationErrors.ifsc ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
               )}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="ifsc" className="block font-semibold mb-1">IFSC Code:</label>
-              {readOnly ? (
-                <p className="p-2 border border-gray-300 rounded bg-gray-100">{formData.bankDetails.ifsc}</p>
+              {validationErrors.ifsc && <p className="text-red-500 text-xs mt-1">{validationErrors.ifsc}</p>}
+            </td>
+          </tr>
+          <tr>
+            <th className="p-2 border border-gray-300 bg-gray-100">Name of the bank</th>
+            <td className="p-2 border border-gray-300">
+              {viewOnly ? (
+                <p className="p-2 bg-gray-100">{formData.bankDetails.bankName}</p>
               ) : (
-                <>
-                  <input
-                    type="text"
-                    id="ifsc"
-                    name="ifsc"
-                    value={formData.bankDetails.ifsc}
-                    onChange={handleBankChange}
-                    className={`w-full p-2 border rounded ${
-                      validationErrors.ifsc ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  {validationErrors.ifsc && <p className="text-red-500 text-sm mt-1">{validationErrors.ifsc}</p>}
-                </>
+                <input
+                  type="text"
+                  name="bankName"
+                  value={formData.bankDetails.bankName}
+                  onChange={handleBankChange}
+                  className={`w-full p-2 border rounded ${
+                    validationErrors.bankName ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
               )}
-            </div>
-            <div>
-              <label htmlFor="accountNumber" className="block font-semibold mb-1">Account Number:</label>
-              {readOnly ? (
-                <p className="p-2 border border-gray-300 rounded bg-gray-100">{formData.bankDetails.accountNumber}</p>
+              {validationErrors.bankName && <p className="text-red-500 text-xs mt-1">{validationErrors.bankName}</p>}
+            </td>
+          </tr>
+          <tr>
+            <th className="p-2 border border-gray-300 bg-gray-100">Branch</th>
+            <td className="p-2 border border-gray-300">
+              {viewOnly ? (
+                <p className="p-2 bg-gray-100">{formData.bankDetails.branch}</p>
               ) : (
-                <>
-                  <input
-                    type="text"
-                    id="accountNumber"
-                    name="accountNumber"
-                    value={formData.bankDetails.accountNumber}
-                    onChange={handleBankChange}
-                    className={`w-full p-2 border rounded ${
-                      validationErrors.accountNumber ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  {validationErrors.accountNumber && <p className="text-red-500 text-sm mt-1">{validationErrors.accountNumber}</p>}
-                </>
+                <input
+                  type="text"
+                  name="branch"
+                  value={formData.bankDetails.branch}
+                  onChange={handleBankChange}
+                  className={`w-full p-2 border rounded ${
+                    validationErrors.branch ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
               )}
-            </div>
-          </div>
-        </div>
-      </div>
+              {validationErrors.branch && <p className="text-red-500 text-xs mt-1">{validationErrors.branch}</p>}
+            </td>
+          </tr>
+          <tr>
+            <th className="p-2 border border-gray-300 bg-gray-100">Account type</th>
+            <td className="p-2 border border-gray-300">
+              {viewOnly ? (
+                <p className="p-2 bg-gray-100">{formData.bankDetails.accountType}</p>
+              ) : (
+                <input
+                  type="text"
+                  name="accountType"
+                  value={formData.bankDetails.accountType}
+                  onChange={handleBankChange}
+                  className={`w-full p-2 border rounded ${
+                    validationErrors.accountType ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
+              )}
+              {validationErrors.accountType && <p className="text-red-500 text-xs mt-1">{validationErrors.accountType}</p>}
+            </td>
+          </tr>
+          <tr>
+            <th className="p-2 border border-gray-300 bg-gray-100">Account number</th>
+            <td className="p-2 border border-gray-300">
+              {viewOnly ? (
+                <p className="p-2 bg-gray-100">{formData.bankDetails.accountNumber}</p>
+              ) : (
+                <input
+                  type="text"
+                  name="accountNumber"
+                  value={formData.bankDetails.accountNumber}
+                  onChange={handleBankChange}
+                  className={`w-full p-2 border rounded ${
+                    validationErrors.accountNumber ? "border-red-500" : "border-gray-300"
+                  }`}
+                />
+              )}
+              {validationErrors.accountNumber && <p className="text-red-500 text-xs mt-1">{validationErrors.accountNumber}</p>}
+            </td>
+          </tr>
+        </tbody>
+    </table>
 
       {/* File Uploads Section */}
-      <div className="mb-6 border p-4 rounded-lg bg-gray-50">
+    <div className="mb-6 border p-4 rounded-lg bg-gray-50">
         <h3 className="font-semibold mb-2">File Uploads</h3>
 
         {/* Image Upload */}
         <div className="mb-4">
           <label htmlFor="image" className="block font-semibold mb-2">Upload Project Image (JPEG):</label>
-          {readOnly ? (
-            files.image ? (
+          {viewOnly ? (
+            // Corrected: Use optional chaining files.image?.url
+            files.image?.url ? (
                 <p className="p-2 border border-gray-300 rounded bg-gray-100">
-                    <a href={typeof files.image === 'string' ? files.image : URL.createObjectURL(files.image)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        View Image
+                    <a href={files.image.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        View Image: {files.image.name || 'Project Image'}
                     </a>
                 </p>
             ) : <p className="p-2 border border-gray-300 rounded bg-gray-100 text-gray-500">No project image uploaded.</p>
@@ -845,7 +906,8 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
                 ref={imageInputRef}
                 className="w-full p-2 border border-gray-300 rounded"
               />
-              {files.image && (
+              {/* Corrected: Use optional chaining files.image?.url */}
+              {files.image?.url && (
                 <div className="mt-2 flex items-center justify-between p-2 border rounded bg-blue-50">
                   <span>{files.image.name || 'Project Image'}</span>
                   <button
@@ -865,13 +927,16 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
         {/* PDF Files Upload (up to 5) */}
         <div className="mb-4">
           <label htmlFor="pdfs" className="block font-semibold mb-2">Upload Supporting PDFs (max 5 files):</label>
-          {readOnly ? (
+          {viewOnly ? (
+            // files.pdfs is an array, so map will handle empty array gracefully.
+            // pdf.url should be safe within the map if pdf objects are always valid.
             files.pdfs && files.pdfs.length > 0 ? (
                 <div className="space-y-2 p-2 border border-gray-300 rounded bg-gray-100">
                     {files.pdfs.map((pdf, index) => (
                         <p key={index}>
-                            <a href={typeof pdf === 'string' ? pdf : URL.createObjectURL(pdf)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                {typeof pdf === 'string' ? `PDF ${index + 1}` : pdf.name}
+                            {/* pdf.url is fine here because pdf objects are guaranteed by handlePdfsChange */}
+                            <a href={pdf.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                {pdf.name || `PDF ${index + 1}`}
                             </a>
                         </p>
                     ))}
@@ -884,7 +949,7 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
                 id="pdfs"
                 multiple
                 accept="application/pdf"
-                onChange={(e) => handleFileChange("pdfs", e)}
+                onChange={handlePdfsChange}
                 ref={pdfsInputRef}
                 className="w-full p-2 border border-gray-300 rounded"
               />
@@ -895,7 +960,7 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
                       <span>{pdf.name}</span>
                       <button
                         type="button"
-                        onClick={() => handleRemoveFile('pdfs', index)}
+                        onClick={() => handleRemovePdf(index)}
                         className="ml-4 text-red-500 hover:text-red-700"
                       >
                         Remove
@@ -912,11 +977,12 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
         {/* ZIP File Upload */}
         <div className="mb-4">
           <label htmlFor="zipFile" className="block font-semibold mb-2">Upload Project Source Code (ZIP):</label>
-          {readOnly ? (
-            files.zipFile ? (
+          {viewOnly ? (
+            // Corrected: Use optional chaining files.zipFile?.url
+            files.zipFile?.url ? (
                 <p className="p-2 border border-gray-300 rounded bg-gray-100">
-                    <a href={typeof files.zipFile === 'string' ? files.zipFile : URL.createObjectURL(files.zipFile)} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        View ZIP File
+                    <a href={files.zipFile.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        View ZIP File: {files.zipFile.name || 'ZIP File'}
                     </a>
                 </p>
             ) : <p className="p-2 border border-gray-300 rounded bg-gray-100 text-gray-500">No ZIP file uploaded.</p>
@@ -930,7 +996,8 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
                 ref={zipFileInputRef}
                 className="w-full p-2 border border-gray-300 rounded"
               />
-              {files.zipFile && (
+              {/* Corrected: Use optional chaining files.zipFile?.url */}
+              {files.zipFile?.url && (
                 <div className="mt-2 flex items-center justify-between p-2 border rounded bg-blue-50">
                   <span>{files.zipFile.name || 'ZIP File'}</span>
                   <button
@@ -946,9 +1013,9 @@ const UG3AForm = ({ initialData = null, readOnly = false }) => {
             </>
           )}
         </div>
-      </div>
+    </div>
         {/* Form Actions */}
-        {!readOnly && (
+        {!viewOnly && (
           <div className="flex justify-between">
             <button onClick={() => window.history.back()} className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">
               Back
