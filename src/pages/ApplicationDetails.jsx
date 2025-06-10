@@ -8,7 +8,7 @@ const ApplicationDetails = () => {
   const [application, setApplication] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const navigate = useNavigate(); // Added navigate, though not used in this specific fetch logic.
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchApplication = async () => {
@@ -16,27 +16,60 @@ const ApplicationDetails = () => {
       setError(null);
 
       try {
-        // 1. Get user's branch from localStorage
         let userBranch = null;
+        let svvNetId = null; // Declare svvNetId variable
+
         const userString = localStorage.getItem("user");
         if (userString) {
           try {
             const user = JSON.parse(userString);
             userBranch = user.branch;
+            svvNetId = user.svvNetId; // Get svvNetId from localStorage
           } catch (e) {
             console.error("Failed to parse user data from localStorage for ApplicationDetails:", e);
-            // Consider adding user-facing error or logout if localStorage is critical
+            // If user data is corrupted, clear local storage and force re-login
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            setError("User session corrupted. Please log in again.");
+            setLoading(false);
+            // Optionally, navigate to login page
+            // navigate('/login');
+            return;
           }
         }
 
-        // 2. Construct the URL with the userBranch as a query parameter
+        // Essential: If svvNetId is not available, the user is not authenticated for this action.
+        if (!svvNetId) {
+          setError("User not authenticated. Please log in to view application details.");
+          setLoading(false);
+          // Optionally, navigate to login page
+          // navigate('/login');
+          return;
+        }
+
+        // Construct the URL with both userBranch and svvNetId as query parameters
         const baseUrl = `http://localhost:5000/api/application/${id}`;
-        const url = userBranch ? `${baseUrl}?userBranch=${encodeURIComponent(userBranch)}` : baseUrl;
+        const params = new URLSearchParams();
+
+        if (userBranch) {
+          params.append('userBranch', userBranch);
+        }
+        params.append('svvNetId', svvNetId); // Always send svvNetId for authentication/authorization
+
+        const url = `${baseUrl}?${params.toString()}`;
 
         const res = await fetch(url);
         if (!res.ok) {
           const text = await res.text();
-          throw new Error(`Failed to fetch application details (status ${res.status}): ${text}`);
+          let errorMessage = `Failed to fetch application details (status ${res.status}): ${text}`;
+
+          // Provide more user-friendly messages for common errors
+          if (res.status === 404) {
+            errorMessage = "Application not found or you don't have permission to access it.";
+          } else if (res.status === 400 && text.includes("svvNetId is required")) {
+            errorMessage = "Authentication error: svvNetId missing. Please log in.";
+          }
+          throw new Error(errorMessage);
         }
         const data = await res.json();
         setApplication(data); // full form data directly
@@ -47,8 +80,9 @@ const ApplicationDetails = () => {
       }
     };
 
+    // Only fetch if an ID is present in the URL
     if (id) fetchApplication();
-  }, [id]); // Dependency array: Re-run if 'id' changes
+  }, [id, navigate]); // Add 'navigate' to dependency array as it's used if uncommented
 
   if (loading) return <div className="p-6">Loading application details...</div>;
   if (error) return <div className="p-6 text-red-600">Error: {error}</div>;
@@ -81,5 +115,4 @@ const ApplicationDetails = () => {
     </div>
   );
 };
-
 export default ApplicationDetails;

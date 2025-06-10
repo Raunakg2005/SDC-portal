@@ -33,6 +33,7 @@ const ExpenseSchema = new mongoose.Schema({
 }, { _id: false });
 
 const UGForm2Schema = new mongoose.Schema({
+  svvNetId: { type: String, required: true },
   projectTitle: { type: String, required: true },
   projectDescription: { type: String, required: true },
   utility: { type: String, required: true },

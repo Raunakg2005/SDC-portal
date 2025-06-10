@@ -323,10 +323,30 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
       alert("Please fix the errors in the form.");
       return;
     }
+    let svvNetId = null;
+    const userString = localStorage.getItem("user");
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        svvNetId = user.svvNetId;
+      } catch (e) {
+        console.error("Failed to parse user data from localStorage for submission:", e);
+        setUserMessage({ text: "User session corrupted. Please log in again.", type: "error" });
+        return;
+      }
+    }
+
+    // Check if svvNetId is available before attempting to submit
+    if (!svvNetId) {
+      setUserMessage({ text: "Authentication error: User ID (svvNetId) not found. Please log in.", type: "error" });
+      return;
+    }
+
     try {
       const formPayload = new FormData();
 
       // Append all text/json fields
+      formPayload.append("svvNetId", svvNetId);
       formPayload.append("projectTitle", formData.projectTitle);
       formPayload.append("projectDescription", formData.projectDescription);
       formPayload.append("utility", formData.utility);

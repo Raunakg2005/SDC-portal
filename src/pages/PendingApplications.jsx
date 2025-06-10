@@ -10,33 +10,66 @@ const PendingApplications = () => {
 
   useEffect(() => {
     const fetchApplications = async () => {
+      setLoading(true); // Set loading true at the start of fetch
+      setError(null);   // Clear any previous errors
+
       try {
-        // 1. Get user's branch from localStorage
         let userBranch = null;
+        let svvNetId = null; // Declare svvNetId variable
+
         const userString = localStorage.getItem("user");
         if (userString) {
           try {
             const user = JSON.parse(userString);
             userBranch = user.branch;
+            svvNetId = user.svvNetId; // <--- Get svvNetId from localStorage
           } catch (e) {
-            console.error("Failed to parse user data from localStorage:", e);
-            // Consider adding user-facing error or logout if localStorage is critical
+            console.error("Failed to parse user data from localStorage for PendingApplications:", e);
+            // Clear corrupted user data and prompt for re-login
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            setError("User session corrupted. Please log in again.");
+            setLoading(false);
+            // Optionally, navigate to login page here: navigate('/login');
+            return;
           }
         }
 
-        // 2. Construct the URL with the userBranch as a query parameter
+        // IMPORTANT: If svvNetId is not found, the user isn't authenticated for this action.
+        if (!svvNetId) {
+          setError("User not authenticated. Please log in to view pending applications.");
+          setLoading(false);
+          // Optionally, navigate to login page here: navigate('/login');
+          return;
+        }
+
+        // Construct the URL with both userBranch and svvNetId as query parameters
         const baseUrl = "http://localhost:5000/api/application/pending";
-        const url = userBranch ? `${baseUrl}?userBranch=${encodeURIComponent(userBranch)}` : baseUrl;
+        const params = new URLSearchParams();
+
+        if (userBranch) {
+          params.append('userBranch', userBranch);
+        }
+        params.append('svvNetId', svvNetId); // <--- Crucial: Add svvNetId to query params
+
+        const url = `${baseUrl}?${params.toString()}`;
 
         const res = await fetch(url);
         if (!res.ok) {
           const text = await res.text();
-          throw new Error(`Failed to fetch pending applications: ${res.status} ${text}`);
+          let errorMessage = `Failed to fetch pending applications: ${res.status} ${text}`;
+          // Enhance error messages for user clarity
+          if (res.status === 400 && text.includes("svvNetId is required")) {
+              errorMessage = "Authentication error: svvNetId missing from request. Please ensure you are logged in.";
+          } else if (res.status === 401 || res.status === 403) {
+              errorMessage = "You are not authorized to view these applications.";
+          }
+          throw new Error(errorMessage);
         }
         const data = await res.json();
         setApplications(data);
       } catch (err) {
-        console.error("Error in PendingApplications:", err);
+        console.error("Error in PendingApplications fetch:", err); // Log the full error
         setError(err.message);
       } finally {
         setLoading(false);
@@ -48,18 +81,29 @@ const PendingApplications = () => {
 
   const handleViewClick = (id) => {
     // When navigating to a specific application, also send the user's branch
-    // so the detail page can use it for its API call.
+    // AND svvNetId so the detail page can use it for its API call.
     let userBranch = null;
+    let svvNetId = null; // Declare svvNetId
     const userString = localStorage.getItem("user");
     if (userString) {
       try {
         const user = JSON.parse(userString);
         userBranch = user.branch;
+        svvNetId = user.svvNetId; // <--- Get svvNetId for navigation
       } catch (e) {
         console.error("Failed to parse user data for view click:", e);
       }
     }
-    const queryParam = userBranch ? `?userBranch=${encodeURIComponent(userBranch)}` : '';
+
+    const params = new URLSearchParams();
+    if (userBranch) {
+      params.append('userBranch', userBranch);
+    }
+    if (svvNetId) { // <--- Add svvNetId to navigation query params
+      params.append('svvNetId', svvNetId);
+    }
+
+    const queryParam = params.toString() ? `?${params.toString()}` : '';
     navigate(`/application/${id}${queryParam}`);
   };
 
@@ -94,14 +138,14 @@ const PendingApplications = () => {
             ) : (
               applications.map((app) => (
                 <tr key={app._id} className="border-t hover:bg-gray-50">
-                  <td className="p-3">{app.topic}</td>
-                  <td className="p-3">{app.name}</td>
+                  <td className="p-3">{app.topic || 'N/A'}</td> {/* Add fallback for topic */}
+                  <td className="p-3">{app.name || 'N/A'}</td>   {/* Add fallback for name */}
                   <td className="p-3">
                     {new Date(app.submitted).toLocaleDateString()}
                   </td>
                   {/* This 'app.branch' now comes from the backend,
                       prioritizing the user's branch if sent. */}
-                  <td className="p-3">{app.branch}</td>
+                  <td className="p-3">{app.branch || 'N/A'}</td> {/* Add fallback for branch */}
                   <td className="p-3">
                     <button
                       onClick={() => handleViewClick(app._id)}
@@ -119,5 +163,4 @@ const PendingApplications = () => {
     </div>
   );
 };
-
 export default PendingApplications;

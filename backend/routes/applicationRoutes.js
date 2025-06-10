@@ -79,7 +79,6 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
     // **UPDATED LOGIC HERE: Prioritize userBranchFromRequest**
     processedForm.branch = userBranchFromRequest || form.branch || form.department || (form.students?.[0]?.branch) || (form.studentDetails?.[0]?.branch) || "N/A";
 
-
     // Standardize submission date
     processedForm.submitted = form.createdAt || form.submittedAt || new Date();
     // Ensure date is a proper Date object for formatting on frontend
@@ -271,14 +270,29 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
 
 /**
  * @route GET /api/application/pending
- * @desc Fetch all pending applications from all form collections
- * @access Public (adjust as per your auth)
+ * @desc Fetch all pending applications from all form collections for the authenticated user
+ * @access Private (requires authentication)
  * @queryParam {string} [userBranch] - Optional: The branch of the currently logged-in user.
+ * @queryParam {string} svvNetId - Required: The svvNetId of the currently logged-in user.
  */
 router.get("/pending", async (req, res) => {
     try {
-        // Extract userBranch from query parameters
+        // Extract parameters from query
         const userBranch = req.query.userBranch;
+        const svvNetId = req.query.svvNetId;
+
+        // Validate svvNetId is provided
+        if (!svvNetId) {
+            return res.status(400).json({ 
+                message: "svvNetId is required to fetch user-specific applications" 
+            });
+        }
+
+        // Create filter object for user-specific data
+        const userFilter = { 
+            status: /^pending$/i,
+            svvNetId: svvNetId // Filter by the authenticated user's svvNetId
+        };
 
         const [
             ug1Forms,
@@ -290,25 +304,25 @@ router.get("/pending", async (req, res) => {
             pg2bForms,
             r1Forms
         ] = await Promise.all([
-            UG1Form.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
-            UGForm2.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
-            UG3AForm.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
-            UG3BForm.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
-            PG1Form.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
-            PG2AForm.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
-            PG2BForm.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
-            R1Form.find({ status: /^pending$/i }).sort({ createdAt: -1 }).lean(),
+            UG1Form.find(userFilter).sort({ createdAt: -1 }).lean(),
+            UGForm2.find(userFilter).sort({ createdAt: -1 }).lean(),
+            UG3AForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            UG3BForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            PG1Form.find(userFilter).sort({ createdAt: -1 }).lean(),
+            PG2AForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            PG2BForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            R1Form.find(userFilter).sort({ createdAt: -1 }).lean(),
         ]);
 
         const results = await Promise.all([
-            ...ug1Forms.map(f => processFormForDisplay(f, "UG_1", userBranch)), // Pass userBranch
-            ...ug2Forms.map(f => processFormForDisplay(f, "UG_2", userBranch)), // Pass userBranch
-            ...ug3aForms.map(f => processFormForDisplay(f, "UG_3_A", userBranch)), // Pass userBranch
-            ...ug3bForms.map(f => processFormForDisplay(f, "UG_3_B", userBranch)), // Pass userBranch
-            ...pg1Forms.map(f => processFormForDisplay(f, "PG_1", userBranch)), // Pass userBranch
-            ...pg2aForms.map(f => processFormForDisplay(f, "PG_2_A", userBranch)), // Pass userBranch
-            ...pg2bForms.map(f => processFormForDisplay(f, "PG_2_B", userBranch)), // Pass userBranch
-            ...r1Forms.map(f => processFormForDisplay(f, "R1", userBranch)), // Pass userBranch
+            ...ug1Forms.map(f => processFormForDisplay(f, "UG_1", userBranch)),
+            ...ug2Forms.map(f => processFormForDisplay(f, "UG_2", userBranch)),
+            ...ug3aForms.map(f => processFormForDisplay(f, "UG_3_A", userBranch)),
+            ...ug3bForms.map(f => processFormForDisplay(f, "UG_3_B", userBranch)),
+            ...pg1Forms.map(f => processFormForDisplay(f, "PG_1", userBranch)),
+            ...pg2aForms.map(f => processFormForDisplay(f, "PG_2_A", userBranch)),
+            ...pg2bForms.map(f => processFormForDisplay(f, "PG_2_B", userBranch)),
+            ...r1Forms.map(f => processFormForDisplay(f, "R1", userBranch)),
         ]);
 
         res.json(results);
@@ -319,17 +333,82 @@ router.get("/pending", async (req, res) => {
 });
 
 /**
- * @route GET /api/application/:id
- * @desc Fetch specific application by ID from all form collections
- * @access Public (adjust as per your auth)
+ * @route GET /api/application/my-applications
+ * @desc Fetch all applications (any status) for the authenticated user
+ * @access Private (requires authentication)
  * @queryParam {string} [userBranch] - Optional: The branch of the currently logged-in user.
+ * @queryParam {string} svvNetId - Required: The svvNetId of the currently logged-in user.
+ */
+router.get("/my-applications", async (req, res) => {
+    try {
+        const userBranch = req.query.userBranch;
+        const svvNetId = req.query.svvNetId;
+
+        if (!svvNetId) {
+            return res.status(400).json({ 
+                message: "svvNetId is required to fetch user-specific applications" 
+            });
+        }
+
+        // Filter for all applications by this user (any status)
+        const userFilter = { svvNetId: svvNetId };
+
+        const [
+            ug1Forms,
+            ug2Forms,
+            ug3aForms,
+            ug3bForms,
+            pg1Forms,
+            pg2aForms,
+            pg2bForms,
+            r1Forms
+        ] = await Promise.all([
+            UG1Form.find(userFilter).sort({ createdAt: -1 }).lean(),
+            UGForm2.find(userFilter).sort({ createdAt: -1 }).lean(),
+            UG3AForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            UG3BForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            PG1Form.find(userFilter).sort({ createdAt: -1 }).lean(),
+            PG2AForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            PG2BForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            R1Form.find(userFilter).sort({ createdAt: -1 }).lean(),
+        ]);
+
+        const results = await Promise.all([
+            ...ug1Forms.map(f => processFormForDisplay(f, "UG_1", userBranch)),
+            ...ug2Forms.map(f => processFormForDisplay(f, "UG_2", userBranch)),
+            ...ug3aForms.map(f => processFormForDisplay(f, "UG_3_A", userBranch)),
+            ...ug3bForms.map(f => processFormForDisplay(f, "UG_3_B", userBranch)),
+            ...pg1Forms.map(f => processFormForDisplay(f, "PG_1", userBranch)),
+            ...pg2aForms.map(f => processFormForDisplay(f, "PG_2_A", userBranch)),
+            ...pg2bForms.map(f => processFormForDisplay(f, "PG_2_B", userBranch)),
+            ...r1Forms.map(f => processFormForDisplay(f, "R1", userBranch)),
+        ]);
+
+        res.json(results);
+    } catch (error) {
+        console.error("Error fetching user applications:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+/**
+ * @route GET /api/application/:id
+ * @desc Fetch specific application by ID from all form collections (user must own the application)
+ * @access Private (requires authentication)
+ * @queryParam {string} [userBranch] - Optional: The branch of the currently logged-in user.
+ * @queryParam {string} svvNetId - Required: The svvNetId of the currently logged-in user.
  */
 router.get("/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        // Extract userBranch from query parameters
         const userBranch = req.query.userBranch;
+        const svvNetId = req.query.svvNetId;
 
+        if (!svvNetId) {
+            return res.status(400).json({ 
+                message: "svvNetId is required to access applications" 
+            });
+        }
 
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({ message: "Invalid application ID" });
@@ -349,8 +428,13 @@ router.get("/:id", async (req, res) => {
         let application = null;
         let foundType = null;
 
+        // Search for the application and verify ownership
         for (const collection of collections) {
-            application = await collection.model.findById(id).lean();
+            application = await collection.model.findOne({ 
+                _id: id, 
+                svvNetId: svvNetId // Ensure user owns this application
+            }).lean();
+            
             if (application) {
                 foundType = collection.type;
                 break;
@@ -358,10 +442,12 @@ router.get("/:id", async (req, res) => {
         }
 
         if (!application) {
-            return res.status(404).json({ message: "Application not found" });
+            return res.status(404).json({ 
+                message: "Application not found or you don't have permission to access it" 
+            });
         }
 
-        const processedApplication = await processFormForDisplay(application, foundType, userBranch); // Pass userBranch
+        const processedApplication = await processFormForDisplay(application, foundType, userBranch);
 
         res.json(processedApplication);
     } catch (error) {
@@ -370,6 +456,73 @@ router.get("/:id", async (req, res) => {
     }
 });
 
+/**
+ * @route PUT /api/application/:id/status
+ * @desc Update application status (only for the owner)
+ * @access Private (requires authentication)
+ */
+router.put("/:id/status", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, svvNetId } = req.body;
+
+        if (!svvNetId) {
+            return res.status(400).json({ 
+                message: "svvNetId is required" 
+            });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: "Invalid application ID" });
+        }
+
+        if (!status || !['pending', 'approved', 'rejected'].includes(status.toLowerCase())) {
+            return res.status(400).json({ 
+                message: "Valid status is required (pending, approved, rejected)" 
+            });
+        }
+
+        const collections = [
+            UG1Form, UGForm2, UG3AForm, UG3BForm, 
+            PG1Form, PG2AForm, PG2BForm, R1Form
+        ];
+
+        let updatedApplication = null;
+
+        // Try to update in each collection
+        for (const Model of collections) {
+            updatedApplication = await Model.findOneAndUpdate(
+                { 
+                    _id: id, 
+                    svvNetId: svvNetId // Ensure user owns this application
+                },
+                { 
+                    status: status.toLowerCase(),
+                    updatedAt: new Date()
+                },
+                { new: true }
+            ).lean();
+
+            if (updatedApplication) {
+                break;
+            }
+        }
+
+        if (!updatedApplication) {
+            return res.status(404).json({ 
+                message: "Application not found or you don't have permission to update it" 
+            });
+        }
+
+        res.json({ 
+            message: "Application status updated successfully",
+            application: updatedApplication 
+        });
+    } catch (error) {
+        console.error("Error updating application status:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
 
 // General file serving route for GridFS files
 router.get('/file/:fileId', async (req, res) => {
@@ -405,4 +558,5 @@ router.get('/file/:fileId', async (req, res) => {
         res.status(500).json({ message: "Server error." });
     }
 });
+
 export default router;
