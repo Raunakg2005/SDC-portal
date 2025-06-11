@@ -1,9 +1,9 @@
-import express from "express";
-import mongoose from "mongoose";
-import multer from "multer";
-import { GridFSBucket } from "mongodb";
-import UG3AForm from "../models/UG3AForm.js"; // Your Mongoose model
-import dotenv from "dotenv";
+import express from 'express';
+import multer from 'multer';
+import mongoose from 'mongoose';
+import { GridFSBucket } from 'mongodb';
+import UG3AForm from '../models/UG3AForm.js'; // Your Mongoose model
+import dotenv from 'dotenv';
 
 dotenv.config();
 const router = express.Router();
@@ -81,13 +81,19 @@ const uploadToGridFS = (bucket, file) => {
 };
 
 // 🔹 Submit UG3A Form (Updated for GridFS and matching frontend field names)
+// Note: This endpoint should handle the 'uploads' bucket as per the existing code.
 router.post("/submit", upload.fields([
     { name: "uploadedImage", maxCount: 1 }, // NOW MATCHES FRONTEND 'uploadedImage'
     { name: "uploadedPdfs", maxCount: 5 },   // NOW MATCHES FRONTEND 'uploadedPdfs'
     { name: "uploadedZipFile", maxCount: 1 } // NOW MATCHES FRONTEND 'uploadedZipFile'
 ]), async (req, res) => {
     try {
-        const { organizingInstitute, projectTitle, students, expenses, bankDetails } = req.body;
+        const { organizingInstitute, projectTitle, students, expenses, bankDetails, svvNetId } = req.body; // <--- Extract svvNetId
+
+        // Basic validation for svvNetId
+        if (!svvNetId) {
+            return res.status(400).json({ message: "svvNetId is required for form submission." });
+        }
 
         const parsedStudents = students ? JSON.parse(students) : [];
         const parsedExpenses = expenses ? JSON.parse(expenses) : [];
@@ -100,7 +106,7 @@ router.post("/submit", upload.fields([
             return res.status(500).json({ error: "Database connection not ready." });
         }
         const db = mongoose.connection.db;
-        const bucket = new GridFSBucket(db, { bucketName: "uploads" });
+        const bucket = new GridFSBucket(db, { bucketName: "uploads" }); // Ensure this bucket matches where you store UG3A files
 
         let uploadedImageDetails = null;
         const uploadedPdfDetails = [];
@@ -127,6 +133,7 @@ router.post("/submit", upload.fields([
         }
 
         const newForm = new UG3AForm({
+            svvNetId: svvNetId, // <--- Add svvNetId to the Mongoose document
             organizingInstitute,
             projectTitle,
             students: parsedStudents,
@@ -149,8 +156,6 @@ router.post("/submit", upload.fields([
         if (error instanceof multer.MulterError) {
             return res.status(400).json({ error: `File upload error: ${error.message}` });
         }
-        // Add specific error handling for BSONObjectTooLarge if you revert to direct storage
-        // For GridFS, this specific error is less likely unless there's a different underlying issue.
         res.status(500).json({ error: "An error occurred while submitting the form." });
     }
 });
@@ -164,7 +169,7 @@ router.get('/file/:fileId', async (req, res) => {
             return res.status(500).json({ error: "Database connection not ready." });
         }
         const db = mongoose.connection.db;
-        const bucket = new GridFSBucket(db, { bucketName: 'uploads' });
+        const bucket = new GridFSBucket(db, { bucketName: 'uploads' }); // This bucket name should match the one used for storing files
 
         const files = await bucket.find({ _id: fileId }).toArray();
         if (files.length === 0) {

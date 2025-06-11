@@ -31,6 +31,7 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
         amountReceived: data.amountReceived || '',
         amountSanctioned: data.amountSanctioned || '',
         status: data.status || 'pending',
+        svvNetId: data.svvNetId || '',
       };
     }
     // Defaults if not viewOnly or no data
@@ -60,7 +61,8 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
       claimDate: '',
       amountReceived: '',
       amountSanctioned: '',
-      status: 'pending'
+      status: 'pending',
+      svvNetId: '',
     };
   });
 
@@ -192,51 +194,64 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (viewOnly) return;
-  
+
+    let svvNetId = "";
+    const userString = localStorage.getItem("user");
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        svvNetId = typeof user.svvNetId === "string" ? user.svvNetId : (Array.isArray(user.svvNetId) ? user.svvNetId[0] : "");
+      } catch (e) {
+        console.error("Failed to parse user data from localStorage for submission:", e);
+        setUserMessage({ text: "User session corrupted. Please log in again.", type: "error" });
+        return;
+      }
+    }
+
+    if (!svvNetId) {
+      setUserMessage({ text: "Authentication error: User ID (svvNetId) not found. Please log in.", type: "error" });
+      return;
+    }
+
     try {
       const formPayload = new FormData();
-  
-      // Append basic fields except bankDetails
+
+      // ✅ Append svvNetId as string
+      formPayload.append("svvNetId", svvNetId.toString());
+
       Object.entries(formData).forEach(([key, value]) => {
         if (key !== "bankDetails") {
           formPayload.append(key, value || "");
         }
       });
-  
-      // Append bankDetails as JSON string
+
       formPayload.append("bankDetails", JSON.stringify(formData.bankDetails || {}));
-  
-      // Validate required files
+
       if (!files.receiptCopy || !files.guideSignature) {
         alert("Please upload both Receipt Copy and Guide Signature.");
         return;
       }
-  
-      // Append required single files
+
       formPayload.append("receiptCopy", files.receiptCopy);
       formPayload.append("guideSignature", files.guideSignature);
-  
-      // Append optional single file
+
       if (files.additionalDocuments) {
         formPayload.append("additionalDocuments", files.additionalDocuments);
       }
-  
-      // Append multiple PDFs (max 5)
+
       (files.pdfDocuments || []).slice(0, 5).forEach((file) => {
         formPayload.append("pdfDocuments", file);
       });
-  
-      // Append multiple ZIPs (max 2)
+
       (files.zipFiles || []).slice(0, 2).forEach((file) => {
         formPayload.append("zipFiles", file);
       });
-  
+
       const response = await axios.post(
         "http://localhost:5000/api/pg1form/submit",
         formPayload
-        // Do NOT set headers here – axios will set content-type + boundary automatically
       );
-  
+
       alert("Form submitted successfully!");
       console.log("Form submitted:", response.data);
     } catch (error) {
@@ -244,6 +259,7 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
       alert("Failed to submit form. Please check required fields and try again.");
     }
   };
+
   
   return (
     <div className="form-container max-w-4xl mx-auto p-5 bg-gray-50 rounded-lg shadow-md">

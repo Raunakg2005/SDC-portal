@@ -47,6 +47,7 @@ const PG_2_A = ({ viewOnly = false, data = null }) => {
           accountNumber: data.bankDetails?.accountNumber || '',
         },
         status: data.status || 'pending',
+        svvNetId: data.svvNetId || '',
       };
     }
   
@@ -80,6 +81,7 @@ const PG_2_A = ({ viewOnly = false, data = null }) => {
         accountNumber: '',
       },
       status: 'pending',
+      svvNetId: '',
     };
   });
   
@@ -349,10 +351,27 @@ const PG_2_A = ({ viewOnly = false, data = null }) => {
     e.preventDefault();
     if (viewOnly) return;
     if (!validateForm()) return;
-  
+    let svvNetId = null;
+    const userString = localStorage.getItem("user");
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        svvNetId = user.svvNetId;
+      } catch (e) {
+        console.error("Failed to parse user data from localStorage for submission:", e);
+        setUserMessage({ text: "User session corrupted. Please log in again.", type: "error" });
+        return;
+      }
+    }
+
+    // Check if svvNetId is available before attempting to submit
+    if (!svvNetId) {
+      setUserMessage({ text: "Authentication error: User ID (svvNetId) not found. Please log in.", type: "error" });
+      return;
+    }
     try {
       const formPayload = new FormData();
-  
+      formPayload.append('svvNetId',svvNetId);
       // Append flat string fields
       [
         "projectTitle", "teamName", "guideName", "department", "date",

@@ -9,7 +9,21 @@ const bankDetailsSchema = new mongoose.Schema({
   accountNumber: { type: String, required: true },
 });
 
+// Define reusable schema for file metadata
+const fileMetadataSchema = new mongoose.Schema({
+  id: { type: mongoose.Schema.Types.ObjectId, required: true },
+  filename: { type: String, required: true },
+  originalName: { type: String, required: true },
+  mimetype: { type: String, required: true },
+  size: { type: Number, required: true },
+}, { _id: false });
+
 const PG2BFormSchema = new mongoose.Schema({
+  svvNetId: {
+    type: String,
+    required: true,
+    trim: true,
+  },
   studentName: { type: String, required: true },
   yearOfAdmission: { type: String, required: true },
   feesPaid: { type: String, enum: ['Yes', 'No'], required: true },
@@ -46,32 +60,15 @@ const PG2BFormSchema = new mongoose.Schema({
     default: 'pending',
   },
 
-  // GridFS File IDs
-  paperCopyFilename: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    ref: 'uploads.files',
-  },
-  groupLeaderSignatureFilename: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    ref: 'uploads.files',
-  },
-  guideSignatureFilename: {
-    type: mongoose.Schema.Types.ObjectId,
-    required: true,
-    ref: 'uploads.files',
-  },
-  additionalDocumentsFilename: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'uploads.files',
-    },
-  ],
+  // ✅ Store complete file metadata
+  paperCopy: { type: fileMetadataSchema, required: true },
+  groupLeaderSignature: { type: fileMetadataSchema, required: true },
+  guideSignature: { type: fileMetadataSchema, required: true },
+  additionalDocuments: { type: [fileMetadataSchema], default: [] },
+
 }, {
   timestamps: true,
 });
 
 const PG2BForm = mongoose.model("PG2BForm", PG2BFormSchema);
-
 export default PG2BForm;

@@ -1,9 +1,9 @@
 import express from 'express';
-import mongoose from 'mongoose';
 import multer from 'multer';
+import mongoose, { mongo } from 'mongoose';
+import { GridFSBucket } from 'mongodb';
 import PG1Form from '../models/PG1Form.js';
 import dotenv from 'dotenv';
-import { GridFSBucket } from 'mongodb';
 
 dotenv.config();
 
@@ -11,93 +11,208 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Upload configuration: single + multiple files
+let gfsBucket;
+const conn = mongoose.connection;
+
+// Initialize GridFS once MongoDB connection is open
+conn.once('open', () => {
+    gfsBucket = new GridFSBucket(conn.db, { bucketName: 'pg1files' });
+    console.log("✅ GridFSBucket initialized for 'pg1files'");
+});
+
+// Multer upload fields config
 const uploadFields = upload.fields([
-  { name: 'receiptCopy', maxCount: 1 },
-  { name: 'additionalDocuments', maxCount: 1 },
-  { name: 'guideSignature', maxCount: 1 },
-  { name: 'pdfDocuments', maxCount: 5 },
-  { name: 'zipFiles', maxCount: 2 },
+    { name: 'receiptCopy', maxCount: 1 },
+    { name: 'additionalDocuments', maxCount: 1 },
+    { name: 'guideSignature', maxCount: 1 },
+    { name: 'pdfDocuments', maxCount: 5 },
+    { name: 'zipFiles', maxCount: 2 },
 ]);
 
+// --- POST: Submit PG-1 Form ---
 router.post('/submit', uploadFields, async (req, res) => {
-  try {
-    const bankDetails = JSON.parse(req.body.bankDetails);
-    const conn = mongoose.connection;
-    const bucket = new GridFSBucket(conn.db, { bucketName: 'pg1files' });
+    const uploadedFileIds = [];
 
-    const uploadFile = (file) => {
-      return new Promise((resolve, reject) => {
-        const stream = bucket.openUploadStream(file.originalname, {
-          contentType: file.mimetype,
+    try {
+        const {
+            studentName,
+            yearOfAdmission,
+            feesPaid,
+            sttpTitle,
+            guideName,
+            coGuideName,
+            numberOfDays,
+            dateFrom,
+            dateTo,
+            organization,
+            reason,
+            knowledgeUtilization,
+            registrationFee,
+            previousClaim,
+            claimDate,
+            amountReceived,
+            amountSanctioned,
+            svvNetId,
+        } = req.body;
+
+        if (!svvNetId) {
+            return res.status(400).json({ message: "svvNetId is required." });
+        }
+
+        const bankDetails = JSON.parse(req.body.bankDetails || '{}');
+
+        if (!gfsBucket) {
+            throw new Error("GridFSBucket not initialized.");
+        }
+
+        const uploadFile = (file) => {
+            return new Promise((resolve, reject) => {
+                if (!file) return resolve(null);
+
+                const stream = gfsBucket.openUploadStream(file.originalname, {
+                    contentType: file.mimetype,
+                    metadata: {
+                        originalName: file.originalname,
+                        size: file.size,
+                    },
+                });
+
+                stream.end(file.buffer);
+
+                stream.on('finish', () => {
+                    uploadedFileIds.push(stream.id);
+                    resolve({
+                        id: stream.id,
+                        filename: file.originalname,
+                        mimetype: file.mimetype,
+                        size: file.size,
+                    });
+                });
+
+                stream.on('error', reject);
+            });
+        };
+
+        const receiptCopy = req.files?.receiptCopy?.[0];
+        const guideSignature = req.files?.guideSignature?.[0];
+
+        if (!receiptCopy || !guideSignature) {
+            return res.status(400).json({
+                error: "Required files missing: receiptCopy and guideSignature are mandatory.",
+            });
+        }
+
+        const receiptCopyData = await uploadFile(receiptCopy);
+        const guideSignatureData = await uploadFile(guideSignature);
+
+        const additionalDocumentsData = req.files?.additionalDocuments?.[0]
+            ? await uploadFile(req.files.additionalDocuments[0])
+            : null;
+
+        const pdfDocumentsData = await Promise.all(
+            (req.files?.pdfDocuments || []).map(uploadFile)
+        );
+
+        const zipFilesData = await Promise.all(
+            (req.files?.zipFiles || []).map(uploadFile)
+        );
+
+        const newForm = new PG1Form({
+            studentName,
+            yearOfAdmission,
+            feesPaid,
+            sttpTitle,
+            guideName,
+            coGuideName,
+            numberOfDays,
+            dateFrom,
+            dateTo,
+            organization,
+            reason,
+            knowledgeUtilization,
+            bankDetails,
+            registrationFee,
+            previousClaim,
+            claimDate,
+            amountReceived,
+            amountSanctioned,
+            files: {
+                receiptCopy: receiptCopyData,
+                guideSignature: guideSignatureData,
+                additionalDocuments: additionalDocumentsData,
+                pdfDocuments: pdfDocumentsData,
+                zipFiles: zipFilesData,
+            },
+            status: req.body.status || 'pending',
+            svvNetId,
         });
-        stream.end(file.buffer);
-        stream.on('finish', () => resolve(stream.id));
-        stream.on('error', reject);
-      });
-    };
 
-    // Required single file uploads
-    const receiptCopy = req.files?.receiptCopy?.[0];
-    const guideSignature = req.files?.guideSignature?.[0];
+        await newForm.save();
+        uploadedFileIds.length = 0;
 
-    if (!receiptCopy || !guideSignature) {
-      return res.status(400).json({ error: 'Required files missing' });
+        return res.status(201).json({
+            message: "PG1 form submitted successfully!",
+            id: newForm._id,
+        });
+
+    } catch (err) {
+        console.error('❌ PG1 form submission error:', err.message);
+
+        for (const fileId of uploadedFileIds) {
+            try {
+                await gfsBucket.delete(new mongoose.Types.ObjectId(fileId));
+                console.log(`🧹 Rolled back uploaded file: ${fileId}`);
+            } catch (rollbackErr) {
+                console.error(`⚠️ Rollback failed for file ${fileId}:`, rollbackErr.message);
+            }
+        }
+
+        return res.status(500).json({
+            error: "Form submission failed.",
+            details: err.message,
+        });
     }
+});
 
-    // Upload required files
-    const receiptCopyId = await uploadFile(receiptCopy);
-    const guideSignatureId = await uploadFile(guideSignature);
+// --- GET: Retrieve File by ID ---
+router.get('/file/:fileId', async (req, res) => {
+    try {
+        const fileId = new mongoose.Types.ObjectId(req.params.fileId);
 
-    // Upload optional single file
-    const additionalDocumentsId = req.files?.additionalDocuments?.[0]
-      ? await uploadFile(req.files.additionalDocuments[0])
-      : null;
+        if (!mongoose.connection.readyState) {
+            return res.status(500).json({ error: "MongoDB not connected." });
+        }
 
-    // Upload multiple PDF files (max 5)
-    const pdfDocuments = req.files?.pdfDocuments || [];
-    const pdfDocumentIds = await Promise.all(pdfDocuments.map(uploadFile));
+        const bucket = gfsBucket || new GridFSBucket(mongoose.connection.db, {
+            bucketName: 'pg1files',
+        });
 
-    // Upload multiple ZIP files (max 2)
-    const zipFiles = req.files?.zipFiles || [];
-    const zipFileIds = await Promise.all(zipFiles.map(uploadFile));
+        const files = await bucket.find({ _id: fileId }).toArray();
+        if (!files.length) {
+            return res.status(404).json({ error: "File not found." });
+        }
 
-    // Save form with all files
-    const newForm = new PG1Form({
-      studentName: req.body.studentName,
-      yearOfAdmission: req.body.yearOfAdmission,
-      feesPaid: req.body.feesPaid,
-      sttpTitle: req.body.sttpTitle,
-      guideName: req.body.guideName,
-      coGuideName: req.body.coGuideName,
-      numberOfDays: req.body.numberOfDays,
-      dateFrom: req.body.dateFrom,
-      dateTo: req.body.dateTo,
-      organization: req.body.organization,
-      reason: req.body.reason,
-      knowledgeUtilization: req.body.knowledgeUtilization,
-      bankDetails,
-      registrationFee: req.body.registrationFee,
-      previousClaim: req.body.previousClaim,
-      claimDate: req.body.claimDate,
-      amountReceived: req.body.amountReceived,
-      amountSanctioned: req.body.amountSanctioned,
-      files: {
-        receiptCopy: receiptCopyId,
-        guideSignature: guideSignatureId,
-        additionalDocuments: additionalDocumentsId,
-        pdfDocuments: pdfDocumentIds,
-        zipFiles: zipFileIds
-      },
-      status: req.body.status || 'pending',
-    });
+        const file = files[0];
 
-    await newForm.save();
-    res.json({ message: 'PG1 form submitted successfully!' });
-  } catch (err) {
-    console.error('Submit error:', err);
-    res.status(500).json({ error: 'Failed to submit PG1 form' });
-  }
+        res.set('Content-Type', file.contentType || 'application/octet-stream');
+        res.set('Content-Disposition', `inline; filename="${file.filename}"`);
+
+        const downloadStream = bucket.openDownloadStream(fileId);
+
+        downloadStream.on('error', (err) => {
+            console.error('Stream error:', err);
+            res.status(500).json({ error: "Failed to stream file." });
+        });
+
+        downloadStream.pipe(res);
+
+    } catch (error) {
+        console.error("Download error:", error.message);
+        if (error.name === "BSONTypeError") {
+            return res.status(400).json({ error: "Invalid file ID." });
+        }
+        return res.status(500).json({ error: "Server error while fetching file." });
+    }
 });
 
 export default router;

@@ -17,6 +17,7 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
         bankName: "",
         branch: "",
         ifsc: "",
+        accountType:"",
         accountNumber: ""
       }
     }
@@ -147,6 +148,19 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
     // const { name, value, type, checked } = e.target;
     // [name]: type === "checkbox" ? checked : value,
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleRemovePdf = (indexToRemove) => {
+    setFiles(prevFiles => {
+      const newPdfs = prevFiles.pdfs.filter((_, index) => index !== indexToRemove);
+    
+      // Clear input if no files left (optional)
+      if (newPdfs.length === 0 && pdfsInputRef.current) {
+        pdfsInputRef.current.value = "";
+      }
+
+      return { ...prevFiles, pdfs: newPdfs };
+    });
   };
 
   // Change handler for student array fields (maintaining immutability)
@@ -437,7 +451,26 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
       return;
     }
     setErrorMessage("");
+    let svvNetId = null;
+    const userString = localStorage.getItem("user");
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        svvNetId = user.svvNetId;
+      } catch (e) {
+        console.error("Failed to parse user data from localStorage for submission:", e);
+        setUserMessage({ text: "User session corrupted. Please log in again.", type: "error" });
+        return;
+      }
+    }
+
+    // Check if svvNetId is available before attempting to submit
+    if (!svvNetId) {
+      setUserMessage({ text: "Authentication error: User ID (svvNetId) not found. Please log in.", type: "error" });
+      return;
+    }
     const form = new FormData();
+    form.append("svvNetId", svvNetId);
     form.append("organizingInstitute", formData.organizingInstitute);
     form.append("projectTitle", formData.projectTitle);
     form.append("students", JSON.stringify(formData.students));
@@ -886,7 +919,7 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
 
         {/* Image Upload */}
         <div className="mb-4">
-          <label htmlFor="image" className="block font-semibold mb-2">Upload Project Image (JPEG):</label>
+          <label htmlFor="image" className="block font-semibold mb-2">Upload Image (JPEG):</label>
           {viewOnly ? (
             // Corrected: Use optional chaining files.image?.url
             files.image?.url ? (

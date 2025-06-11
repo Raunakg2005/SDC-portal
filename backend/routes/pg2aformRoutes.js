@@ -58,6 +58,7 @@ router.post('/submit', uploadFields, async (req, res) => {
     const guideSignatureId = await uploadFile(guideSignature);
 
     const newForm = new PG2AForm({
+      svvNetId: req.body.svvNetId,
       organizingInstitute: req.body.organizingInstitute,
       projectTitle: req.body.projectTitle,
       teamName: req.body.teamName,

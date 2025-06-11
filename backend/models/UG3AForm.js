@@ -34,6 +34,7 @@ const FileUploadSchema = new mongoose.Schema({
 
 
 const UG3AFormSchema = new mongoose.Schema({
+  svvNetId: { type: String, required: true },
   organizingInstitute: {
     type: String,
     required: [true, "Organizing Institute is required."],

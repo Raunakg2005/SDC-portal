@@ -10,6 +10,7 @@ const bankDetailsSchema = new mongoose.Schema({
 });
 
 const R1FormSchema = new mongoose.Schema({
+  svvNetId: { type: String, required: true },
   guideName: { type: String, required: true },
   coGuideName: { type: String, default: '' },
   employeeCodes: { type: String, required: true },

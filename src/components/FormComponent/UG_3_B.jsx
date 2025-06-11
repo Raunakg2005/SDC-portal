@@ -28,7 +28,8 @@ const UG_3_B = ({ viewOnly = false, data = null }) => {
         claimDate: data.claimDate || '',
         amountReceived: data.amountReceived || '',
         amountSanctioned: data.amountSanctioned || '',
-        status: data.status || 'pending'
+        status: data.status || 'pending',
+        svvNetId: data.svvNetId || '',
       };
     } else {
       return {
@@ -56,7 +57,8 @@ const UG_3_B = ({ viewOnly = false, data = null }) => {
         claimDate: '',
         amountReceived: '',
         amountSanctioned: '',
-        status: 'pending'
+        status: 'pending',
+        svvNetId: '',
       };
     }
   });
@@ -88,7 +90,8 @@ const UG_3_B = ({ viewOnly = false, data = null }) => {
         claimDate: data.claimDate || '',
         amountReceived: data.amountReceived || '',
         amountSanctioned: data.amountSanctioned || '',
-        status: data.status || 'pending'
+        status: data.status || 'pending',
+        svvNetId: data.svvNetId || '',
       });
   
       if (data.files) {
@@ -227,34 +230,56 @@ const UG_3_B = ({ viewOnly = false, data = null }) => {
   
   const handleSubmit = async () => {
     console.log('handleSubmit called');
-  
+
     const valid = validateForm();
     console.log('validateForm result:', valid);
     if (!valid) return;
-  
+
     if (viewOnly) {
       console.log('Form is view only, submission blocked');
       return;
     }
-  
+
+    let svvNetId = null;
+    const userString = localStorage.getItem("user");
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        svvNetId = user.svvNetId;
+      } catch (e) {
+        console.error("Failed to parse user data from localStorage for submission:", e);
+        setUserMessage({ text: "User session corrupted. Please log in again.", type: "error" });
+        return;
+      }
+    }
+
+    if (!svvNetId) {
+      setUserMessage({ text: "Authentication error: User ID (svvNetId) not found. Please log in.", type: "error" });
+      return;
+    }
+
     console.log('formData:', formData);
     console.log('files:', files);
-  
+
     const submitData = new FormData();
-  
+    submitData.append('svvNetId', svvNetId); // ✅ Only append once
+
     // Append regular fields
     for (const key in formData) {
+      if (key === 'svvNetId') continue; // ✅ Avoid duplicating svvNetId
       if (key === 'authors') {
-        formData.authors.forEach(author => {
-          submitData.append('authors', author);
-        });
+        formData.authors
+          .filter(author => author.trim() !== '')
+          .forEach(author => {
+            submitData.append('authors', author);
+          });
       } else if (key === 'bankDetails') {
         submitData.append('bankDetails', JSON.stringify(formData.bankDetails));
       } else {
         submitData.append(key, formData[key]);
       }
     }
-  
+
     // Append single files
     ['paperCopy', 'groupLeaderSignature', 'guideSignature', 'additionalDocuments'].forEach(key => {
       if (files[key]) {
@@ -262,28 +287,28 @@ const UG_3_B = ({ viewOnly = false, data = null }) => {
         submitData.append(key, files[key]);
       }
     });
-  
-    // ✅ Append multiple files correctly (same field name)
+
+    // Append multiple files
     if (files.pdfDocuments && files.pdfDocuments.length > 0) {
       files.pdfDocuments.slice(0, 5).forEach(file => {
         console.log(`Appending pdfDocuments`, file);
         submitData.append('pdfDocuments', file);
       });
     }
-  
+
     if (files.zipFiles && files.zipFiles.length > 0) {
       files.zipFiles.slice(0, 2).forEach(file => {
         console.log(`Appending zipFiles`, file);
         submitData.append('zipFiles', file);
       });
     }
-  
+
     try {
       const response = await fetch('http://localhost:5000/api/ug3bform/submit', {
         method: 'POST',
         body: submitData,
       });
-  
+
       if (response.ok) {
         alert('Form submitted successfully!');
         console.log(await response.json());
@@ -297,8 +322,7 @@ const UG_3_B = ({ viewOnly = false, data = null }) => {
       alert('Submission failed. Please try again.');
     }
   };
-  
-  
+
   const inputClasses = viewOnly 
     ? "w-full p-1 border border-gray-300 rounded bg-gray-100 cursor-not-allowed" 
     : "w-full p-1 border border-gray-300 rounded";

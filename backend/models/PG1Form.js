@@ -10,6 +10,7 @@ const bankDetailsSchema = new mongoose.Schema({
 });
 
 const pg1FormSchema = new mongoose.Schema({
+  svvNetId: { type: String, required: true },
   studentName: { type: String, required: true },
   yearOfAdmission: { type: String, required: true },
   feesPaid: { type: String, enum: ['Yes', 'No'], default: 'No' },
@@ -39,27 +40,29 @@ const pg1FormSchema = new mongoose.Schema({
     receiptCopy: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
-      ref: 'pg1files.files'
+      ref: 'pg1files.files', // GridFS collection
     },
-    additionalDocuments: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'pg1files.files'
-    },
+    additionalDocuments: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'pg1files.files',
+      }
+    ],
     guideSignature: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
-      ref: 'pg1files.files'
+      ref: 'pg1files.files',
     },
     pdfDocuments: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'pg1files.files'
+        ref: 'pg1files.files',
       }
     ],
     zipFiles: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'pg1files.files'
+        ref: 'pg1files.files',
       }
     ]
   },
@@ -74,5 +77,4 @@ const pg1FormSchema = new mongoose.Schema({
 });
 
 const PG1Form = mongoose.model("PG1Form", pg1FormSchema);
-
 export default PG1Form;

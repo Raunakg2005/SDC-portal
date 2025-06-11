@@ -77,7 +77,8 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
   }, [data, viewOnly]);
   
   const [loading, setLoading] = useState(false);
-
+  const [errors, setErrors] = useState({});
+  const [userMessage, setUserMessage] = useState({ text: '', type: '' });
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -180,86 +181,146 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
   };
 
   const handleSubmit = async () => {
-    if (viewOnly || !validateForm()) return;
-  
+    if (viewOnly) {
+      setUserMessage({ text: 'Form is in view-only mode, cannot submit.', type: "error" });
+      return;
+    }
+
+    const validationErrors = validateForm(formData, files, viewOnly);
+    setErrors(validationErrors);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setUserMessage({ text: "Please fix the errors in the form before submitting.", type: "error" });
+      return;
+    }
+
     setLoading(true);
-    try {
-      const submissionData = new FormData();
-  
-      // Append string and structured fields
-      Object.entries(formData).forEach(([key, value]) => {
-        submissionData.append(
-          key,
-          ['authors', 'bankDetails'].includes(key) ? JSON.stringify(value) : value
-        );
-      });
-  
-      // Append single files
-      if (files.paperCopy) submissionData.append('paperCopy', files.paperCopy);
-      if (files.groupLeaderSignature) submissionData.append('groupLeaderSignature', files.groupLeaderSignature);
-      if (files.guideSignature) submissionData.append('guideSignature', files.guideSignature);
-  
-      // Append additional documents (multiple)
-      if (files.additionalDocuments) {
-        Array.from(files.additionalDocuments).forEach(file =>
-          submissionData.append('additionalDocuments', file)
-        );
-      }
-  
-      // Append up to 5 PDF files
-      if (files.pdfDocuments && files.pdfDocuments.length > 0) {
-        files.pdfDocuments.slice(0, 5).forEach(file => {
-          if (file.type === 'application/pdf') {
-            submissionData.append('pdfDocuments', file);
-          }
-        });
-      }
-  
-      // Append ZIP file (optional)
-      if (files.zipFile) {
-        if (
-          files.zipFile.type === 'application/zip' ||
-          files.zipFile.name.toLowerCase().endsWith('.zip')
-        ) {
-          submissionData.append('zipFile', files.zipFile);
+    let svvNetId = null;
+    const userString = localStorage.getItem("user");
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        if (Array.isArray(user.svvNetId)) {
+          svvNetId = user.svvNetId.find(id => id && id.trim() !== '') || '';
+        } else if (typeof user.svvNetId === 'string') {
+          svvNetId = user.svvNetId;
+        } else {
+          console.error("Unexpected type for user.svvNetId in localStorage:", typeof user.svvNetId);
         }
+      } catch (e) {
+        console.error("Failed to parse user data from localStorage for submission:", e);
+        setUserMessage({ text: "User session corrupted. Please log in again.", type: "error" });
+        setLoading(false);
+        return;
       }
-  
-      // POST request
+    }
+
+    if (!svvNetId || svvNetId.trim() === '') {
+      setUserMessage({ text: "Authentication error: User ID (svvNetId) not found or invalid. Please log in.", type: "error" });
+      setLoading(false);
+      return;
+    }
+
+    const submissionData = new FormData();
+
+    // Append svvNetId ONCE from the validated local storage value
+    submissionData.append('svvNetId', svvNetId);
+
+    // Append other form data fields from formData state
+    Object.entries(formData).forEach(([key, value]) => {
+      // CRITICAL FIX: EXCLUDE svvNetId from this loop to prevent double appending or conflicts
+      if (key === 'svvNetId') {
+        return; // Skip appending svvNetId again
+      }
+
+      // Handle arrays and objects by stringifying
+      if (['authors', 'bankDetails'].includes(key)) {
+        submissionData.append(key, JSON.stringify(value));
+      } else {
+        submissionData.append(key, value);
+      }
+    });
+
+    // Append single files
+    if (files.paperCopy instanceof File) submissionData.append('paperCopy', files.paperCopy);
+    if (files.groupLeaderSignature instanceof File) submissionData.append('groupLeaderSignature', files.groupLeaderSignature);
+    if (files.guideSignature instanceof File) submissionData.append('guideSignature', files.guideSignature);
+
+    // Append additional documents (multiple files under one field name)
+    if (Array.isArray(files.additionalDocuments)) {
+      files.additionalDocuments.forEach(file => {
+        if (file instanceof File) {
+          submissionData.append('additionalDocuments', file);
+        }
+      });
+    }
+
+    // Append up to 5 PDF files (if they exist in files.pdfDocuments)
+    if (Array.isArray(files.pdfDocuments)) {
+        files.pdfDocuments.forEach(file => {
+            if (file instanceof File) {
+                submissionData.append('pdfDocuments', file);
+            }
+        });
+    }
+
+    // Append ZIP file (optional)
+    if (files.zipFile instanceof File) {
+        submissionData.append('zipFile', files.zipFile);
+    }
+
+    try {
       const response = await axios.post(
-        'http://localhost:5000/api/pg2bform/submit',
+        'http://localhost:5000/api/pg2bform/submit', // Confirm this endpoint
         submissionData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
-  
-      alert('Form submitted successfully!');
-      console.log(response.data);
-  
-      // Reset form
-      setFormData({
-        studentName: '', yearOfAdmission: '', feesPaid: 'No', projectTitle: '',
-        guideName: '', coGuideName: '', conferenceDate: '', organization: '',
-        publisher: '', paperLink: '', authors: ['', '', '', ''],
-        bankDetails: {
-          beneficiary: '', ifsc: '', bankName: '', branch: '',
-          accountType: '', accountNumber: ''
-        },
-        registrationFee: '', previousClaim: 'No', claimDate: '',
-        amountReceived: '', amountSanctioned: '', status: 'pending'
-      });
-  
-      setFiles({
-        paperCopy: null,
-        groupLeaderSignature: null,
-        guideSignature: null,
-        additionalDocuments: null,
-        pdfDocuments: [],
-        zipFile: null
-      });
-  
+
+      if (response.status === 200 || response.status === 201) {
+        const responseData = response.data;
+        setUserMessage({ text: `Form submitted successfully! Submission ID: ${responseData.id || 'N/A'}`, type: "success" });
+        console.log(response.data);
+
+        // Reset form to initial empty state for new submissions
+        if (!viewOnly) {
+            setFormData(prev => ({
+                ...prev,
+                studentName: '', yearOfAdmission: '', feesPaid: 'No', projectTitle: '',
+                guideName: '', coGuideName: '', conferenceDate: '', organization: '',
+                publisher: '', paperLink: '', authors: ['', '', '', ''],
+                bankDetails: { beneficiary: '', ifsc: '', bankName: '', branch: '', accountType: '', accountNumber: '' },
+                registrationFee: '', previousClaim: 'No', claimDate: '',
+                amountReceived: '', amountSanctioned: '', status: 'pending',
+                svvNetId: '', // Reset svvNetId for a truly fresh form
+            }));
+            setFiles({
+                paperCopy: null, groupLeaderSignature: null, guideSignature: null,
+                additionalDocuments: [], pdfDocuments: [], zipFile: null
+            });
+            setErrors({});
+            // Clear file input refs
+            if (paperCopyRef.current) paperCopyRef.current.value = null;
+            if (groupLeaderSignatureRef.current) groupLeaderSignatureRef.current.value = null;
+            if (guideSignatureRef.current) guideSignatureRef.current.value = null;
+            if (additionalDocumentsRef.current) additionalDocumentsRef.current.value = null;
+            if (pdfDocumentsRef.current) pdfDocumentsRef.current.value = null;
+            if (zipFileRef.current) zipFileRef.current.value = null;
+        }
+
+      } else {
+        const errorData = response.data; // Assuming backend sends JSON for errors
+        console.error('Server responded with error:', response.status, errorData);
+        setUserMessage({ text: `Submission failed: ${errorData.message || errorData.error || 'An unexpected error occurred.'}`, type: "error" });
+      }
     } catch (error) {
       console.error('Error submitting form:', error.response?.data || error.message);
-      alert(`Form submission failed: ${error.response?.data?.error || error.message}`);
+      let errorMessage = 'Submission failed. Please check your network and try again.';
+      if (error.response?.data?.error) {
+          errorMessage = `Submission failed: ${error.response.data.error}`;
+      } else if (error.response?.data?.message) {
+          errorMessage = `Submission failed: ${error.response.data.message}`;
+      }
+      setUserMessage({ text: errorMessage, type: "error" });
     } finally {
       setLoading(false);
     }

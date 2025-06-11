@@ -24,6 +24,7 @@ const bankDetailsSchema = new mongoose.Schema({
 });
 
 const pg2aFormSchema = new mongoose.Schema({
+  svvNetId: { type: String, required: true },
   organizingInstitute: { type: String, required: true },
   projectTitle: { type: String, required: true },
   teamName: { type: String, required: false },
