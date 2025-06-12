@@ -9,6 +9,14 @@ const bankDetailsSchema = new mongoose.Schema({
   accountNumber: { type: String, required: true },
 });
 
+// Embedded GridFS file metadata schema
+const fileMetaSchema = new mongoose.Schema({
+  id: { type: mongoose.Schema.Types.ObjectId, required: true },
+  filename: { type: String, required: true },
+  mimetype: { type: String },
+  size: { type: Number },
+}, { _id: false });
+
 const pg1FormSchema = new mongoose.Schema({
   svvNetId: { type: String, required: true },
   studentName: { type: String, required: true },
@@ -37,34 +45,11 @@ const pg1FormSchema = new mongoose.Schema({
   amountSanctioned: { type: String },
 
   files: {
-    receiptCopy: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-      ref: 'pg1files.files', // GridFS collection
-    },
-    additionalDocuments: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'pg1files.files',
-      }
-    ],
-    guideSignature: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-      ref: 'pg1files.files',
-    },
-    pdfDocuments: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'pg1files.files',
-      }
-    ],
-    zipFiles: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'pg1files.files',
-      }
-    ]
+    receiptCopy: { type: fileMetaSchema, required: true },
+    additionalDocuments: [fileMetaSchema],
+    guideSignature: { type: fileMetaSchema, required: true },
+    pdfDocuments: [fileMetaSchema],
+    zipFiles: [fileMetaSchema],
   },
 
   status: {

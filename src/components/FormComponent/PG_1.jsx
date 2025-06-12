@@ -93,6 +93,17 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleRemoveFile = (field, index) => {
+    setFiles((prev) => {
+      const updated = Array.from(prev[field] || []);
+      updated.splice(index, 1);
+      return {
+        ...prev,
+        [field]: updated,
+      };
+    });
+  };
+
   const handleBankChange = (e) => {
     if (viewOnly) return;
     const { name, value } = e.target;
@@ -174,19 +185,26 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
   };
 
   // File preview component for multiple files
-  const FilePreview = ({ files, type }) => {
+  const FilePreview = ({ files, type, onRemove, showRemoveButton }) => {
     if (!files || files.length === 0) return null;
+
     return (
-      <div>
-        <h4>Selected {type} files:</h4>
-        <ul>
-          {files.map((file, idx) => (
-            <li key={idx}>
-              {type === "PDF" ? "📄" : "🗜️"} {file.name}
-            </li>
-          ))}
-        </ul>
-      </div>
+      <ul className="mt-2 list-disc list-inside space-y-1">
+        {files.map((file, index) => (
+          <li key={index} className="flex items-center justify-between text-sm text-gray-700">
+            <span>{file.name || file.filename}</span>
+            {showRemoveButton && (
+              <button
+                type="button"
+                className="ml-4 text-red-600 hover:underline"
+                onClick={() => onRemove(index)}
+              >
+                Remove
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
     );
   };
 
@@ -260,7 +278,6 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
     }
   };
 
-  
   return (
     <div className="form-container max-w-4xl mx-auto p-5 bg-gray-50 rounded-lg shadow-md">
       <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">
@@ -662,7 +679,12 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
                   : "No PDFs selected"}
               </span>
             </div>
-            <FilePreview files={files.pdfDocuments} type="PDF" />
+            <FilePreview
+              files={files.pdfDocuments}
+              type="PDF"
+              onRemove={(index) => handleRemoveFile("pdfDocuments", index)}
+              showRemoveButton={!viewOnly}
+            />
           </div>
 
           {/* ZIP Files (max 2) */}
@@ -686,7 +708,12 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
                   : "No ZIPs selected"}
               </span>
             </div>
-            <FilePreview files={files.zipFiles} type="ZIP" />
+            <FilePreview
+              files={files.zipFiles}
+              type="ZIP"
+              onRemove={(index) => handleRemoveFile("zipFiles", index)}
+              showRemoveButton={!viewOnly}
+            />
           </div>
         </>
       ) : (
