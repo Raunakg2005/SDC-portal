@@ -168,7 +168,46 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
             processedForm.totalAmount = form.totalAmount;
             processedForm.bankDetails = form.bankDetails;
             break;
+        case "PG_1":
+            processedForm.name = form.studentName || "N/A";
+            processedForm.topic =
+                form.sttpTitle ||        // ← your STTP/Workshop title
+                form.projectTitle ||
+                form.paperTitle ||
+                form.topic ||
+                "Untitled Project";
 
+            // Branch handling is already done above using userBranchFromRequest
+            processedForm.department = form.department || "N/A";
+            processedForm.guideName = form.guideName || "N/A";
+            processedForm.employeeCode = form.employeeCode || "N/A";
+            processedForm.authors = form.authors || [];
+
+            processedForm.bankDetails = form.bankDetails || {};
+            processedForm.organizingInstitute = form.organizingInstitute || "N/A";
+            processedForm.yearOfAdmission = form.yearOfAdmission || "N/A";
+            processedForm.rollNo = form.rollNo || "N/A";
+            processedForm.mobileNo = form.mobileNo || "N/A";
+            processedForm.registrationFee = form.registrationFee || "N/A";
+
+            // File processing
+            if (form.files) {
+                if (form.files.studentSignature) {
+                    processedForm.studentSignature = await getFileDetailsAndUrl(form.files.studentSignature, fileBaseUrl);
+                }
+                if (form.files.guideSignature) {
+                    processedForm.guideSignature = await getFileDetailsAndUrl(form.files.guideSignature, fileBaseUrl);
+                }
+                if (form.files.bills && form.files.bills.length > 0) {
+                    const billFilePromises = form.files.bills.map(id => getFileDetailsAndUrl(id, fileBaseUrl));
+                    processedForm.bills = (await Promise.all(billFilePromises)).filter(Boolean);
+                }
+                if (form.files.zips && form.files.zips.length > 0) {
+                    const zipFilePromises = form.files.zips.map(id => getFileDetailsAndUrl(id, fileBaseUrl));
+                    processedForm.zipFile = (await Promise.all(zipFilePromises)).filter(Boolean)[0] || null;
+                }
+            }
+            break;
         case "PG_2_A":
             processedForm.topic = form.projectTitle || form.paperTitle || form.topic || "Untitled Project";
             processedForm.name = form.studentDetails?.[0]?.name || "N/A";

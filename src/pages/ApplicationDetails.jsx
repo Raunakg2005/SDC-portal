@@ -96,7 +96,15 @@ const ApplicationDetails = () => {
       <h1 className="text-2xl font-bold mb-4">Application Details</h1>
       <div className="mb-4 text-gray-600 space-y-1">
         {/* Use application.topic as the primary display, falling back to projectTitle if topic is undefined */}
-        <p><strong>Topic:</strong> {application.topic || application.projectTitle || 'N/A'}</p>
+        <p><strong>Topic:</strong> {
+        application.topic && application.topic !== "Untitled Project"
+          ? application.topic
+          : application.projectTitle ||
+            application.titleOfSTTP || // Add more fallbacks
+            application.formTitle || // If you use this field
+            application.title || // generic fallback
+            'N/A'
+        }</p>
         {/* Use application.name as the primary display, falling back to other possible fields if name is undefined */}
         <p><strong>Applicant Name:</strong> {application.name || 'N/A'}</p>
         <p><strong>Submitted on:</strong> {new Date(application.submitted).toLocaleDateString()}</p>
