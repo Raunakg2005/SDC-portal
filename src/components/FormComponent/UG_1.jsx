@@ -679,37 +679,76 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
           <div className="signature-upload">
             <label htmlFor="groupLeaderSignatureFile">Signature of Group Leader (Image):</label>
             {!viewOnly && (
-              <input id="groupLeaderSignatureFile" type="file" accept="image/*" onChange={(e) => handleSignatureUpload(e, "groupLeader")} />
-            )}
-            {groupLeaderSignature && (
-              <div className="file-preview">
-                {groupLeaderSignature.url ? (
-                  <><img src={groupLeaderSignature.url} alt={groupLeaderSignature.name || "Group Leader Signature"} className="signature-image-preview" /> <a href={groupLeaderSignature.url} target="_blank" rel="noopener noreferrer">View Current</a></>
-                ) : (
-                  <span>Selected: {groupLeaderSignature.name}</span>
+              <>
+                <input
+                  id="groupLeaderSignatureFile"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleSignatureUpload(e, "groupLeader")}
+                />
+                {groupLeaderSignature && (
+                  <div className="file-preview">
+                    {groupLeaderSignature.url ? (
+                      <>
+                        <img
+                          src={groupLeaderSignature.url}
+                          alt={groupLeaderSignature.name || "Group Leader Signature"}
+                          className="signature-image-preview"
+                        />
+                        <a
+                          href={groupLeaderSignature.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          View Current
+                        </a>
+                      </>
+                    ) : (
+                      <span>Selected: {groupLeaderSignature.name}</span>
+                    )}
+                  </div>
                 )}
-                 {!viewOnly && <button type="button" className="remove-btn-small" onClick={() => setGroupLeaderSignature(null)}>Clear</button>}
-              </div>
+              </>
             )}
           </div>
+
           <div className="signature-upload">
             <label htmlFor="guideSignatureFile">Signature of Guide (Image):</label>
             {!viewOnly && (
-              <input id="guideSignatureFile" type="file" accept="image/*" onChange={(e) => handleSignatureUpload(e, "guide")} />
-            )}
-            {guideSignature && (
-              <div className="file-preview">
-                {guideSignature.url ? (
-                  <><img src={guideSignature.url} alt={guideSignature.name || "Guide Signature"} className="signature-image-preview" /> <a href={guideSignature.url} target="_blank" rel="noopener noreferrer">View Current</a></>
-                ) : (
-                  <span>Selected: {guideSignature.name}</span>
+              <>
+                <input
+                  id="guideSignatureFile"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleSignatureUpload(e, "guide")}
+                />
+                {guideSignature && (
+                  <div className="file-preview">
+                    {guideSignature.url ? (
+                      <>
+                        <img
+                          src={guideSignature.url}
+                          alt={guideSignature.name || "Guide Signature"}
+                          className="signature-image-preview"
+                        />
+                        <a
+                          href={guideSignature.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          View Current
+                        </a>
+                      </>
+                    ) : (
+                      <span>Selected: {guideSignature.name}</span>
+                    )}
+                  </div>
                 )}
-                {!viewOnly && <button type="button" className="remove-btn-small" onClick={() => setGuideSignature(null)}>Clear</button>}
-              </div>
+              </>
             )}
           </div>
         </div>
-
+        
         <div className="form-group">
           <label htmlFor="supportingDocs">Upload Supporting Documents (PDF only):</label>
           {!viewOnly && (

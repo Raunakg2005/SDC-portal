@@ -5,6 +5,8 @@ import Home from "./pages/Home";
 //import facHome from "./pages/facHome";
 import PendingApplications from "./pages/PendingApplications";
 import ApplicationDetails from "./pages/ApplicationDetails";
+import AcceptedApplications from "./pages/AcceptedApplications";
+import RejectedApplications from "./pages/RejectedApplications";
 import UG_1 from "./components/FormComponent/UG_1";
 import UG_2 from "./components/FormComponent/UG_2";
 import UG_3_A from "./components/FormComponent/UG_3_A";
@@ -38,6 +40,8 @@ const App = () => {
         <Route path="/contact" element={<Contact />} />
         <Route path="/application/pending" element={<PendingApplications />} />
         <Route path="/application/:id" element={<ApplicationDetails />} />
+        <Route path="/application/accepted" element={<AcceptedApplications />} />
+        <Route path="/application/rejected" element={<RejectedApplications />} />
         </Routes>
     </Router>
   );

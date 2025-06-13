@@ -372,6 +372,121 @@ router.get("/pending", async (req, res) => {
 });
 
 /**
+ * @route GET /api/application/accepted
+ * @desc Fetch all accepted applications for the authenticated user
+ * @access Private (requires authentication)
+ * @queryParam {string} [userBranch] - Optional: Branch of the user
+ * @queryParam {string} svvNetId - Required: SVV Net ID of the user
+ */
+router.get("/accepted", async (req, res) => {
+    try {
+        const userBranch = req.query.userBranch;
+        const svvNetId = req.query.svvNetId;
+
+        if (!svvNetId) {
+            return res.status(400).json({
+                message: "svvNetId is required to fetch accepted applications"
+            });
+        }
+
+        const userFilter = {
+            status: { $in: [/^approved$/i, /^accepted$/i] }, // Accepts both words, case-insensitive
+            svvNetId: svvNetId
+        };
+
+        const [
+            ug1Forms,
+            ug2Forms,
+            ug3aForms,
+            ug3bForms,
+            pg1Forms,
+            pg2aForms,
+            pg2bForms,
+            r1Forms
+        ] = await Promise.all([
+            UG1Form.find(userFilter).sort({ createdAt: -1 }).lean(),
+            UGForm2.find(userFilter).sort({ createdAt: -1 }).lean(),
+            UG3AForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            UG3BForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            PG1Form.find(userFilter).sort({ createdAt: -1 }).lean(),
+            PG2AForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            PG2BForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            R1Form.find(userFilter).sort({ createdAt: -1 }).lean(),
+        ]);
+
+        const results = await Promise.all([
+            ...ug1Forms.map(f => processFormForDisplay(f, "UG_1", userBranch)),
+            ...ug2Forms.map(f => processFormForDisplay(f, "UG_2", userBranch)),
+            ...ug3aForms.map(f => processFormForDisplay(f, "UG_3_A", userBranch)),
+            ...ug3bForms.map(f => processFormForDisplay(f, "UG_3_B", userBranch)),
+            ...pg1Forms.map(f => processFormForDisplay(f, "PG_1", userBranch)),
+            ...pg2aForms.map(f => processFormForDisplay(f, "PG_2_A", userBranch)),
+            ...pg2bForms.map(f => processFormForDisplay(f, "PG_2_B", userBranch)),
+            ...r1Forms.map(f => processFormForDisplay(f, "R1", userBranch)),
+        ]);
+
+        res.json(results);
+    } catch (error) {
+        console.error("Error fetching accepted applications:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.get("/rejected", async (req, res) => {
+    try {
+        const userBranch = req.query.userBranch;
+        const svvNetId = req.query.svvNetId;
+
+        if (!svvNetId) {
+            return res.status(400).json({
+                message: "svvNetId is required to fetch rejected applications"
+            });
+        }
+
+        const userFilter = {
+            status: { $in: [/^rejected$/i, /^declined$/i] }, // Accept both terms
+            svvNetId: svvNetId
+        };
+
+        const [
+            ug1Forms,
+            ug2Forms,
+            ug3aForms,
+            ug3bForms,
+            pg1Forms,
+            pg2aForms,
+            pg2bForms,
+            r1Forms
+        ] = await Promise.all([
+            UG1Form.find(userFilter).sort({ createdAt: -1 }).lean(),
+            UGForm2.find(userFilter).sort({ createdAt: -1 }).lean(),
+            UG3AForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            UG3BForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            PG1Form.find(userFilter).sort({ createdAt: -1 }).lean(),
+            PG2AForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            PG2BForm.find(userFilter).sort({ createdAt: -1 }).lean(),
+            R1Form.find(userFilter).sort({ createdAt: -1 }).lean(),
+        ]);
+
+        const results = await Promise.all([
+            ...ug1Forms.map(f => processFormForDisplay(f, "UG_1", userBranch)),
+            ...ug2Forms.map(f => processFormForDisplay(f, "UG_2", userBranch)),
+            ...ug3aForms.map(f => processFormForDisplay(f, "UG_3_A", userBranch)),
+            ...ug3bForms.map(f => processFormForDisplay(f, "UG_3_B", userBranch)),
+            ...pg1Forms.map(f => processFormForDisplay(f, "PG_1", userBranch)),
+            ...pg2aForms.map(f => processFormForDisplay(f, "PG_2_A", userBranch)),
+            ...pg2bForms.map(f => processFormForDisplay(f, "PG_2_B", userBranch)),
+            ...r1Forms.map(f => processFormForDisplay(f, "R1", userBranch)),
+        ]);
+
+        res.json(results);
+    } catch (error) {
+        console.error("Error fetching rejected applications:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+/**
  * @route GET /api/application/my-applications
  * @desc Fetch all applications (any status) for the authenticated user
  * @access Private (requires authentication)

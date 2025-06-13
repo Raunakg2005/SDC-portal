@@ -134,9 +134,9 @@ const Login = () => {
               required
             />
 
-            <div className="remember-me">
-              <input type="checkbox" id="remember" />
-              <label htmlFor="remember">Remember me</label>
+            <div className="flex items-center space-x-2">
+              <input type="checkbox" id="remember" className="w-4 h-4" />
+              <label htmlFor="remember" className="text-sm">Remember me</label>
             </div>
 
             {error && <p className="error-message">{error}</p>}
