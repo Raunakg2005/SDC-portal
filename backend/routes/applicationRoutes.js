@@ -68,33 +68,25 @@ const getFileDetailsAndUrl = async (fileId, baseUrlForServingFile) => {
  * @returns {Promise<Object>} - The processed form object with URLs and standardized fields.
  */
 const processFormForDisplay = async (form, formType, userBranchFromRequest) => { // Added userBranchFromRequest parameter
-    let processedForm = { ...form };
+   let processedForm = { ...form };
 
-    // --- Standardize common fields for display ---
-    processedForm._id = form._id.toString(); // Ensure _id is a string for frontend consistency
-    // Standardize 'topic' and 'name' fields, as they vary across forms
+    processedForm._id = form._id.toString();
     processedForm.topic = form.projectTitle || form.paperTitle || form.topic || "Untitled Project";
     processedForm.name = form.studentName || form.applicantName || (form.students?.[0]?.name) || (form.studentDetails?.[0]?.studentName) || "N/A";
-
-    // **UPDATED LOGIC HERE: Prioritize userBranchFromRequest**
     processedForm.branch = userBranchFromRequest || form.branch || form.department || (form.students?.[0]?.branch) || (form.studentDetails?.[0]?.branch) || "N/A";
 
-    // Standardize submission date
     processedForm.submitted = form.createdAt || form.submittedAt || new Date();
-    // Ensure date is a proper Date object for formatting on frontend
     if (typeof processedForm.submitted === 'string' && !isNaN(new Date(processedForm.submitted))) {
         processedForm.submitted = new Date(processedForm.submitted);
     } else if (!(processedForm.submitted instanceof Date)) {
-        processedForm.submitted = new Date(); // Fallback if not string or invalid date
+        processedForm.submitted = new Date();
     }
 
     processedForm.status = form.status || "pending";
     processedForm.formType = formType;
 
-    // Define the base URL for serving files for THIS specific form's attachments.
     const fileBaseUrl = `/api/application/file`;
 
-    // Initialize file-related fields to avoid undefined errors on frontend
     processedForm.groupLeaderSignature = null;
     processedForm.studentSignature = null;
     processedForm.guideSignature = null;
@@ -107,7 +99,6 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
     processedForm.uploadedPdfs = [];
     processedForm.bills = [];
 
-    // Standardize guideNames and employeeCodes (e.g., from UG1Form, R1Form)
     processedForm.guideNames = [];
     processedForm.employeeCodes = [];
 
@@ -168,6 +159,35 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
             processedForm.totalAmount = form.totalAmount;
             processedForm.bankDetails = form.bankDetails;
             break;
+
+         case "UG_3_B":
+            if (form.uploadedPdfs && form.uploadedPdfs.length > 0) {
+                const pdfDetails = await Promise.all(form.uploadedPdfs.map(fileMeta => {
+                    if (fileMeta?.fileId) return getFileDetailsAndUrl(fileMeta.fileId, fileBaseUrl);
+                }));
+                processedForm.uploadedPdfs = pdfDetails.filter(Boolean);
+            }
+            if (form.uploadedZipFile?.fileId) {
+                processedForm.zipFile = await getFileDetailsAndUrl(form.uploadedZipFile.fileId, fileBaseUrl);
+            }
+            if (form.groupLeaderSignature?.fileId) {
+                processedForm.groupLeaderSignature = await getFileDetailsAndUrl(form.groupLeaderSignature.fileId, fileBaseUrl);
+            }
+            if (form.guideSignature?.fileId) {
+                processedForm.guideSignature = await getFileDetailsAndUrl(form.guideSignature.fileId, fileBaseUrl);
+            }
+
+            processedForm.students = form.students || [];
+            processedForm.projectTitle = form.projectTitle;
+            processedForm.bankDetails = form.bankDetails || {};
+            processedForm.publisher = form.publisher || {};
+            processedForm.authors = form.authors || [];
+            processedForm.registrationFee = form.registrationFee || '';
+            processedForm.previousClaimStatus = form.previousClaimStatus || '';
+            processedForm.amountReceived = form.amountReceived || '';
+            processedForm.amountSanctioned = form.amountSanctioned || '';
+            break;
+
         case "PG_1":
             processedForm.name = form.studentName || "N/A";
             processedForm.topic =
@@ -246,7 +266,41 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
                 }
             }
             break;
-
+            
+        case "PG_2_B":
+            if (form.files) {
+                if (form.files.bills?.length > 0) {
+                    const bills = await Promise.all(form.files.bills.map(id => {
+                        if (id) return getFileDetailsAndUrl(id, fileBaseUrl);
+                    }));
+                    processedForm.bills = bills.filter(Boolean);
+                }
+                if (form.files.zips?.length > 0) {
+                    const zips = await Promise.all(form.files.zips.map(id => {
+                        if (id) return getFileDetailsAndUrl(id, fileBaseUrl);
+                    }));
+                    processedForm.zipFile = zips.filter(Boolean)[0] || null;
+                }
+                if (form.files.studentSignature) {
+                    processedForm.studentSignature = await getFileDetailsAndUrl(form.files.studentSignature, fileBaseUrl);
+                }
+                if (form.files.guideSignature) {
+                    processedForm.guideSignature = await getFileDetailsAndUrl(form.files.guideSignature, fileBaseUrl);
+                }
+            }
+            processedForm.name = form.studentName || "N/A";
+            processedForm.projectTitle = form.projectTitle;
+            processedForm.guideName = form.guideName;
+            processedForm.employeeCode = form.employeeCode;
+            processedForm.yearOfAdmission = form.yearOfAdmission;
+            processedForm.rollNo = form.rollNo;
+            processedForm.mobileNo = form.mobileNo;
+            processedForm.registrationFee = form.registrationFee;
+            processedForm.department = form.department;
+            processedForm.bankDetails = form.bankDetails || {};
+            processedForm.authors = form.authors || [];
+            processedForm.paperLink = form.paperLink;
+            break;
         case "R1":
             // The general branch line above will handle this unless explicitly overridden here.
             // processedForm.branch = userBranchFromRequest || form.branch || "N/A";
@@ -304,7 +358,6 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
     }
     return processedForm;
 };
-
 // --- API Endpoints ---
 
 /**
@@ -319,20 +372,17 @@ router.get("/pending", async (req, res) => {
         // Extract parameters from query
         const userBranch = req.query.userBranch;
         const svvNetId = req.query.svvNetId;
-
         // Validate svvNetId is provided
         if (!svvNetId) {
             return res.status(400).json({ 
                 message: "svvNetId is required to fetch user-specific applications" 
             });
         }
-
         // Create filter object for user-specific data
         const userFilter = { 
             status: /^pending$/i,
             svvNetId: svvNetId // Filter by the authenticated user's svvNetId
         };
-
         const [
             ug1Forms,
             ug2Forms,
