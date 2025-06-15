@@ -876,7 +876,9 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
             <th className="p-2 border border-gray-300 bg-gray-100">Account type</th>
             <td className="p-2 border border-gray-300">
               {viewOnly ? (
-                <p className="p-2 bg-gray-100">{formData.bankDetails.accountType}</p>
+                <p className="p-2 bg-gray-100">
+                  {formData.bankDetails.accountType || "—"}
+                </p>
               ) : (
                 <input
                   type="text"
@@ -888,7 +890,11 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
                   }`}
                 />
               )}
-              {validationErrors.accountType && <p className="text-red-500 text-xs mt-1">{validationErrors.accountType}</p>}
+              {validationErrors.accountType && (
+                <p className="text-red-500 text-xs mt-1">
+                  {validationErrors.accountType}
+                </p>
+              )}
             </td>
           </tr>
           <tr>
@@ -913,7 +919,7 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
         </tbody>
     </table>
 
-      {/* File Uploads Section */}
+    {/* File Uploads Section */}
     <div className="mb-6 border p-4 rounded-lg bg-gray-50">
         <h3 className="font-semibold mb-2">File Uploads</h3>
 
@@ -1009,7 +1015,7 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
 
         {/* ZIP File Upload */}
         <div className="mb-4">
-          <label htmlFor="zipFile" className="block font-semibold mb-2">Upload Project Source Code (ZIP):</label>
+          <label htmlFor="zipFile" className="block font-semibold mb-2">Upload Remaining Documents (ZIP):</label>
           {viewOnly ? (
             // Corrected: Use optional chaining files.zipFile?.url
             files.zipFile?.url ? (

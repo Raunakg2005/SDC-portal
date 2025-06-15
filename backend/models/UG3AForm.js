@@ -20,6 +20,7 @@ const BankDetailsSchema = new mongoose.Schema({
   bankName: { type: String, required: true, trim: true },
   branch: { type: String, required: true, trim: true },
   ifsc: { type: String, required: true, trim: true },
+  accountType: {type: String, required: true, trim: true },
   accountNumber: { type: String, required: true, trim: true }
 }, { _id: false });
 
