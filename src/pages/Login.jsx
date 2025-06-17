@@ -31,37 +31,19 @@ const Login = () => {
     const userEntry = hardcodedUsers[username];
 
     if (userEntry && userEntry.password === password) {
+      const { role, branch } = userEntry;
       localStorage.setItem("svvNetId", username);
-      localStorage.setItem("user", JSON.stringify({
-        svvNetId: username,
-        role: userEntry.role,
-        branch: userEntry.branch
-      }));
-      navigate("/home");
+      localStorage.setItem("user", JSON.stringify({ svvNetId: username, role, branch }));
+
+      // 🔁 Navigate based on role
+      if (role === "faculty") {
+        navigate("/fachome");
+      } else {
+        navigate("/home");
+      }
     } else {
       setError("Invalid SVV Net ID or password.");
     }
-
-    // Placeholder for future API integration
-    /*
-    try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", { 
-        svvNetId: username, 
-        password: password 
-      });
-
-      if (res.status === 200 && res.data.token && res.data.user) {
-        localStorage.setItem("token", res.data.token);
-        localStorage.setItem("svvNetId", res.data.user.svvNetId);
-        localStorage.setItem("user", JSON.stringify(res.data.user));
-        navigate("/home"); 
-      } else {
-        setError("Login failed. Please check your credentials.");
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || "Login failed. Please try again later.");
-    }
-    */
   };
 
   const handleGoogleSuccess = (credentialResponse, role = "UG (AI&DS)") => {
@@ -78,19 +60,27 @@ const Login = () => {
         return;
       }
 
-      const branch = role === "Validator" ? "All" : "AI & DS";
+      const isFaculty = role === "Validator";
+      const finalRole = isFaculty ? "faculty" : "student";
+      const branch = isFaculty ? "All" : "AI & DS";
 
       localStorage.setItem("svvNetId", svvNetId);
       localStorage.setItem("user", JSON.stringify({
         svvNetId,
-        role,
+        role: finalRole,
         branch,
         name,
         email,
         picture: decoded.picture
       }));
 
-      navigate("/home");
+      // 🔁 Navigate based on role
+      if (finalRole === "faculty") {
+        navigate("/fachome");
+      } else {
+        navigate("/home");
+      }
+
     } catch (err) {
       console.error("Error decoding Google credential:", err);
       if (role === "Validator") setValidatorError("Google login failed.");
@@ -122,7 +112,7 @@ const Login = () => {
               <span className="highlight">Development Cell</span>
             </h1>
             <p className="description">
-              The Student Development Policy at K. J. Somaiya College of Engineering reflects our 
+              The Student Development Policy at K. J. Somaiya College of Engineering reflects our
               commitment to fostering a dynamic and enriching academic environment for students across all levels of study.
             </p>
             <h2 className="validator-question">Validator?</h2>
