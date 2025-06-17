@@ -32,7 +32,7 @@ router.post(
   upload.fields([
     { name: "groupLeaderSignature", maxCount: 1 },
     { name: "guideSignature", maxCount: 1 },
-    { name: "uploadedFiles", maxCount: 6 },
+    { name: "uploadedFiles", maxCount: 6 }, // max 5 PDFs + 1 ZIP
   ]),
   async (req, res) => {
     const uploadedFileIds = [];
@@ -48,44 +48,55 @@ router.post(
       if (guideSignatureFile) uploadedFileIds.push(guideSignatureFile.id);
       additionalDocuments.forEach(file => uploadedFileIds.push(file.id));
 
-      // Validate required signatures
-      if (!groupLeaderSignatureFile || !guideSignatureFile) {
-        return res.status(400).json({ message: "Both signatures are required." });
-      }
-
+      // === Signature Validation ===
       const checkSignature = (file, label) => {
         if (file.mimetype !== "image/jpeg" || file.size > 5 * 1024 * 1024) {
           throw new Error(`${label} must be a JPEG image under 5MB.`);
         }
       };
 
+      if (!groupLeaderSignatureFile || !guideSignatureFile) {
+        return res.status(400).json({ message: "Both signatures are required." });
+      }
+
       checkSignature(groupLeaderSignatureFile, "Group Leader Signature");
       checkSignature(guideSignatureFile, "Guide Signature");
 
-      // Validate uploaded files
-      const totalFiles = additionalDocuments.length;
+      // === Uploaded Files Validation ===
+      let pdfCount = 0;
+      let zipCount = 0;
 
-      if (totalFiles === 1 && additionalDocuments[0].mimetype === "application/zip") {
-        if (additionalDocuments[0].size > 25 * 1024 * 1024) {
-          return res.status(400).json({ message: "ZIP file must be ≤ 25MB." });
-        }
-      } else {
-        if (totalFiles > 5) {
-          return res.status(400).json({ message: "Upload up to 5 PDF files only." });
-        }
-        for (const file of additionalDocuments) {
-          if (file.mimetype !== "application/pdf") {
-            return res.status(400).json({ message: "Only PDF files are allowed." });
-          }
+      for (const file of additionalDocuments) {
+        if (file.mimetype === "application/pdf") {
+          pdfCount++;
           if (file.size > 5 * 1024 * 1024) {
-            return res.status(400).json({ message: "Each PDF file must be ≤ 5MB." });
+            return res.status(400).json({ message: "Each PDF must be ≤ 5MB." });
           }
+        } else if (
+          file.mimetype === "application/zip" ||
+          file.mimetype === "application/x-zip-compressed"
+        ) {
+          zipCount++;
+          if (file.size > 25 * 1024 * 1024) {
+            return res.status(400).json({ message: "ZIP must be ≤ 25MB." });
+          }
+        } else {
+          return res.status(400).json({ message: "Only PDF or ZIP files allowed." });
         }
       }
 
-      // === Parse fields ===
+      if (pdfCount > 5) {
+        return res.status(400).json({ message: "You can upload a maximum of 5 PDFs." });
+      }
+
+      if (zipCount > 1) {
+        return res.status(400).json({ message: "Only one ZIP file allowed." });
+      }
+
+      // === Parse Fields ===
       const students = JSON.parse(req.body.students || "[]");
       const expensesRaw = JSON.parse(req.body.expenses || "[]");
+      const guideDetails = JSON.parse(req.body.guideDetails || "[]");
 
       if (!Array.isArray(students) || students.length === 0) {
         throw new Error("At least one student must be provided.");
@@ -95,20 +106,15 @@ router.post(
         throw new Error("At least one expense entry must be provided.");
       }
 
-      // ✅ Fix: Use 'category' for backend schema (not 'head')
+      if (!Array.isArray(guideDetails) || guideDetails.length === 0) {
+        throw new Error("At least one guide must be provided.");
+      }
+
       const expenses = expensesRaw.map(exp => ({
         category: exp.category?.trim() || "",
         amount: parseFloat(exp.amount) || 0,
         details: exp.details?.trim() || "",
       }));
-
-      // ✅ Fix: Convert guideDetails into array
-      const guideDetails = [
-        {
-          name: req.body.guideName,
-          employeeCode: req.body.guideEmployeeCode,
-        },
-      ];
 
       const groupLeaderSignatureMetadata = {
         originalName: groupLeaderSignatureFile.originalname,
@@ -160,7 +166,7 @@ router.post(
     } catch (err) {
       console.error("❌ Error saving form:", err.message);
 
-      // Rollback uploaded files
+      // Cleanup uploaded files
       for (const fileId of uploadedFileIds) {
         if (fileId && gfsBucket) {
           try {

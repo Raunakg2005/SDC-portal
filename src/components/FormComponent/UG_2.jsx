@@ -3,73 +3,6 @@ import axios from "axios";
 import "../styles/UG2.css";
 
 const UGForm2 = ({ viewOnly = false, data = null }) => {
-  const [formData, setFormData] = useState(() => {
-    if (viewOnly && data) {
-      return {
-        projectTitle: data.projectTitle || "",
-        projectDescription: data.projectDescription || "",
-        utility: data.utility || "",
-        receivedFinance: data.receivedFinance || false,
-        financeDetails: data.financeDetails || "",
-        guideDetails:
-          data.guideDetails && data.guideDetails.length > 0
-            ? data.guideDetails
-            : [{ name: "", employeeCode: "" }],
-        students: data.students || [],
-        expenses: data.expenses || [],
-        totalBudget: data.totalBudget || "",
-        groupLeaderSignature: data.groupLeaderSignature || null,
-        guideSignature: data.guideSignature || null,
-        uploadedFiles: data.uploadedFiles || [],
-        errorMessage: "",
-        status: data.status || "pending",
-        errors: {},
-      };
-    } else {
-      return {
-        projectTitle: "",
-        projectDescription: "",
-        utility: "",
-        receivedFinance: false,
-        financeDetails: "",
-        guideDetails: [{ name: "", employeeCode: "" }],
-        students: [],
-        expenses: [],
-        totalBudget: "",
-        groupLeaderSignature: null,
-        guideSignature: null,
-        uploadedFiles: [],
-        status: "pending",
-        errorMessage: "",
-        errors: {},
-      };
-    }
-  });
-
-  useEffect(() => {
-    if (viewOnly && data) {
-      setFormData({
-        projectTitle: data.projectTitle || "",
-        projectDescription: data.projectDescription || "",
-        utility: data.utility || "",
-        receivedFinance: data.receivedFinance || false,
-        financeDetails: data.financeDetails || "",
-        guideDetails:
-          data.guideDetails && data.guideDetails.length > 0
-            ? data.guideDetails
-            : [{ name: "", employeeCode: "" }],
-        students: data.students || [],
-        expenses: data.expenses || [],
-        totalBudget: data.totalBudget || "",
-        groupLeaderSignature: data.groupLeaderSignature || null,
-        guideSignature: data.guideSignature || null,
-        uploadedFiles: data.uploadedFiles || [],
-        errorMessage: "",
-        status: data.status || "pending",
-        errors: {},
-      });
-    }
-  }, [data, viewOnly]);
   const initialState = {
     projectTitle: "",
     projectDescription: "",
@@ -87,6 +20,40 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
     errorMessage: "",
     errors: {},
   };
+
+  const getInitialFormData = () => {
+    if (viewOnly && data) {
+      return {
+        ...initialState,
+        projectTitle: data.projectTitle || "",
+        projectDescription: data.projectDescription || "",
+        utility: data.utility || "",
+        receivedFinance: data.receivedFinance || false,
+        financeDetails: data.financeDetails || "",
+        guideDetails:
+          Array.isArray(data.guideDetails) && data.guideDetails.length > 0
+            ? data.guideDetails
+            : [{ name: "", employeeCode: "" }],
+        students: data.students || [],
+        expenses: data.expenses || [],
+        totalBudget: data.totalBudget || "",
+        groupLeaderSignature: data.groupLeaderSignature || null,
+        guideSignature: data.guideSignature || null,
+        uploadedFiles: data.uploadedFiles || [],
+        status: data.status || "pending",
+      };
+    } else {
+      return initialState;
+    }
+  };
+
+  const [formData, setFormData] = useState(getInitialFormData);
+
+  useEffect(() => {
+    if (viewOnly && data) {
+      setFormData(getInitialFormData());
+    }
+  }, [data, viewOnly]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userMessage, setUserMessage] = useState(null);
   const handleBack = () => {
@@ -215,6 +182,16 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
     return Object.keys(errors).length === 0;
   };
 
+  const removeUploadedFile = (index) => {
+    const updated = [...formData.uploadedFiles];
+    updated.splice(index, 1);
+
+    setFormData((prev) => ({
+      ...prev,
+      uploadedFiles: updated,
+    }));
+  };
+
   const updateGuideField = (e, index, field) => {
     const value = e.target.value;
     setFormData((prev) => {
@@ -297,58 +274,73 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
 
   const handleFileUpload = (e) => {
     const selectedFiles = Array.from(e.target.files);
-    const errors = {};
-    const updatedFiles = [];
-    let zipFound = false;
+    const currentFiles = [...formData.uploadedFiles];
 
-    selectedFiles.forEach((file, index) => {
-      const isPDF = file.type === "application/pdf";
-      const isZIP =
-        file.type === "application/zip" ||
-        file.type === "application/x-zip-compressed" ||
-        file.name.endsWith(".zip");
+    let pdfCount = currentFiles.filter(file =>
+      file.type === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf")
+    ).length;
 
-      if (isPDF) {
+    const zipExists = currentFiles.some(file =>
+      file.type === "application/zip" || file.name?.toLowerCase().endsWith(".zip")
+    );
+
+    const newFiles = [];
+    let error = "";
+
+    for (const file of selectedFiles) {
+      const isPdf = file.type === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf");
+      const isZip = file.type === "application/zip" || file.name?.toLowerCase().endsWith(".zip");
+
+      if (!isPdf && !isZip) {
+        error = "Only PDF and ZIP files are allowed.";
+        break;
+      }
+
+      if (isPdf) {
+        if (pdfCount >= 5) {
+          error = "Maximum of 5 PDF files allowed.";
+          break;
+        }
         if (file.size > 5 * 1024 * 1024) {
-          errors[`file_${index}`] = `${file.name} exceeds 5MB size limit.`;
-        } else {
-          updatedFiles.push(file);
+          error = `PDF "${file.name}" exceeds 5MB.`;
+          break;
         }
-      } else if (isZIP) {
+        pdfCount++;
+        newFiles.push(file);
+      }
+
+      if (isZip) {
+        if (zipExists || newFiles.some(f => f.type === "application/zip" || f.name?.endsWith(".zip"))) {
+          error = "Only one ZIP file is allowed.";
+          break;
+        }
         if (file.size > 25 * 1024 * 1024) {
-          errors[`file_${index}`] = `${file.name} exceeds 25MB size limit.`;
-        } else {
-          updatedFiles.push(file);
-          zipFound = true;
+          error = `ZIP "${file.name}" exceeds 25MB.`;
+          break;
         }
-      } else {
-        errors[`file_${index}`] = `${file.name} is not a valid PDF or ZIP file.`;
-      }
-    });
-
-    if (!viewOnly) {
-      if (zipFound && updatedFiles.length > 1) {
-        errors.uploadedFiles = "If uploading a ZIP file, only one ZIP archive is allowed.";
-      }
-      if (!zipFound && updatedFiles.length > 5) {
-        errors.uploadedFiles = "You can upload up to 5 PDF files or a single ZIP file.";
+        newFiles.push(file);
       }
     }
 
-    if (Object.keys(errors).length > 0) {
-      setFormData((prev) => ({
+    if (error) {
+      setFormData(prev => ({
         ...prev,
-        errorMessage: "Please fix file upload errors before submitting.",
-        errors: { ...prev.errors, ...errors },
+        errors: {
+          ...prev.errors,
+          uploadedFiles: error,
+        },
       }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        uploadedFiles: updatedFiles,
-        errorMessage: "",
-        errors: { ...prev.errors, uploadedFiles: null },
-      }));
+      return;
     }
+
+    setFormData(prev => ({
+      ...prev,
+      uploadedFiles: [...prev.uploadedFiles, ...newFiles],
+      errors: {
+        ...prev.errors,
+        uploadedFiles: undefined,
+      },
+    }));
   };
 
   const handleGroupLeaderSignatureUpload = (e) => {
@@ -429,21 +421,27 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
       formPayload.append("totalBudget", formData.totalBudget);
       formPayload.append("status", formData.status?.trim() || "");
 
-      // === Guide Details (single object) ===
-      formPayload.append("guideName", formData.guideDetails?.[0]?.name?.trim() || "");
-      formPayload.append("guideEmployeeCode", formData.guideDetails?.[0]?.employeeCode?.trim() || "");
+      // === Guide Details (all entries as JSON) ===
+      const validGuides = formData.guideDetails
+        .filter(g => g.name?.trim() && g.employeeCode?.trim())
+        .map(g => ({
+          name: g.name.trim(),
+          employeeCode: g.employeeCode.trim()
+        }));
+
+      formPayload.append("guideDetails", JSON.stringify(validGuides));
 
       // === Students (as JSON) ===
       formPayload.append("students", JSON.stringify(formData.students));
 
-      // === Expenses (transform category → head) ===
+      // === Expenses (category = head) ===
       const transformedExpenses = formData.expenses
-      .filter(exp => exp.category?.trim())
-      .map(exp => ({
-        category: exp.category.trim(),  // ✅ changed from "head"
-        amount: parseFloat(exp.amount) || 0,
-        details: exp.details?.trim() || ""
-      }));
+        .filter(exp => exp.category?.trim())
+        .map(exp => ({
+          category: exp.category.trim(),
+          amount: parseFloat(exp.amount) || 0,
+          details: exp.details?.trim() || ""
+        }));
       formPayload.append("expenses", JSON.stringify(transformedExpenses));
 
       // === Signatures ===
@@ -454,15 +452,30 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
         formPayload.append("guideSignature", formData.guideSignature);
       }
 
-      // === Uploaded Files ===
-      if (Array.isArray(formData.uploadedFiles)) {
-        formData.uploadedFiles.forEach(file => {
-          if (file instanceof File) {
-            formPayload.append("uploadedFiles", file);
-          }
-        });
+      // === Uploaded Files: Max 5 PDFs + 1 ZIP, Total ≤ 25MB ===
+      const uploadedFiles = formData.uploadedFiles.filter(f => f instanceof File);
+      const pdfFiles = uploadedFiles.filter(f => f.type === "application/pdf");
+      const zipFile = uploadedFiles.find(f => f.name.toLowerCase().endsWith(".zip"));
+
+      if (pdfFiles.length > 5) {
+        alert("❌ You can upload a maximum of 5 PDF files.");
+        return;
       }
-      
+      if (zipFile && uploadedFiles.filter(f => f.name.toLowerCase().endsWith(".zip")).length > 1) {
+        alert("❌ You can upload only 1 ZIP file.");
+        return;
+      }
+
+      const totalSize = uploadedFiles.reduce((acc, file) => acc + file.size, 0);
+      if (totalSize > 25 * 1024 * 1024) {
+        alert("❌ Total file size must not exceed 25MB.");
+        return;
+      }
+
+      uploadedFiles.forEach(file => {
+        formPayload.append("uploadedFiles", file);
+      });
+
       // === Submit ===
       const response = await axios.post(
         "http://localhost:5000/api/ug2form/saveFormData",
@@ -472,7 +485,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
 
       if (response.status === 200 || response.status === 201) {
         alert(`✅ Form submitted successfully!\nSubmission ID: ${response.data.id}`);
-        setFormData(initialState); // Reset
+        setFormData(initialState); // Clear form
         setUserMessage(null);
       } else {
         alert("❌ Submission failed: " + (response.data.message || "Unknown error"));
@@ -603,9 +616,11 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
               ))}
             </tbody>
           </table>
+
           {formData.errors.guideDetails && (
             <p className="error-message">{formData.errors.guideDetails}</p>
           )}
+
           {!viewOnly && (
             <button
               type="button"
@@ -853,10 +868,10 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
         <label>
           Upload Additional Documents (Max 5 PDF files, 5MB each OR one ZIP file up to 25MB):
         </label>
-        {!viewOnly && (
+          {!viewOnly && (
           <input
             type="file"
-            accept=".pdf, application/pdf, .zip, application/zip, application/x-zip-compressed"
+            accept=".pdf,application/pdf,.zip,application/zip,application/x-zip-compressed"
             multiple
             name="uploadedFiles"
             onChange={handleFileUpload}
@@ -867,36 +882,47 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
           <div className="uploaded-files-list">
             <h4>Uploaded Files:</h4>
             <ul>
-              {formData.uploadedFiles.map((file, index) => (
-                <li key={index}>
-                  {viewOnly && file.url ? (
-                      <a href={file.url} target="_blank" rel="noopener noreferrer">
-                          {file.originalName} ({file.mimetype}, {(file.size / (1024 * 1024)).toFixed(2)} MB)
+              {formData.uploadedFiles.map((file, index) => {
+                const fileName = file.name || file.originalName || "Unnamed";
+                const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+
+                return (
+                  <li key={index}>
+                    {viewOnly && file.url ? (
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {fileName} ({file.mimetype}, {fileSizeMB} MB)
                       </a>
-                  ) : (
+                    ) : (
                       <>
-                          {file.name || file.originalName} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
-                          {!viewOnly && (
-                              <button
-                                  type="button"
-                                  className="remove-file-btn"
-                                  onClick={() => removeUploadedFile(index)}
-                              >
-                                  ❌
-                              </button>
-                          )}
+                        {fileName} ({fileSizeMB} MB)
+                        {!viewOnly && (
+                          <button
+                            type="button"
+                            className="remove-file-btn"
+                            onClick={() => removeUploadedFile(index)}
+                          >
+                            ❌
+                          </button>
+                        )}
                       </>
-                  )}
-                  {!viewOnly && formData.errors[`uploadedFile_${index}`] && (
-                    <p className="error-message">
-                      {formData.errors[`uploadedFile_${index}`]}
-                    </p>
-                  )}
-                </li>
-              ))}
+                    )}
+
+                    {!viewOnly && formData.errors[`uploadedFile_${index}`] && (
+                      <p className="error-message">
+                        {formData.errors[`uploadedFile_${index}`]}
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
+
         {/* General error for uploadedFiles (e.g., if more than 5 files are not a single zip) */}
         {!viewOnly && formData.errors.uploadedFiles && <p className="error-message">{formData.errors.uploadedFiles}</p>}
         <button type="button" className="back-btn" onClick={handleBack} disabled={isSubmitting}>Back</button>
