@@ -11,8 +11,10 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
         utility: data.utility || "",
         receivedFinance: data.receivedFinance || false,
         financeDetails: data.financeDetails || "",
-        guideName: data.guideName || "",
-        guideEmployeeCode: data.employeeCode || "",
+        guideDetails:
+          data.guideDetails && data.guideDetails.length > 0
+            ? data.guideDetails
+            : [{ name: "", employeeCode: "" }],
         students: data.students || [],
         expenses: data.expenses || [],
         totalBudget: data.totalBudget || "",
@@ -30,8 +32,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
         utility: "",
         receivedFinance: false,
         financeDetails: "",
-        guideName: "",
-        guideEmployeeCode: "",
+        guideDetails: [{ name: "", employeeCode: "" }],
         students: [],
         expenses: [],
         totalBudget: "",
@@ -53,8 +54,10 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
         utility: data.utility || "",
         receivedFinance: data.receivedFinance || false,
         financeDetails: data.financeDetails || "",
-        guideName: data.guideName || "",
-        guideEmployeeCode: data.employeeCode || "",
+        guideDetails:
+          data.guideDetails && data.guideDetails.length > 0
+            ? data.guideDetails
+            : [{ name: "", employeeCode: "" }],
         students: data.students || [],
         expenses: data.expenses || [],
         totalBudget: data.totalBudget || "",
@@ -62,122 +65,143 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
         guideSignature: data.guideSignature || null,
         uploadedFiles: data.uploadedFiles || [],
         errorMessage: "",
-        status: "pending",
+        status: data.status || "pending",
         errors: {},
       });
     }
   }, [data, viewOnly]);
+  const initialState = {
+    projectTitle: "",
+    projectDescription: "",
+    utility: "",
+    receivedFinance: false,
+    financeDetails: "",
+    guideDetails: [{ name: "", employeeCode: "" }],
+    students: [],
+    expenses: [],
+    totalBudget: "",
+    groupLeaderSignature: null,
+    guideSignature: null,
+    uploadedFiles: [],
+    status: "pending",
+    errorMessage: "",
+    errors: {},
+  };
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userMessage, setUserMessage] = useState(null);
+  const handleBack = () => {
+    window.history.back();
+  };
 
   const validateForm = () => {
-    let errors = {};
+    const errors = {};
 
-    if (!formData.projectTitle.trim())
+    if (!(formData.projectTitle || "").trim())
       errors.projectTitle = "Project title is required.";
-    if (!formData.projectDescription.trim())
+    if (!(formData.projectDescription || "").trim())
       errors.projectDescription = "Project description is required.";
-    if (!formData.utility.trim()) errors.utility = "Utility is required.";
-    if (formData.receivedFinance && !formData.financeDetails.trim()) {
+    if (!(formData.utility || "").trim())
+      errors.utility = "Utility is required.";
+
+    if (formData.receivedFinance && !(formData.financeDetails || "").trim()) {
       errors.financeDetails = "Finance details are required if finance received.";
     }
-    if (!formData.guideName.trim()) errors.guideName = "Guide name is required.";
-    if (!formData.guideEmployeeCode.trim())
-      errors.guideEmployeeCode = "Guide employee code is required.";
+    if (!formData.guideDetails || formData.guideDetails.length === 0) {
+      errors.guideDetails = "At least one guide is required.";
+    } else {
+      formData.guideDetails.forEach((guide, idx) => {
+        if (!(guide.name || "").trim())
+          errors[`guideName_${idx}`] = "Guide name is required.";
+        if (!(guide.employeeCode || "").trim())
+          errors[`guideEmployeeCode_${idx}`] = "Guide employee code is required.";
+      });
+    }
 
-    if (formData.students.length === 0) {
+    if (!formData.students || formData.students.length === 0) {
       errors.students = "At least one student is required.";
     } else {
       formData.students.forEach((student, idx) => {
-        if (!student.name.trim())
+        if (!(student.name || "").trim())
           errors[`studentName_${idx}`] = "Student name is required.";
-        if (!student.year.trim())
-          errors[`studentYear_${idx}`] = "Year of study is required.";
-        if (!student.class.trim())
+        if (!(student.year || "").trim())
+          errors[`studentYear_${idx}`] = "Year is required.";
+        if (!(student.class || "").trim())
           errors[`studentClass_${idx}`] = "Class is required.";
-        if (!student.div.trim()) errors[`studentDiv_${idx}`] = "Div is required.";
-        if (!student.branch.trim())
+        if (!(student.div || "").trim())
+          errors[`studentDiv_${idx}`] = "Div is required.";
+        if (!(student.branch || "").trim())
           errors[`studentBranch_${idx}`] = "Branch is required.";
-        if (!student.rollNo.trim())
+        if (!(student.rollNo || "").trim())
           errors[`studentRollNo_${idx}`] = "Roll No. is required.";
-        if (!student.mobileNo.trim()) {
+
+        const mobile = (student.mobileNo || "").trim();
+        if (!mobile) {
           errors[`studentMobileNo_${idx}`] = "Mobile No. is required.";
-        } else if (!/^\d{10}$/.test(student.mobileNo.trim())) {
+        } else if (!/^\d{10}$/.test(mobile)) {
           errors[`studentMobileNo_${idx}`] = "Mobile No. must be 10 digits.";
         }
       });
     }
 
-    formData.expenses.forEach((expense, idx) => {
-      if (!expense.category.trim())
+    (formData.expenses || []).forEach((expense, idx) => {
+      if (!(expense.category || "").trim())
         errors[`expenseCategory_${idx}`] = "Category is required.";
-      if (!expense.amount.trim())
+      const amount = (expense.amount || "").toString().trim();
+      if (!amount) {
         errors[`expenseAmount_${idx}`] = "Amount is required.";
-      else if (isNaN(expense.amount) || Number(expense.amount) <= 0)
+      } else if (isNaN(amount) || Number(amount) <= 0) {
         errors[`expenseAmount_${idx}`] = "Amount must be a positive number.";
+      }
     });
 
-    if (!formData.totalBudget.trim())
+    const totalBudget = (formData.totalBudget || "").toString().trim();
+    if (!totalBudget) {
       errors.totalBudget = "Total budget is required.";
-    else if (isNaN(formData.totalBudget) || Number(formData.totalBudget) <= 0)
+    } else if (isNaN(totalBudget) || Number(totalBudget) <= 0) {
       errors.totalBudget = "Total budget must be a positive number.";
+    }
 
     if (!viewOnly) {
-      if (!formData.groupLeaderSignature) {
-        errors.groupLeaderSignature = "Group leader signature is required.";
-      } else if (
-        formData.groupLeaderSignature.type &&
-        formData.groupLeaderSignature.type !== "image/jpeg"
-      ) {
-        errors.groupLeaderSignature = "Group leader signature must be a JPEG image.";
-      } else if (
-        formData.groupLeaderSignature.size &&
-        formData.groupLeaderSignature.size > 5 * 1024 * 1024
-      ) {
-        errors.groupLeaderSignature = "Group leader signature must be under 5MB.";
-      }
-
       const isValidSignature = (sig) => {
         if (!sig) return false;
         if (sig instanceof File) {
           return sig.type === "image/jpeg" && sig.size <= 5 * 1024 * 1024;
         }
-        return sig.url || sig.name; // assumes already uploaded
+        return sig.url || sig.name;
       };
-      
+
       if (!isValidSignature(formData.groupLeaderSignature)) {
-        errors.groupLeaderSignature = "Group leader signature is required and must be a JPEG under 5MB.";
-      }
-      
-      if (!isValidSignature(formData.guideSignature)) {
-        errors.guideSignature = "Guide signature is required and must be a JPEG under 5MB.";
+        errors.groupLeaderSignature = "Group leader signature must be a JPEG under 5MB.";
       }
 
-      if (formData.uploadedFiles.length === 0) {
+      if (!isValidSignature(formData.guideSignature)) {
+        errors.guideSignature = "Guide signature must be a JPEG under 5MB.";
+      }
+
+      const files = formData.uploadedFiles || [];
+      if (files.length === 0) {
         errors.uploadedFiles = "At least one additional document is required.";
-      } else if (formData.uploadedFiles.length <= 5) {
-        formData.uploadedFiles.forEach((file, idx) => {
-          if (!file.type || file.type !== "application/pdf") {
-            errors[`uploadedFile_${idx}`] = `File "${file.name}" must be a PDF.`;
-          }
-          if (!file.size || file.size > 5 * 1024 * 1024) {
-            errors[`uploadedFile_${idx}`] = `File "${file.name}" must be under 5MB.`;
+      } else if (files.length <= 5) {
+        files.forEach((file, idx) => {
+          if (file instanceof File) {
+            if (!file.type || file.type !== "application/pdf") {
+              errors[`uploadedFile_${idx}`] = `File "${file.name}" must be a PDF.`;
+            }
+            if (!file.size || file.size > 5 * 1024 * 1024) {
+              errors[`uploadedFile_${idx}`] = `File "${file.name}" must be under 5MB.`;
+            }
           }
         });
       } else {
-        // More than 5 files uploaded
-        if (formData.uploadedFiles.length !== 1) {
-          errors.uploadedFiles = "If more than 5 files, you must upload exactly one ZIP archive.";
+        if (files.length !== 1) {
+          errors.uploadedFiles = "If more than 5 files, upload exactly one ZIP archive.";
         } else {
-          const file = formData.uploadedFiles[0];
-          const isZip =
-            file.type === "application/zip" ||
-            file.type === "application/x-zip-compressed" ||
-            file.name.endsWith(".zip");
+          const file = files[0];
+          const isZip = file.type.includes("zip") || file.name?.endsWith(".zip");
           const isUnder25MB = file.size <= 25 * 1024 * 1024;
-
           if (!isZip) {
-            errors.uploadedFiles = "If more than 5 files, the single uploaded file must be a ZIP archive.";
-          }
-          if (!isUnder25MB) {
+            errors.uploadedFiles = "The file must be a ZIP archive.";
+          } else if (!isUnder25MB) {
             errors.uploadedFiles = "ZIP file must be under 25MB.";
           }
         }
@@ -185,10 +209,52 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
     }
 
     setFormData((prev) => ({ ...prev, errors }));
-
+    if (Object.keys(errors).length > 0) {
+      console.error("❌ Validation errors:", errors);
+    }
     return Object.keys(errors).length === 0;
   };
 
+  const updateGuideField = (e, index, field) => {
+    const value = e.target.value;
+    setFormData((prev) => {
+      const updatedGuides = [...prev.guideDetails];
+      updatedGuides[index] = { ...updatedGuides[index], [field]: value };
+
+      return {
+        ...prev,
+        guideDetails: updatedGuides,
+        errors: {
+          ...prev.errors,
+          [`guide${field === "name" ? "Name" : "EmployeeCode"}_${index}`]: "", // clear error
+        }
+      };
+    });
+  };
+
+  const addGuideRow = () => {
+    setFormData((prev) => ({
+      ...prev,
+      guideDetails: [...prev.guideDetails, { name: "", employeeCode: "" }],
+    }));
+  };
+
+  const removeGuideRow = (index) => {
+    setFormData((prev) => {
+      const updatedGuides = [...prev.guideDetails];
+      updatedGuides.splice(index, 1);
+
+      const updatedErrors = { ...prev.errors };
+      delete updatedErrors[`guideName_${index}`];
+      delete updatedErrors[`guideEmployeeCode_${index}`];
+
+      return {
+        ...prev,
+        guideDetails: updatedGuides,
+        errors: updatedErrors,
+      };
+    });
+  };
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData({
@@ -212,8 +278,15 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
 
   const updateExpenseField = (e, index, field) => {
     const updatedExpenses = [...formData.expenses];
-    updatedExpenses[index][field] = e.target.value;
-    setFormData({ ...formData, expenses: updatedExpenses });
+    const value = e.target.value;
+
+    // If updating amount, store it as raw string but validate later
+    updatedExpenses[index][field] = field === "amount" ? value.replace(/[^0-9.]/g, "") : value.trim();
+
+    setFormData(prev => ({
+      ...prev,
+      expenses: updatedExpenses,
+    }));
   };
 
   const removeExpenseRow = (index) => {
@@ -319,49 +392,61 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("🔍 Submit clicked");
+
     if (!validateForm()) {
-      alert("Please fix the errors in the form.");
+      console.log("❌ Validation failed");
       return;
     }
+
     let svvNetId = null;
     const userString = localStorage.getItem("user");
     if (userString) {
       try {
         const user = JSON.parse(userString);
         svvNetId = user.svvNetId;
-      } catch (e) {
-        console.error("Failed to parse user data from localStorage for submission:", e);
-        setUserMessage({ text: "User session corrupted. Please log in again.", type: "error" });
+      } catch (err) {
+        setUserMessage({ text: "User session corrupted.", type: "error" });
         return;
       }
     }
 
-    // Check if svvNetId is available before attempting to submit
     if (!svvNetId) {
-      setUserMessage({ text: "Authentication error: User ID (svvNetId) not found. Please log in.", type: "error" });
+      setUserMessage({ text: "Authentication error. Please log in.", type: "error" });
       return;
     }
 
     try {
       const formPayload = new FormData();
 
-      // Append all text/json fields
+      // === Basic Fields ===
       formPayload.append("svvNetId", svvNetId);
-      formPayload.append("projectTitle", formData.projectTitle);
-      formPayload.append("projectDescription", formData.projectDescription);
-      formPayload.append("utility", formData.utility);
+      formPayload.append("projectTitle", formData.projectTitle?.trim() || "");
+      formPayload.append("projectDescription", formData.projectDescription?.trim() || "");
+      formPayload.append("utility", formData.utility?.trim() || "");
       formPayload.append("receivedFinance", formData.receivedFinance);
-      formPayload.append("financeDetails", formData.financeDetails);
-      formPayload.append("guideName", formData.guideName);
-      formPayload.append("guideEmployeeCode", formData.guideEmployeeCode);
+      formPayload.append("financeDetails", formData.financeDetails?.trim() || "");
       formPayload.append("totalBudget", formData.totalBudget);
+      formPayload.append("status", formData.status?.trim() || "");
 
-      // Append arrays as JSON strings
+      // === Guide Details (single object) ===
+      formPayload.append("guideName", formData.guideDetails?.[0]?.name?.trim() || "");
+      formPayload.append("guideEmployeeCode", formData.guideDetails?.[0]?.employeeCode?.trim() || "");
+
+      // === Students (as JSON) ===
       formPayload.append("students", JSON.stringify(formData.students));
-      formPayload.append("expenses", JSON.stringify(formData.expenses));
-      formPayload.append("status", formData.status);
 
-      // Append file inputs (only if they are File objects, not URL objects from view mode)
+      // === Expenses (transform category → head) ===
+      const transformedExpenses = formData.expenses
+      .filter(exp => exp.category?.trim())
+      .map(exp => ({
+        category: exp.category.trim(),  // ✅ changed from "head"
+        amount: parseFloat(exp.amount) || 0,
+        details: exp.details?.trim() || ""
+      }));
+      formPayload.append("expenses", JSON.stringify(transformedExpenses));
+
+      // === Signatures ===
       if (formData.groupLeaderSignature instanceof File) {
         formPayload.append("groupLeaderSignature", formData.groupLeaderSignature);
       }
@@ -369,7 +454,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
         formPayload.append("guideSignature", formData.guideSignature);
       }
 
-      // Append multiple uploaded files with the same key (only if they are File objects)
+      // === Uploaded Files ===
       if (Array.isArray(formData.uploadedFiles)) {
         formData.uploadedFiles.forEach(file => {
           if (file instanceof File) {
@@ -377,39 +462,28 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
           }
         });
       }
+      
+      // === Submit ===
       const response = await axios.post(
         "http://localhost:5000/api/ug2form/saveFormData",
         formPayload,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        }
+        { headers: { "Content-Type": "multipart/form-data" } }
       );
+
       if (response.status === 200 || response.status === 201) {
-        alert("Form submitted successfully! Submission ID: ${response.data.id}");
-        // Optionally clear form or redirect to view the newly created submission
-        //setFormData(initialState);
+        alert(`✅ Form submitted successfully!\nSubmission ID: ${response.data.id}`);
+        setFormData(initialState); // Reset
+        setUserMessage(null);
       } else {
-        console.error("❌ Submission Failed:", response.data);
-        alert("Error: " + (response.data.message || "Something went wrong"));
+        alert("❌ Submission failed: " + (response.data.message || "Unknown error"));
       }
+
     } catch (error) {
-      console.error("❌ Error submitting form:", error);
-      if (error.response) {
-          console.error("Response data:", error.response.data);
-          console.error("Response status:", error.response.status);
-          console.error("Response headers:", error.response.headers);
-          alert("Submission failed! " + (error.response.data.message || "Server responded with an error."));
-      } else if (error.request) {
-          console.error("Request data:", error.request);
-          alert("Submission failed! No response from server. Check network connection.");
-      } else {
-          console.error("Error message:", error.message);
-          alert("Submission failed! An error occurred before sending the request.");
-      }
+      console.error("❌ Submission error:", error);
+      alert("❌ An error occurred during submission.");
     }
   };
+
   return (
     <div className="form-container">
       <h2>Under Graduate Form 2</h2>
@@ -478,29 +552,69 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
         />
         {formData.errors.financeDetails && <p className="error-message">{formData.errors.financeDetails}</p>}
 
-        <div className="guide-details">
-          <div>
-            <label>Name of the Guide/Co-Guide:</label>
-            <input
-              type="text"
-              disabled={viewOnly}
-              name="guideName"
-              value={formData.guideName}
-              onChange={handleInputChange}
-            />
-            {formData.errors.guideName && <p className="error-message">{formData.errors.guideName}</p>}
-          </div>
-          <div>
-            <label>Employee Code:</label>
-            <input
-              type="text"
-              disabled={viewOnly}
-              name="guideEmployeeCode"
-              value={formData.guideEmployeeCode}
-              onChange={handleInputChange}
-            />
-            {formData.errors.guideEmployeeCode && <p className="error-message">{formData.errors.guideEmployeeCode}</p>}
-          </div>
+        <div className="guide-table-wrapper">
+          <table className="guide-table">
+            <thead>
+              <tr>
+                <th>Sr. No.</th>
+                <th>Name of Guide/Co-Guide</th>
+                <th>Employee Code</th>
+                {!viewOnly && <th>Action</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {formData.guideDetails.map((guide, index) => (
+                <tr key={index}>
+                  <td>{index + 1}</td>
+                  <td>
+                    <input
+                      type="text"
+                      value={guide.name}
+                      onChange={(e) => updateGuideField(e, index, "name")}
+                      disabled={viewOnly}
+                    />
+                    {!viewOnly && formData.errors[`guideName_${index}`] && (
+                      <p className="error-message">{formData.errors[`guideName_${index}`]}</p>
+                    )}
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      value={guide.employeeCode}
+                      onChange={(e) => updateGuideField(e, index, "employeeCode")}
+                      disabled={viewOnly}
+                    />
+                    {!viewOnly && formData.errors[`guideEmployeeCode_${index}`] && (
+                      <p className="error-message">{formData.errors[`guideEmployeeCode_${index}`]}</p>
+                    )}
+                  </td>
+                  {!viewOnly && (
+                    <td>
+                      <button
+                        type="button"
+                        className="remove-btn"
+                        onClick={() => removeGuideRow(index)}
+                      >
+                        ❌
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {formData.errors.guideDetails && (
+            <p className="error-message">{formData.errors.guideDetails}</p>
+          )}
+          {!viewOnly && (
+            <button
+              type="button"
+              className="add-btn"
+              onClick={addGuideRow}
+            >
+              ➕ Add More Guide
+            </button>
+          )}
         </div>
 
         <table className="student-table">
@@ -785,10 +899,10 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
         )}
         {/* General error for uploadedFiles (e.g., if more than 5 files are not a single zip) */}
         {!viewOnly && formData.errors.uploadedFiles && <p className="error-message">{formData.errors.uploadedFiles}</p>}
-
+        <button type="button" className="back-btn" onClick={handleBack} disabled={isSubmitting}>Back</button>
         {!viewOnly && (
-          <button type="submit" className="submit-btn">
-            Submit
+          <button type="submit" disabled={isSubmitting} className="submit-btn">
+            {isSubmitting ? "Submitting..." : "Submit"}
           </button>
         )}
       </form>
