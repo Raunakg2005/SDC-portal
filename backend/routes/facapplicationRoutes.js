@@ -515,4 +515,71 @@ router.get("/accepted", async (req, res) => {
   }
 });
 
+router.get("/rejected", async (req, res) => {
+  try {
+    const userBranch = req.query.userBranch;
+    const all = req.query.all === "true"; // optional, not used here but kept for consistency
+
+    const filter = {
+      status: /^rejected$/i,
+    };
+
+    // Optional branch filter
+    if (userBranch) {
+      filter.branch = userBranch;
+    }
+
+    const [
+      ug1Forms,
+      ug2Forms,
+      ug3aForms,
+      ug3bForms,
+      pg1Forms,
+      pg2aForms,
+      pg2bForms,
+      r1Forms
+    ] = await Promise.all([
+      UG1Form.find(filter).sort({ createdAt: -1 }).lean(),
+      UGForm2.find(filter).sort({ createdAt: -1 }).lean(),
+      UG3AForm.find(filter).sort({ createdAt: -1 }).lean(),
+      UG3BForm.find(filter).sort({ createdAt: -1 }).lean(),
+      PG1Form.find(filter).sort({ createdAt: -1 }).lean(),
+      PG2AForm.find(filter).sort({ createdAt: -1 }).lean(),
+      PG2BForm.find(filter).sort({ createdAt: -1 }).lean(),
+      R1Form.find(filter).sort({ createdAt: -1 }).lean(),
+    ]);
+
+    const results = await Promise.all([
+      ...ug1Forms.map(f => processFormForDisplay(f, "UG_1", userBranch)),
+      ...ug2Forms.map(f => processFormForDisplay(f, "UG_2", userBranch)),
+      ...ug3aForms.map(f => processFormForDisplay(f, "UG_3_A", userBranch)),
+      ...ug3bForms.map(f => processFormForDisplay(f, "UG_3_B", userBranch)),
+      ...pg1Forms.map(f => processFormForDisplay(f, "PG_1", userBranch)),
+      ...pg2aForms.map(f => processFormForDisplay(f, "PG_2_A", userBranch)),
+      ...pg2bForms.map(f => processFormForDisplay(f, "PG_2_B", userBranch)),
+      ...r1Forms.map(f => processFormForDisplay(f, "R1", userBranch)),
+    ]);
+
+    res.json(results);
+  } catch (error) {
+    console.error("Error fetching rejected applications:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// routes/facapplication.js
+router.post("/form/ug1", async (req, res) => {
+  try {
+    const applications = await UG1Form.find({
+      status: "pending",
+    }).sort({ createdAt: -1 });
+
+    console.log("✅ UG_1 applications fetched:", applications.length);
+    return res.status(200).json(applications);
+  } catch (error) {
+    console.error("❌ Error fetching UG_1 applications:", error);
+    return res.status(500).json({ message: "Server error while fetching UG_1 forms" });
+  }
+});
+
 export default router;

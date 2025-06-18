@@ -13,7 +13,7 @@ const FacNavbar = () => {
       </div>
 
       <div className="navbar-center">
-        <Link to="/home" className="nav-link">Home</Link>
+        <Link to="/fac/home" className="nav-link">Home</Link>
         <Link to="/fac/dashboard" className="nav-link">Dashboard</Link>
         <Link to="/policy" className="nav-link">Policy</Link>
         <Link

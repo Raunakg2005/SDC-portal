@@ -6,54 +6,47 @@ import FacNavbar from "../components/FacNavbar";
 
 const forms = [
   {
-    id: "UG_1",
-    path: "ug1",
+    id: "UG Form 1",
+    path: "fac-ug1",
     category: "UG1 In-House Student project (FY to LY Students) Within Department",
-    title: "Under Graduate Form 1",
   },
   {
-    id: "UG_2",
-    path: "ug2",
+    id: "UG Form 2",
+    path: "fac-ug2",
     category: "UG2 In-House (FY to LY Students) Interdisciplinary projects",
-    title: "Under Graduate Form 2",
   },
   {
-    id: "UG_3_A",
-    path: "ug3a",
+    id: "UG Form 3A",
+    path: "fac-ug3a",
     category: "UG3 Participation in Project Competition",
-    title: "Under Graduate Form 3A",
   },
   {
-    id: "UG_3_B",
-    path: "ug3b",
+    id: "UG Form 3B",
+    path: "fac-ug3b",
     category: "UG3 Participation in Reputed Conference",
-    title: "Under Graduate Form 3B",
   },
   {
-    id: "PG_1",
-    path: "pg1",
+    id: "PG Form 1",
+    path: "fac-pg1",
     category: "PG1 Professional Development Through Workshops / STTPs",
-    title: "Post Graduate Form 1",
   },
   {
-    id: "PG_2_A",
-    path: "pg2a",
+    id: "PG Form 2A",
+    path: "fac-pg2a",
     category: "PG2 Participation in Project Competition",
-    title: "Post Graduate Form 2A",
   },
   {
-    id: "PG_2_B",
-    path: "pg2b",
-    category: "PG2_2 Participation in Reputed Conference",
-    title: "Post Graduate Form 2B",
+    id: "PG Form 2B",
+    path: "fac-pg2b",
+    category: "PG2 Participation in Reputed Conference",
   },
   {
-    id: "R1",
-    path: "r1",
-    category: "R1 Publication in Reputed Journals/Paper/Poster presentation at Esteemed Conference/STTP/Workshop",
-    title: "Research Form 1",
+    id: "Research Form 1",
+    path: "fac-r1",
+    category: "Publication in Reputed Journals/Conferences/STTPs/Workshops",
   },
 ];
+
 
 const FacHome = () => {
   const navigate = useNavigate();

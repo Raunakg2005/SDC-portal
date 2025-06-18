@@ -23,6 +23,7 @@ import PG_1 from "./components/FormComponent/PG_1";
 import PG_2_A from "./components/FormComponent/PG_2_A";
 import PG_2_B from "./components/FormComponent/PG_2_B";
 import R1 from "./components/FormComponent/R1";
+import FacUGForm1 from "./components/FormComponent/FacUG1";
 
 // General Info Pages
 import Policy from "./pages/Policy";
@@ -69,6 +70,7 @@ const App = () => {
         <Route path="/fac/application/:id" element={<ApplicationDetails />} />
         <Route path="/fac/dashboard" element={<FacDashboard />} />
         <Route path="/fac/applications" element={<FacPendingApplications />} />
+        <Route path="/home/fac-ug1" element={<FacUGForm1 />} />
 
       </Routes>
     </Router>
