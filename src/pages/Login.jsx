@@ -37,7 +37,7 @@ const Login = () => {
 
       // 🔁 Navigate based on role
       if (role === "faculty") {
-        navigate("/fachome");
+        navigate("/fac/home");
       } else {
         navigate("/home");
       }

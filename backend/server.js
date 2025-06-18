@@ -15,6 +15,7 @@ import pg2aFormRoutes from "./routes/pg2aformRoutes.js";
 import pg2bFormRoutes from "./routes/pg2bformRoutes.js";
 import r1FormRoutes from './routes/r1formRoutes.js';
 import applicationRoutes from "./routes/applicationRoutes.js";
+import facapplicationRoutes from "./routes/facapplicationRoutes.js";
 
 dotenv.config();
 
@@ -59,6 +60,7 @@ app.use("/api/pg2aform", pg2aFormRoutes);
 app.use("/api/pg2bform", pg2bFormRoutes);
 app.use("/api/application", applicationRoutes);
 app.use('/api/r1form',r1FormRoutes);
+app.use("/api/facapplication",facapplicationRoutes);
 
 // 🔹 404 handler (optional, helps catch unknown routes)
 app.use((req, res, next) => {

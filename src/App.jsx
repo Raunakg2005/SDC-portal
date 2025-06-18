@@ -10,6 +10,9 @@ import PendingApplications from "./pages/PendingApplications";
 import AcceptedApplications from "./pages/AcceptedApplications";
 import RejectedApplications from "./pages/RejectedApplications";
 import ApplicationDetails from "./pages/ApplicationDetails";
+import FacPendingApplications from "./pages/FacPendingApplications";
+import FacAcceptedApplications from "./pages/FacAcceptedApplications"; // ✅ NEW IMPORT
+import FacDashboard from "./pages/FacDashboard";
 
 // Forms
 import UG_1 from "./components/FormComponent/UG_1";
@@ -60,10 +63,12 @@ const App = () => {
 
         {/* Validator (Faculty) Routes */}
         <Route path="/fac/home" element={<FacHome />} />
-        <Route path="/fac/pending" element={<PendingApplications />} />
-        <Route path="/fac/approved" element={<AcceptedApplications />} />
+        <Route path="/fac/pending" element={<FacPendingApplications />} />
+        <Route path="/fac/approved" element={<FacAcceptedApplications />} /> {/* ✅ UPDATED */}
         <Route path="/fac/rejected" element={<RejectedApplications />} />
         <Route path="/fac/application/:id" element={<ApplicationDetails />} />
+        <Route path="/fac/dashboard" element={<FacDashboard />} />
+        <Route path="/fac/applications" element={<FacPendingApplications />} />
 
       </Routes>
     </Router>

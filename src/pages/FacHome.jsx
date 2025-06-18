@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import "../style.css";
 import FacSidebar from "../components/FacSideBar";
-import Navbar from "../components/Navbar";
+import FacNavbar from "../components/FacNavbar";
 
 const forms = [
   {
@@ -60,7 +60,7 @@ const FacHome = () => {
 
   return (
     <>
-      <Navbar />
+      <FacNavbar />
       <div className="home-container">
         <div className="container">
           <FacSidebar />
@@ -76,7 +76,7 @@ const FacHome = () => {
                   >
                     <h3>{form.id}</h3>
                     <p>Category: {form.category}</p>
-                    <button className="view-app-btn">View Applications</button>
+                    <button className="fill-form-btn">View Applications</button>
                   </div>
                 ))}
               </div>
