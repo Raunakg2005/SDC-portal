@@ -50,9 +50,10 @@ router.post('/submit', uploadFields, async (req, res) => {
       amountReceived,
       amountSanctioned,
       svvNetId,
+      department,
     } = req.body;
 
-    // ✅ Clean svvNetId to ensure it's a proper string
+    // ✅ Clean and validate svvNetId
     let cleanedSvvNetId = svvNetId;
     if (Array.isArray(svvNetId)) {
       cleanedSvvNetId = svvNetId.find(id => typeof id === "string" && id.trim() !== "") || "";
@@ -61,15 +62,14 @@ router.post('/submit', uploadFields, async (req, res) => {
     if (!cleanedSvvNetId || typeof cleanedSvvNetId !== "string") {
       return res.status(400).json({ message: "svvNetId is required and must be a string." });
     }
-
-    const bankDetails = req.body.bankDetails
-      ? JSON.parse(req.body.bankDetails)
-      : {};
+    // ✅ Parse bankDetails
+    const bankDetails = req.body.bankDetails ? JSON.parse(req.body.bankDetails) : {};
 
     if (!gfsBucket) {
       throw new Error("GridFSBucket not initialized.");
     }
 
+    // ✅ Upload file to GridFS
     const uploadFile = (file) => {
       return new Promise((resolve, reject) => {
         if (!file) return resolve(null);
@@ -84,7 +84,7 @@ router.post('/submit', uploadFields, async (req, res) => {
 
         stream.end(file.buffer);
 
-        stream.on('finish', () => {
+        stream.on("finish", () => {
           uploadedFileIds.push(stream.id);
           resolve({
             id: stream.id,
@@ -94,10 +94,11 @@ router.post('/submit', uploadFields, async (req, res) => {
           });
         });
 
-        stream.on('error', reject);
+        stream.on("error", reject);
       });
     };
 
+    // ✅ Required files
     const receiptCopy = req.files?.receiptCopy?.[0];
     const guideSignature = req.files?.guideSignature?.[0];
 
@@ -107,21 +108,18 @@ router.post('/submit', uploadFields, async (req, res) => {
       });
     }
 
+    // ✅ Upload all files
     const receiptCopyData = await uploadFile(receiptCopy);
     const guideSignatureData = await uploadFile(guideSignature);
-    const additionalDocumentsData = await Promise.all(
-      (req.files?.additionalDocuments || []).map(uploadFile)
-    );
-    const pdfDocumentsData = await Promise.all(
-      (req.files?.pdfDocuments || []).map(uploadFile)
-    );
-    const zipFilesData = await Promise.all(
-      (req.files?.zipFiles || []).map(uploadFile)
-    );
+    const additionalDocumentsData = await Promise.all((req.files?.additionalDocuments || []).map(uploadFile));
+    const pdfDocumentsData = await Promise.all((req.files?.pdfDocuments || []).map(uploadFile));
+    const zipFilesData = await Promise.all((req.files?.zipFiles || []).map(uploadFile));
 
+    // ✅ Create new PG1 form entry
     const newForm = new PG1Form({
       svvNetId: cleanedSvvNetId,
       studentName,
+      department,
       yearOfAdmission,
       feesPaid,
       sttpTitle,
@@ -146,7 +144,7 @@ router.post('/submit', uploadFields, async (req, res) => {
         pdfDocuments: pdfDocumentsData,
         zipFiles: zipFilesData,
       },
-      status: req.body.status || 'pending',
+      status: req.body.status || "pending",
     });
 
     await newForm.save();
@@ -156,10 +154,10 @@ router.post('/submit', uploadFields, async (req, res) => {
       message: "PG1 form submitted successfully!",
       id: newForm._id,
     });
-
   } catch (err) {
-    console.error('❌ PG1 form submission error:', err.message);
+    console.error("❌ PG1 form submission error:", err.message);
 
+    // 🧹 Rollback uploaded files
     for (const fileId of uploadedFileIds) {
       try {
         await gfsBucket.delete(new mongoose.Types.ObjectId(fileId));

@@ -6,6 +6,7 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
     studentName: '',
     yearOfAdmission: '',
     feesPaid: 'No',
+    department: '', // ✅ added
     projectTitle: '',
     guideName: '',
     coGuideName: '',
@@ -43,6 +44,7 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
         studentName: data.studentName || '',
         yearOfAdmission: data.yearOfAdmission || '',
         feesPaid: data.feesPaid || 'No',
+        department: data.department || '', // ✅ populate department
         projectTitle: data.projectTitle || '',
         guideName: data.guideName || '',
         coGuideName: data.coGuideName || '',
@@ -68,13 +70,14 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
       });
 
       setFiles({
-        paperCopy: data.paperCopyFilename,
-        groupLeaderSignature: data.groupLeaderSignatureFilename,
-        guideSignature: data.guideSignatureFilename,
+        paperCopy: data.paperCopyFilename || null,
+        groupLeaderSignature: data.groupLeaderSignatureFilename || null,
+        guideSignature: data.guideSignatureFilename || null,
         additionalDocuments: data.additionalDocumentsFilename || []
       });
     }
   }, [data, viewOnly]);
+
   
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -195,18 +198,27 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
     }
 
     setLoading(true);
+
     let svvNetId = null;
+    let department = null;
+
     const userString = localStorage.getItem("user");
     if (userString) {
       try {
         const user = JSON.parse(userString);
+
         if (Array.isArray(user.svvNetId)) {
           svvNetId = user.svvNetId.find(id => id && id.trim() !== '') || '';
         } else if (typeof user.svvNetId === 'string') {
           svvNetId = user.svvNetId;
-        } else {
-          console.error("Unexpected type for user.svvNetId in localStorage:", typeof user.svvNetId);
         }
+
+        if (Array.isArray(user.branch)) {
+          department = user.branch.find(b => b && b.trim() !== '') || '';
+        } else if (typeof user.branch === 'string') {
+          department = user.branch;
+        }
+
       } catch (e) {
         console.error("Failed to parse user data from localStorage for submission:", e);
         setUserMessage({ text: "User session corrupted. Please log in again.", type: "error" });
@@ -215,25 +227,19 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
       }
     }
 
-    if (!svvNetId || svvNetId.trim() === '') {
-      setUserMessage({ text: "Authentication error: User ID (svvNetId) not found or invalid. Please log in.", type: "error" });
+    if (!svvNetId || !department || svvNetId.trim() === '' || department.trim() === '') {
+      setUserMessage({ text: "Authentication error: User ID or department not found. Please log in.", type: "error" });
       setLoading(false);
       return;
     }
 
     const submissionData = new FormData();
-
-    // Append svvNetId ONCE from the validated local storage value
     submissionData.append('svvNetId', svvNetId);
+    submissionData.append('department', department); // ✅ append department
 
-    // Append other form data fields from formData state
     Object.entries(formData).forEach(([key, value]) => {
-      // CRITICAL FIX: EXCLUDE svvNetId from this loop to prevent double appending or conflicts
-      if (key === 'svvNetId') {
-        return; // Skip appending svvNetId again
-      }
+      if (key === 'svvNetId' || key === 'department') return;
 
-      // Handle arrays and objects by stringifying
       if (['authors', 'bankDetails'].includes(key)) {
         submissionData.append(key, JSON.stringify(value));
       } else {
@@ -241,12 +247,12 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
       }
     });
 
-    // Append single files
+    // Required files
     if (files.paperCopy instanceof File) submissionData.append('paperCopy', files.paperCopy);
     if (files.groupLeaderSignature instanceof File) submissionData.append('groupLeaderSignature', files.groupLeaderSignature);
     if (files.guideSignature instanceof File) submissionData.append('guideSignature', files.guideSignature);
 
-    // Append additional documents (multiple files under one field name)
+    // Optional additional documents
     if (Array.isArray(files.additionalDocuments)) {
       files.additionalDocuments.forEach(file => {
         if (file instanceof File) {
@@ -255,76 +261,107 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
       });
     }
 
-    // Append up to 5 PDF files (if they exist in files.pdfDocuments)
+    // Optional PDFs and ZIP
     if (Array.isArray(files.pdfDocuments)) {
-        files.pdfDocuments.forEach(file => {
-            if (file instanceof File) {
-                submissionData.append('pdfDocuments', file);
-            }
-        });
+      files.pdfDocuments.forEach(file => {
+        if (file instanceof File) {
+          submissionData.append('pdfDocuments', file);
+        }
+      });
     }
 
-    // Append ZIP file (optional)
     if (files.zipFile instanceof File) {
-        submissionData.append('zipFile', files.zipFile);
+      submissionData.append('zipFile', files.zipFile);
     }
 
     try {
       const response = await axios.post(
-        'http://localhost:5000/api/pg2bform/submit', // Confirm this endpoint
+        'http://localhost:5000/api/pg2bform/submit',
         submissionData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
 
       if (response.status === 200 || response.status === 201) {
-        const responseData = response.data;
-        setUserMessage({ text: `Form submitted successfully! Submission ID: ${responseData.id || 'N/A'}`, type: "success" });
-        console.log(response.data);
+        setUserMessage({
+          text: `Form submitted successfully! Submission ID: ${response.data.id || 'N/A'}`,
+          type: "success"
+        });
 
-        // Reset form to initial empty state for new submissions
+        // Reset form
         if (!viewOnly) {
-            setFormData(prev => ({
-                ...prev,
-                studentName: '', yearOfAdmission: '', feesPaid: 'No', projectTitle: '',
-                guideName: '', coGuideName: '', conferenceDate: '', organization: '',
-                publisher: '', paperLink: '', authors: ['', '', '', ''],
-                bankDetails: { beneficiary: '', ifsc: '', bankName: '', branch: '', accountType: '', accountNumber: '' },
-                registrationFee: '', previousClaim: 'No', claimDate: '',
-                amountReceived: '', amountSanctioned: '', status: 'pending',
-                svvNetId: '', // Reset svvNetId for a truly fresh form
-            }));
-            setFiles({
-                paperCopy: null, groupLeaderSignature: null, guideSignature: null,
-                additionalDocuments: [], pdfDocuments: [], zipFile: null
-            });
-            setErrors({});
-            // Clear file input refs
-            if (paperCopyRef.current) paperCopyRef.current.value = null;
-            if (groupLeaderSignatureRef.current) groupLeaderSignatureRef.current.value = null;
-            if (guideSignatureRef.current) guideSignatureRef.current.value = null;
-            if (additionalDocumentsRef.current) additionalDocumentsRef.current.value = null;
-            if (pdfDocumentsRef.current) pdfDocumentsRef.current.value = null;
-            if (zipFileRef.current) zipFileRef.current.value = null;
+          setFormData({
+            studentName: '',
+            yearOfAdmission: '',
+            feesPaid: 'No',
+            department: '', // ✅ reset department
+            projectTitle: '',
+            guideName: '',
+            coGuideName: '',
+            conferenceDate: '',
+            organization: '',
+            publisher: '',
+            paperLink: '',
+            authors: ['', '', '', ''],
+            bankDetails: {
+              beneficiary: '',
+              ifsc: '',
+              bankName: '',
+              branch: '',
+              accountType: '',
+              accountNumber: ''
+            },
+            registrationFee: '',
+            previousClaim: 'No',
+            claimDate: '',
+            amountReceived: '',
+            amountSanctioned: '',
+            status: 'pending',
+            svvNetId: ''
+          });
+
+          setFiles({
+            paperCopy: null,
+            groupLeaderSignature: null,
+            guideSignature: null,
+            additionalDocuments: [],
+            pdfDocuments: [],
+            zipFile: null
+          });
+
+          setErrors({});
+
+          // Clear refs
+          if (paperCopyRef.current) paperCopyRef.current.value = null;
+          if (groupLeaderSignatureRef.current) groupLeaderSignatureRef.current.value = null;
+          if (guideSignatureRef.current) guideSignatureRef.current.value = null;
+          if (additionalDocumentsRef.current) additionalDocumentsRef.current.value = null;
+          if (pdfDocumentsRef.current) pdfDocumentsRef.current.value = null;
+          if (zipFileRef.current) zipFileRef.current.value = null;
         }
 
       } else {
-        const errorData = response.data; // Assuming backend sends JSON for errors
-        console.error('Server responded with error:', response.status, errorData);
-        setUserMessage({ text: `Submission failed: ${errorData.message || errorData.error || 'An unexpected error occurred.'}`, type: "error" });
+        const errorData = response.data;
+        setUserMessage({
+          text: `Submission failed: ${errorData.message || errorData.error || 'Unexpected server error.'}`,
+          type: "error"
+        });
       }
+
     } catch (error) {
       console.error('Error submitting form:', error.response?.data || error.message);
       let errorMessage = 'Submission failed. Please check your network and try again.';
       if (error.response?.data?.error) {
-          errorMessage = `Submission failed: ${error.response.data.error}`;
+        errorMessage = `Submission failed: ${error.response.data.error}`;
       } else if (error.response?.data?.message) {
-          errorMessage = `Submission failed: ${error.response.data.message}`;
+        errorMessage = `Submission failed: ${error.response.data.message}`;
       }
       setUserMessage({ text: errorMessage, type: "error" });
+
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="form-container max-w-4xl mx-auto p-5 bg-gray-50 rounded-lg shadow-md">
@@ -746,14 +783,6 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
             </div>
           </div>
         </div>
-      {/* Signatures */}
-      <div className="flex justify-between mb-6">
-        <div className="w-1/2 pr-2">
-          <p className="font-semibold mb-2">Signature of the Guide/Co-Guide HOD</p>
-          <div className="h-12 border-t border-gray-400"></div>
-        </div>
-      </div>
-
         {/* Form Actions */}
         <div className="flex justify-between">
           <button onClick={() => window.history.back()} className="back-btn bg-red-500 text-white px-6 py-2 rounded hover:bg-red-600">

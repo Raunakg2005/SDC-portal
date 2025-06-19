@@ -198,6 +198,7 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
                 "Untitled Project";
 
             // Branch handling is already done above using userBranchFromRequest
+            processedForm.branch = form.department || userBranchFromRequest || "N/A";
             processedForm.department = form.department || "N/A";
             processedForm.guideName = form.guideName || "N/A";
             processedForm.employeeCode = form.employeeCode || "N/A";
@@ -230,7 +231,7 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
             break;
         case "PG_2_A":
             processedForm.topic = form.projectTitle || form.paperTitle || form.topic || "Untitled Project";
-            processedForm.name = form.studentDetails?.[0]?.name || "N/A";
+            processedForm.name = form.studentName || "NA";
 
             processedForm.department = form.department || "NA";
             processedForm.studentDetails = form.studentDetails || [];
@@ -628,4 +629,39 @@ router.post("/form/ug3b", async (req, res) => {
   }
 });
 
+// PG1 - Return ALL PG1 forms
+router.post("/form/pg1", async (req, res) => {
+  try {
+    const applications = await PG1Form.find().sort({ createdAt: -1 });
+    console.log("✅ PG_1 applications fetched:", applications.length);
+    return res.status(200).json(applications);
+  } catch (error) {
+    console.error("❌ Error fetching PG_1 applications:", error);
+    return res.status(500).json({ message: "Server error while fetching PG_1 forms" });
+  }
+});
+
+// PG2A - Return ALL PG2A forms
+router.post("/form/pg2a", async (req, res) => {
+  try {
+    const applications = await PG2AForm.find().sort({ createdAt: -1 });
+    console.log("✅ PG_2_A applications fetched:", applications.length);
+    return res.status(200).json(applications);
+  } catch (error) {
+    console.error("❌ Error fetching PG_2_A applications:", error);
+    return res.status(500).json({ message: "Server error while fetching PG_2_A forms" });
+  }
+});
+
+// PG2B - Return ALL PG2B forms
+router.post("/form/pg2b", async (req, res) => {
+  try {
+    const applications = await PG2BForm.find().sort({ createdAt: -1 });
+    console.log("✅ PG_2_B applications fetched:", applications.length);
+    return res.status(200).json(applications);
+  } catch (error) {
+    console.error("❌ Error fetching PG_2_B applications:", error);
+    return res.status(500).json({ message: "Server error while fetching PG_2_B forms" });
+  }
+});
 export default router;

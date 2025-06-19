@@ -8,6 +8,7 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
         studentName: data.studentName || '',
         yearOfAdmission: data.yearOfAdmission || '',
         feesPaid: data.feesPaid || 'No',
+        department: data.department || '',
         sttpTitle: data.sttpTitle || '',
         guideName: data.guideName || '',
         coGuideName: data.coGuideName || '',
@@ -39,6 +40,7 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
       studentName: '',
       yearOfAdmission: '',
       feesPaid: 'No',
+      department: '', 
       sttpTitle: '',
       guideName: '',
       coGuideName: '',
@@ -214,37 +216,63 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
     if (viewOnly) return;
 
     let svvNetId = "";
+    let department = "";
+
     const userString = localStorage.getItem("user");
+
     if (userString) {
       try {
         const user = JSON.parse(userString);
-        svvNetId = typeof user.svvNetId === "string" ? user.svvNetId : (Array.isArray(user.svvNetId) ? user.svvNetId[0] : "");
+
+        svvNetId =
+          typeof user.svvNetId === "string"
+            ? user.svvNetId
+            : Array.isArray(user.svvNetId)
+            ? user.svvNetId[0]
+            : "";
+
+        department =
+          typeof user.branch === "string"
+            ? user.branch
+            : Array.isArray(user.branch)
+            ? user.branch[0]
+            : "";
       } catch (e) {
-        console.error("Failed to parse user data from localStorage for submission:", e);
-        setUserMessage({ text: "User session corrupted. Please log in again.", type: "error" });
+        console.error("❌ Failed to parse user data from localStorage:", e);
+        setUserMessage({
+          text: "User session corrupted. Please log in again.",
+          type: "error",
+        });
         return;
       }
     }
 
-    if (!svvNetId) {
-      setUserMessage({ text: "Authentication error: User ID (svvNetId) not found. Please log in.", type: "error" });
+    if (!svvNetId || !department) {
+      setUserMessage({
+        text: "Authentication error: svvNetId or branch not found. Please log in.",
+        type: "error",
+      });
       return;
     }
 
     try {
       const formPayload = new FormData();
 
-      // ✅ Append svvNetId as string
-      formPayload.append("svvNetId", svvNetId.toString());
+      // ✅ Append user identity fields
+      formPayload.append("svvNetId", svvNetId);
+      formPayload.append("department", department);
 
+      // 📄 Append form fields except bankDetails and department
       Object.entries(formData).forEach(([key, value]) => {
-        if (key !== "bankDetails") {
+        if (key !== "bankDetails" && key !== "department") {
           formPayload.append(key, value || "");
         }
       });
 
+      // 🏦 Append bankDetails JSON
       formPayload.append("bankDetails", JSON.stringify(formData.bankDetails || {}));
 
+      // 📎 Required files
       if (!files.receiptCopy || !files.guideSignature) {
         alert("Please upload both Receipt Copy and Guide Signature.");
         return;
@@ -253,6 +281,7 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
       formPayload.append("receiptCopy", files.receiptCopy);
       formPayload.append("guideSignature", files.guideSignature);
 
+      // 📎 Optional files
       if (files.additionalDocuments) {
         formPayload.append("additionalDocuments", files.additionalDocuments);
       }
@@ -265,15 +294,13 @@ const PG_1 = ({ viewOnly = false , data = null }) => {
         formPayload.append("zipFiles", file);
       });
 
-      const response = await axios.post(
-        "http://localhost:5000/api/pg1form/submit",
-        formPayload
-      );
+      // 🚀 Submit form
+      const response = await axios.post("http://localhost:5000/api/pg1form/submit", formPayload);
 
       alert("Form submitted successfully!");
-      console.log("Form submitted:", response.data);
+      console.log("✅ Submitted:", response.data);
     } catch (error) {
-      console.error("Submit error:", error.response || error.message || error);
+      console.error("❌ Submit error:", error.response || error.message || error);
       alert("Failed to submit form. Please check required fields and try again.");
     }
   };

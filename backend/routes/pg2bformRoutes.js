@@ -40,6 +40,7 @@ router.post('/submit', uploadFields, async (req, res) => {
       studentName,
       yearOfAdmission,
       feesPaid,
+      department, // ✅ Extract department
       projectTitle,
       guideName,
       coGuideName,
@@ -55,8 +56,13 @@ router.post('/submit', uploadFields, async (req, res) => {
       status,
     } = req.body;
 
+    // ✅ Validate svvNetId and department
     if (!svvNetId?.trim()) {
       return res.status(400).json({ message: "svvNetId is required." });
+    }
+
+    if (!department || typeof department !== "string" || department.trim() === "") {
+      return res.status(400).json({ message: "department is required and must be a string." });
     }
 
     const authors = typeof req.body.authors === 'string'
@@ -107,6 +113,7 @@ router.post('/submit', uploadFields, async (req, res) => {
       studentName,
       yearOfAdmission,
       feesPaid,
+      department, // ✅ Save department
       projectTitle,
       guideName,
       coGuideName,
@@ -136,7 +143,6 @@ router.post('/submit', uploadFields, async (req, res) => {
   } catch (err) {
     console.error('Submission error:', err);
 
-    // Rollback uploaded files
     for (const fileId of uploadedFileIds) {
       try {
         await gfsBucket.delete(new mongoose.Types.ObjectId(fileId));

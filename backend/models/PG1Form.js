@@ -20,6 +20,7 @@ const fileMetaSchema = new mongoose.Schema({
 const pg1FormSchema = new mongoose.Schema({
   svvNetId: { type: String, required: true },
   studentName: { type: String, required: true },
+  department: { type: String, required: true },
   yearOfAdmission: { type: String, required: true },
   feesPaid: { type: String, enum: ['Yes', 'No'], default: 'No' },
 
