@@ -38,7 +38,7 @@ const FacPendingApplications = () => {
     return <div className="p-6 text-red-600">Error: {error}</div>;
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       <h2 className="text-2xl font-semibold mb-4">Pending Applications for Approval</h2>
       <p className="text-gray-600 mb-6">
         Review and take action on submitted student applications that require your approval.
@@ -47,7 +47,8 @@ const FacPendingApplications = () => {
         <table className="w-full border text-left">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-3 border">Form</th>
+              <th className="p-3 border">Form Type</th>
+              <th className="p-3 border">Project Title</th>
               <th className="p-3 border">Name</th>
               <th className="p-3 border">Roll No.</th>
               <th className="p-3 border">Submitted</th>
@@ -58,16 +59,23 @@ const FacPendingApplications = () => {
           <tbody>
             {applications.length === 0 ? (
               <tr>
-                <td colSpan="6" className="text-center text-gray-500 py-4">
+                <td colSpan="7" className="text-center text-gray-500 py-4">
                   No pending applications found.
                 </td>
               </tr>
             ) : (
               applications.map((app) => (
                 <tr key={app._id} className="border-t hover:bg-gray-50">
-                  <td className="p-3">{app.topic || 'N/A'}</td>
-                  <td className="p-3">{app.name || 'N/A'}</td>
-                  <td className="p-3">{app.rollNumber || 'N/A'}</td>
+                  <td className="p-3 font-medium text-blue-600">{app.formType || "N/A"}</td>
+                  <td className="p-3">{app.topic || "N/A"}</td>
+                  <td className="p-3">{app.name || "N/A"}</td>
+                  <td className="p-3">
+                    {app.rollNumber ||
+                      app.rollNo ||
+                      app.students?.[0]?.rollNo ||
+                      app.studentDetails?.[0]?.rollNumber ||
+                      "N/A"}
+                  </td>
                   <td className="p-3">
                     {new Date(app.submitted).toLocaleDateString("en-GB", {
                       day: "numeric",
@@ -75,7 +83,7 @@ const FacPendingApplications = () => {
                       year: "numeric",
                     })}
                   </td>
-                  <td className="p-3">{app.branch || 'N/A'}</td>
+                  <td className="p-3">{app.branch || "N/A"}</td>
                   <td className="p-3">
                     <button
                       onClick={() => handleViewClick(app._id)}

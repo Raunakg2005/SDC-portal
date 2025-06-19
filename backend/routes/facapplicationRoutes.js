@@ -72,9 +72,9 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
 
     processedForm._id = form._id.toString();
     processedForm.topic = form.projectTitle || form.paperTitle || form.topic || "Untitled Project";
-    processedForm.name = form.studentName || form.applicantName || (form.students?.[0]?.name) || (form.studentDetails?.[0]?.studentName) || "N/A";
-    processedForm.branch = userBranchFromRequest || form.branch || form.department || (form.students?.[0]?.branch) || (form.studentDetails?.[0]?.branch) || "N/A";
-
+    processedForm.name = form.studentName || form.applicantName || form.students?.[0]?.name || form.studentDetails?.[0]?.studentName || "N/A";
+    processedForm.branch = userBranchFromRequest || form.branch || form.department || form.students?.[0]?.branch || form.studentDetails?.[0]?.branch || "N/A";
+    processedForm.rollNumber = form.rollNumber || form.rollNo || form.students?.[0]?.rollNo || form.studentDetails?.[0]?.rollNumber || "N/A";
     processedForm.submitted = form.createdAt || form.submittedAt || new Date();
     if (typeof processedForm.submitted === 'string' && !isNaN(new Date(processedForm.submitted))) {
         processedForm.submitted = new Date(processedForm.submitted);
@@ -372,23 +372,31 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
 router.get("/pending", async (req, res) => {
   try {
     const svvNetId = req.query.svvNetId;
+    const userBranch = req.query.userBranch;
+    const showAll = req.query.all === "true";
 
-    // Create filter: always match 'pending'; optionally match currentApprover if svvNetId provided.
+    // Default filter: only 'pending' applications
     const facultyFilter = {
       status: /^pending$/i,
-      ...(svvNetId && { currentApprover: svvNetId }),
     };
 
-    // Check if the user branch is one of the variations of "COMPS"
-    const userBranch = req.query.userBranch;
-    if (userBranch) {
-      const branchRegex = /^(COMPS|comp|computer\s*Engg|Comp\s*Engg)$/i; // Regular expression to match variations
+    // Optional: Filter by currentApprover if not showing all
+    if (!showAll && svvNetId) {
+      facultyFilter.currentApprover = svvNetId;
+    }
+
+    // Optional: Add flexible branch filter if provided and not showing all
+    if (!showAll && userBranch) {
+      const branchRegex = /^(COMPS|comp|computer\s*Engg|Comp\s*Engg)$/i;
       if (branchRegex.test(userBranch)) {
-        // If the branch matches, include it in the filter
-        facultyFilter.branch = { $regex: /COMPS|comp|computer\s*Engg|Comp\s*Engg/i }; // Match any of the variations
+        facultyFilter.branch = {
+          $regex: /COMPS|comp|computer\s*Engg|Comp\s*Engg/i,
+          $options: "i",
+        };
       }
     }
 
+    // Fetch all forms with filters
     const [
       ug1Forms,
       ug2Forms,
@@ -409,6 +417,7 @@ router.get("/pending", async (req, res) => {
       R1Form.find(facultyFilter).sort({ createdAt: -1 }).lean(),
     ]);
 
+    // Tag with formType and format output
     const results = await Promise.all([
       ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1")),
       ...ug2Forms.map((f) => processFormForDisplay(f, "UG_2")),
@@ -422,7 +431,7 @@ router.get("/pending", async (req, res) => {
 
     res.json(results);
   } catch (error) {
-    console.error("Error in /application/pending:", error);
+    console.error("❌ Error in /facapplication/pending:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -570,15 +579,52 @@ router.get("/rejected", async (req, res) => {
 // routes/facapplication.js
 router.post("/form/ug1", async (req, res) => {
   try {
-    const applications = await UG1Form.find({
-      status: "pending",
-    }).sort({ createdAt: -1 });
+    const applications = await UG1Form.find().sort({ createdAt: -1 });
 
     console.log("✅ UG_1 applications fetched:", applications.length);
     return res.status(200).json(applications);
   } catch (error) {
     console.error("❌ Error fetching UG_1 applications:", error);
     return res.status(500).json({ message: "Server error while fetching UG_1 forms" });
+  }
+});
+
+// UG2 - Return ALL UG2 forms
+router.post("/form/ug2", async (req, res) => {
+  try {
+    const applications = await UGForm2.find().sort({ createdAt: -1 });
+
+    console.log("✅ UG_2 applications fetched:", applications.length);
+    return res.status(200).json(applications);
+  } catch (error) {
+    console.error("❌ Error fetching UG_2 applications:", error);
+    return res.status(500).json({ message: "Server error while fetching UG_2 forms" });
+  }
+});
+
+// UG3A - Return ALL UG3A forms
+router.post("/form/ug3a", async (req, res) => {
+  try {
+    const applications = await UG3AForm.find().sort({ createdAt: -1 });
+
+    console.log("✅ UG_3A applications fetched:", applications.length);
+    return res.status(200).json(applications);
+  } catch (error) {
+    console.error("❌ Error fetching UG_3A applications:", error);
+    return res.status(500).json({ message: "Server error while fetching UG_3A forms" });
+  }
+});
+
+// UG3B - Return ALL UG3B forms
+router.post("/form/ug3b", async (req, res) => {
+  try {
+    const applications = await UG3BForm.find().sort({ createdAt: -1 });
+
+    console.log("✅ UG_3B applications fetched:", applications.length);
+    return res.status(200).json(applications);
+  } catch (error) {
+    console.error("❌ Error fetching UG_3B applications:", error);
+    return res.status(500).json({ message: "Server error while fetching UG_3B forms" });
   }
 });
 

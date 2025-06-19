@@ -24,6 +24,9 @@ import PG_2_A from "./components/FormComponent/PG_2_A";
 import PG_2_B from "./components/FormComponent/PG_2_B";
 import R1 from "./components/FormComponent/R1";
 import FacUGForm1 from "./components/FormComponent/FacUG1";
+import FacUGForm2 from "./components/FormComponent/FacUG2";
+import FacUGForm3A from "./components/FormComponent/FacUG3a";
+import FacUGForm3B from "./components/FormComponent/FacUG3b";
 
 // General Info Pages
 import Policy from "./pages/Policy";
@@ -71,7 +74,9 @@ const App = () => {
         <Route path="/fac/dashboard" element={<FacDashboard />} />
         <Route path="/fac/applications" element={<FacPendingApplications />} />
         <Route path="/home/fac-ug1" element={<FacUGForm1 />} />
-
+        <Route path="/home/fac-ug2" element={<FacUGForm2/>} />
+        <Route path="/home/fac-ug3a" element={<FacUGForm3A/>} />
+        <Route path="/home/fac-ug3b" element={<FacUGForm3B/>} />
       </Routes>
     </Router>
   );
