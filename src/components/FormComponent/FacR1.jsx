@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import FacNavbar from "../FacNavbar";
 import "../styles/FacUG1.css";
 
-const FacPGForm2A = () => {
+const FacR1Form = () => {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -11,19 +11,20 @@ const FacPGForm2A = () => {
   useEffect(() => {
     const fetchApplications = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/facapplication/form/pg2a", {
+        const res = await fetch("http://localhost:5000/api/facapplication/form/r1", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         });
-        if (!res.ok) throw new Error("Failed to fetch PG_2_A applications");
+        if (!res.ok) throw new Error("Failed to fetch R1 applications");
         const data = await res.json();
         setApplications(data);
       } catch (err) {
-        console.error("❌ Error loading PG_2_A applications:", err);
+        console.error("❌ Error loading R1 applications:", err);
       } finally {
         setLoading(false);
       }
     };
+
     fetchApplications();
   }, []);
 
@@ -32,7 +33,7 @@ const FacPGForm2A = () => {
       <FacNavbar />
       <main className="facug1-container">
         <div className="facug1-card">
-          <h2 className="facug1-title">Applications for PG_2_A</h2>
+          <h2 className="facug1-title">Applications for R1</h2>
           {loading ? (
             <p className="facug1-message">Loading applications...</p>
           ) : applications.length === 0 ? (
@@ -57,10 +58,10 @@ const FacPGForm2A = () => {
                       <td>{app.name || "N/A"}</td>
                       <td>{app.rollNumber || "N/A"}</td>
                       <td>{app.branch || "N/A"}</td>
-                      <td>{new Date(app.createdAt).toLocaleDateString("en-GB")}</td>
+                      <td>{new Date(app.submitted || app.createdAt).toLocaleDateString("en-GB")}</td>
                       <td>
                         <button
-                          onClick={() => navigate(`/fac/view/pg2a/${app._id}`)}
+                          onClick={() => navigate(`/fac/view/r1/${app._id}`)}
                           className="view-link"
                         >
                           View Form
@@ -78,4 +79,4 @@ const FacPGForm2A = () => {
   );
 };
 
-export default FacPGForm2A;
+export default FacR1Form;

@@ -231,10 +231,12 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
             break;
         case "PG_2_A":
             processedForm.topic = form.projectTitle || form.paperTitle || form.topic || "Untitled Project";
-            processedForm.name = form.studentName || "NA";
-
-            processedForm.department = form.department || "NA";
-            processedForm.studentDetails = form.studentDetails || [];
+            if (form.studentDetails?.length > 0) {
+                processedForm.name = form.studentDetails[0].name || "N/A";
+                processedForm.rollNumber = form.studentDetails[0].rollNo || "N/A";
+                processedForm.branch = form.studentDetails[0].branch || "N/A";
+            }
+            processedForm.department = form.department || "N/A";
             processedForm.expenses = form.expenses || [];
             processedForm.bankDetails = form.bankDetails || {};
             processedForm.organizingInstitute = form.organizingInstitute || "N/A";
@@ -242,17 +244,13 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
             processedForm.employeeCodes = form.employeeCode ? [form.employeeCode] : [];
 
             if (form.files) {
-                if (form.files.bills && form.files.bills.length > 0) {
+                if (form.files.bills?.length > 0) {
                     const billFilePromises = form.files.bills.map(id => getFileDetailsAndUrl(id, fileBaseUrl));
                     processedForm.bills = (await Promise.all(billFilePromises)).filter(Boolean);
-                } else {
-                    processedForm.bills = [];
                 }
-                if (form.files.zips && form.files.zips.length > 0) {
+                if (form.files.zips?.length > 0) {
                     const zipFilePromises = form.files.zips.map(id => getFileDetailsAndUrl(id, fileBaseUrl));
                     processedForm.zipFile = (await Promise.all(zipFilePromises)).filter(Boolean)[0] || null;
-                } else {
-                    processedForm.zipFile = null;
                 }
                 if (form.files.studentSignature) {
                     processedForm.studentSignature = await getFileDetailsAndUrl(form.files.studentSignature, fileBaseUrl);
@@ -265,7 +263,6 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
                 }
             }
             break;
-            
         case "PG_2_B":
             if (form.files) {
                 if (form.files.bills?.length > 0) {
@@ -577,6 +574,80 @@ router.get("/rejected", async (req, res) => {
   }
 });
 
+router.post("/view/ug1", async (req, res) => {
+  const { formId } = req.body;
+
+  try {
+    const form = await UG1Form.findById(formId);
+    if (!form) return res.status(404).json({ error: "Form not found" });
+    const processed = await processFormForDisplay(form, "UG_1");
+
+    const guides = (form.guides || []).map((g) => ({
+      guideName: g.guideName || "",
+      employeeCode: g.employeeCode || "",
+    }));
+
+    const students = (form.studentDetails || []).map((s) => ({
+      studentName: s.studentName || "",
+      rollNumber: s.rollNumber || "",
+      branch: s.branch || "",
+      yearOfStudy: s.yearOfStudy || "",
+    }));
+
+    res.json({
+      projectTitle: form.projectTitle,
+      projectUtility: form.projectUtility,
+      projectDescription: form.projectDescription,
+      finance: form.finance,
+      amountClaimed: form.amountClaimed || "",
+      status: form.status,
+      remarks: form.remarks || "",
+
+      guides,
+      students,
+
+      pdfFiles: processed.pdfFileUrls || [],  // MATCHES `processFormForDisplay` output
+      zipFileDetails: processed.zipFile || null, // optional
+      groupLeaderSignature: processed.groupLeaderSignature || null,
+      guideSignature: processed.guideSignature || null,
+      
+    });
+  } catch (err) {
+    console.error("Error fetching UG1 form for faculty view:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+router.get("/file/:fileId", async (req, res) => {
+  try {
+    const fileId = req.params.fileId;
+
+    if (!mongoose.Types.ObjectId.isValid(fileId)) {
+      return res.status(400).json({ error: "Invalid file ID" });
+    }
+
+    const _id = new mongoose.Types.ObjectId(fileId);
+    const files = await gfsBucket.find({ _id }).toArray();
+
+    if (!files || files.length === 0) {
+      return res.status(404).json({ error: "File not found" });
+    }
+
+    const file = files[0];
+
+    res.set({
+      "Content-Type": file.contentType,
+      "Content-Disposition": `inline; filename="${file.filename}"`,
+    });
+
+    const downloadStream = gfsBucket.openDownloadStream(_id);
+    downloadStream.pipe(res);
+  } catch (err) {
+    console.error("Error serving file:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // routes/facapplication.js
 router.post("/form/ug1", async (req, res) => {
   try {
@@ -589,6 +660,7 @@ router.post("/form/ug1", async (req, res) => {
     return res.status(500).json({ message: "Server error while fetching UG_1 forms" });
   }
 });
+
 
 // UG2 - Return ALL UG2 forms
 router.post("/form/ug2", async (req, res) => {
@@ -644,15 +716,20 @@ router.post("/form/pg1", async (req, res) => {
 // PG2A - Return ALL PG2A forms
 router.post("/form/pg2a", async (req, res) => {
   try {
-    const applications = await PG2AForm.find().sort({ createdAt: -1 });
-    console.log("✅ PG_2_A applications fetched:", applications.length);
-    return res.status(200).json(applications);
+    const rawForms = await PG2AForm.find().sort({ createdAt: -1 });
+
+    const userBranch = req.body.userBranch || null; // Optional filter
+    const processedForms = await Promise.all(
+      rawForms.map(form => processFormForDisplay(form.toObject(), "PG_2_A", userBranch))
+    );
+
+    console.log("✅ PG_2_A applications processed:", processedForms.length);
+    return res.status(200).json(processedForms);
   } catch (error) {
     console.error("❌ Error fetching PG_2_A applications:", error);
     return res.status(500).json({ message: "Server error while fetching PG_2_A forms" });
   }
 });
-
 // PG2B - Return ALL PG2B forms
 router.post("/form/pg2b", async (req, res) => {
   try {
@@ -662,6 +739,22 @@ router.post("/form/pg2b", async (req, res) => {
   } catch (error) {
     console.error("❌ Error fetching PG_2_B applications:", error);
     return res.status(500).json({ message: "Server error while fetching PG_2_B forms" });
+  }
+});
+
+router.post("/form/r1", async (req, res) => {
+  try {
+    const rawApplications = await R1Form.find().sort({ createdAt: -1 });
+    console.log("✅ R1 applications fetched:", rawApplications.length);
+
+    const processedApplications = await Promise.all(
+      rawApplications.map((form) => processFormForDisplay(form.toObject(), "R1"))
+    );
+
+    return res.status(200).json(processedApplications);
+  } catch (error) {
+    console.error("❌ Error fetching R1 applications:", error);
+    return res.status(500).json({ message: "Server error while fetching R1 forms" });
   }
 });
 export default router;

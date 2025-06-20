@@ -499,7 +499,6 @@ router.get("/user/:svvNetId", async (req, res) => {
   }
 });
 
-
 /**
  * @route   PUT /api/ug1form/clearPdfFiles/:formId
  * @desc    Clear (and delete from GridFS) all individual PDF files for a form.
@@ -544,6 +543,27 @@ router.put("/clearPdfFiles/:formId", async (req, res) => {
   } catch (error) {
     console.error("❌ Error clearing PDF files:", error);
     res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+});
+
+router.put("/:formId/faculty-review", async (req, res) => {
+  const { formId } = req.params;
+  const { status, remarks } = req.body;
+
+  try {
+    const form = await UG1Form.findById(formId);
+    if (!form) return res.status(404).json({ error: "Form not found" });
+
+    form.status = status || form.status;
+    form.remarks = remarks || form.remarks;
+
+    await form.save();
+
+    console.log(`✅ Updated UG1 form ${formId} with status: ${status}, remarks: ${remarks}`);
+    res.json({ message: "Form reviewed successfully" });
+  } catch (err) {
+    console.error("❌ Error updating form:", err);
+    res.status(500).json({ error: "Server error while reviewing form" });
   }
 });
 

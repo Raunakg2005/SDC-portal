@@ -58,7 +58,8 @@ const UG3BFormSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'approved', 'rejected'],
     default: 'pending',
-  }
+  },
+  remarks: { type: String },
 }, { timestamps: true });
 
 // Custom validators

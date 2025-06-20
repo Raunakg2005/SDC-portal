@@ -46,6 +46,7 @@ const UG1FormSchema = new mongoose.Schema({
     enum: ["pending", "approved", "rejected"],
     default: "pending",
   },
+  remarks: { type: String }, // ✅ Added remarks field
 }, { timestamps: true }); // `timestamps: true` adds `createdAt` and `updatedAt` fields
 
 const UG1Form = mongoose.model("UG1Form", UG1FormSchema);

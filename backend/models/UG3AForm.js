@@ -84,7 +84,8 @@ const UG3AFormSchema = new mongoose.Schema({
     type: String,
     enum: ['Pending', 'Approved', 'Under Review', 'Rejected'],
     default: 'Pending'
-  }
+  },
+  remarks: { type: String },
 }, { timestamps: true });
 
 const UG3AForm = mongoose.model("UG3AForm", UG3AFormSchema);

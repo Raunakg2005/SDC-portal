@@ -57,7 +57,7 @@ const pg2aFormSchema = new mongoose.Schema({
     enum: ['pending', 'approved', 'rejected', 'under Review'],
     default: 'pending',
   },
-
+  remarks: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
 

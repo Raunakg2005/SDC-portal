@@ -30,6 +30,8 @@ import FacUGForm3B from "./components/FormComponent/FacUG3b";
 import FacPGForm1 from "./components/FormComponent/FacPG1";
 import FacPG2aForm from "./components/FormComponent/FacPG2a";
 import FacPG2bForm from "./components/FormComponent/FacPG2b";
+import FacR1Form from "./components/FormComponent/FacR1";
+import FacultyFormViewer from "./components/FormComponent/FacultyFormViewer";
 
 // General Info Pages
 import Policy from "./pages/Policy";
@@ -83,6 +85,8 @@ const App = () => {
         <Route path="/home/fac-pg1" element={<FacPGForm1/>} />
         <Route path="/home/fac-pg2a" element={<FacPG2aForm/>} />
         <Route path="/home/fac-pg2b" element={<FacPG2bForm/>} />
+        <Route path="/home/fac-r1" element={<FacR1Form/>} />
+        <Route path="/fac/view/:formType/:formId" element={<FacultyFormViewer />} />
       </Routes>
     </Router>
   );

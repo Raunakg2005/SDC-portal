@@ -50,7 +50,7 @@ const UGForm2Schema = new mongoose.Schema({
       return this.receivedFinance === true;
     },
   },
-
+  remarks: { type: String },
   guideDetails: {
       type: [GuideSchema],
       default: [],

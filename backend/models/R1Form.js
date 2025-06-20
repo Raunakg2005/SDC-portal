@@ -60,6 +60,7 @@ const R1FormSchema = new mongoose.Schema({
 
   dateOfSubmission: { type: Date, default: Date.now },
   remarksByHOD: { type: String, default: '' },
+  remarks: { type: String },
 
 }, { timestamps: true });
 

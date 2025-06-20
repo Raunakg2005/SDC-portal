@@ -54,7 +54,7 @@ const PG2BFormSchema = new mongoose.Schema({
   claimDate: { type: Date },
   amountReceived: { type: String },
   amountSanctioned: { type: String },
-
+  remarks: { type: String },
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected', 'under Review'],
