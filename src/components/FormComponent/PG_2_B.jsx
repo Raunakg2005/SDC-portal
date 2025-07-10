@@ -173,19 +173,19 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
   const isStudent = currentUserRole === "student";
 
   // Effect to load user role from localStorage
-  useEffect(() => {
-    const userString = localStorage.getItem("user");
-    if (userString) {
-      try {
-        const user = JSON.parse(userString);
-        if (user.role) {
-          setCurrentUserRole(user.role);
+   useEffect(() => {
+      const userString = localStorage.getItem("user");
+      if (userString) {
+        try {
+          const user = JSON.parse(userString);
+          if (user.role) {
+            setCurrentUserRole(user.role.toLowerCase().trim()); // ✅ Normalize here
+          }
+        } catch (e) {
+          console.error("Failed to parse user data from localStorage:", e);
         }
-      } catch (e) {
-        console.error("Failed to parse user data from localStorage:", e);
       }
-    }
-  }, []);
+    }, []);
 
 
   const handleChange = (e) => {
@@ -320,7 +320,7 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
     setLoading(true);
 
     let svvNetId = null;
-    let department = null;
+    let department = null; // department will still be extracted, but its presence won't block submission
 
     const userString = localStorage.getItem("user");
     if (userString) {
@@ -346,9 +346,9 @@ const PG_2_B = ({ viewOnly = false, data = {} }) => {
         return;
       }
     }
-
-    if (!svvNetId || !department || svvNetId.trim() === '' || department.trim() === '') {
-      setUserMessage({ text: "Authentication error: User ID or department not found. Please log in.", type: "error" });
+    // MODIFIED SECTION: Only check for svvNetId presence, department is now optional for this check
+    if (!svvNetId || svvNetId.trim() === '') {
+      setUserMessage({ text: "Authentication error: User ID not found. Please log in.", type: "error" });
       setLoading(false);
       return;
     }

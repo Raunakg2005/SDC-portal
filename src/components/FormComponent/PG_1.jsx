@@ -80,7 +80,7 @@ const PG_1 = ({ viewOnly = false, data = null }) => {
     if (userString) {
       try {
         const user = JSON.parse(userString);
-        setUserRole(user.role || 'student');
+        setUserRole(user.role.toLowerCase().trim());
       } catch (e) {
         console.error("❌ Failed to parse user data from localStorage:", e);
         showMessageBox("User session corrupted. Please log in again.", "error");
@@ -419,10 +419,11 @@ const PG_1 = ({ viewOnly = false, data = null }) => {
     }
 
     if (!formData.svvNetId || !department) {
-      showMessageBox("Authentication error: svvNetId or branch not found. Please log in.", "error");
-      return;
+      if(!formData.svvNetId){
+        showMessageBox("Authentication error: svvNetId not found. Please log in.", "error");
+        return;
+      }
     }
-
 
     try {
       const formPayload = new FormData();
