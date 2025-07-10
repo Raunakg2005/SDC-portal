@@ -1,186 +1,196 @@
 import express from "express";
 import mongoose from "mongoose";
 import multer from "multer";
-import { GridFsStorage } from "multer-gridfs-storage";
 import { GridFSBucket } from "mongodb";
-import UGForm2 from "../models/UGForm2.js";
+import UG2Form from "../models/UGForm2.js"; // Assuming your UG2 model is named UGForm2.js
 
 const router = express.Router();
-
 const conn = mongoose.connection;
-let gfsBucket;
-let storage;
+
+let gfs;
+let upload = null; // Keep initialized to null
 
 conn.once("open", () => {
-  gfsBucket = new GridFSBucket(conn.db, { bucketName: "uploads" });
+  gfs = new GridFSBucket(conn.db, { bucketName: "uploads" });
+  upload = multer({ storage: multer.memoryStorage() }); // Initialize multer here
+  console.log("✅ GridFS + Multer (memoryStorage) initialized for UG2Form routes");
 
-  storage = new GridFsStorage({
-    db: conn.db,
-    file: (req, file) => ({
-      filename: `${Date.now()}-${file.originalname}`,
-      bucketName: "uploads",
-    }),
-  });
+  // === Move all route definitions INSIDE this block ===
 
-  console.log("✅ GridFS and Storage initialized successfully");
-});
+  // Helper function to delete a file from GridFS
+  const deleteGridFSFile = async (fileId) => {
+    if (!fileId || !gfs || !mongoose.Types.ObjectId.isValid(fileId)) {
+      console.warn(`Attempted to delete invalid or null fileId: ${fileId}`);
+      return;
+    }
+    try {
+      await gfs.delete(new mongoose.Types.ObjectId(fileId));
+      console.log(`🗑️ Successfully deleted GridFS file: ${fileId}`);
+    } catch (error) {
+      if (error.message.includes("File not found")) {
+        console.warn(`🤔 GridFS file not found for deletion: ${fileId}`);
+      } else {
+        console.error(`❌ Error deleting GridFS file ${fileId}:`, error);
+      }
+    }
+  };
 
-const upload = multer({ storage });
+  // Multer configuration for file uploads
+  const cpUpload = upload.fields([
+    { name: 'groupLeaderSignature', maxCount: 1 },
+    { name: 'guideSignature', maxCount: 1 },
+    { name: 'uploadedFiles', maxCount: 10 }, // Assuming this is for multiple files
+  ]);
 
-router.post(
-  "/saveFormData",
-  upload.fields([
-    { name: "groupLeaderSignature", maxCount: 1 },
-    { name: "guideSignature", maxCount: 1 },
-    { name: "uploadedFiles", maxCount: 6 }, // max 5 PDFs + 1 ZIP
-  ]),
-  async (req, res) => {
-    const uploadedFileIds = [];
+  // 📤 POST /submit - Create UG-2 Form
+  router.post('/saveFormData', cpUpload, async (req, res) => {
+    const uploadedFileIds = []; // Array to store IDs for rollback
 
     try {
       const { files } = req;
-      const groupLeaderSignatureFile = files["groupLeaderSignature"]?.[0];
-      const guideSignatureFile = files["guideSignature"]?.[0];
-      const additionalDocuments = files["uploadedFiles"] || [];
+      const {
+        svvNetId,
+        projectTitle,
+        projectDescription,
+        utility,
+        receivedFinance,
+        financeDetails,
+        totalBudget,
+        guideDetails: guideDetailsString, // Receive as string
+        students: studentsString, // Receive as string
+        expenses: expensesString, // Receive as string
+      } = req.body;
 
-      // Track uploaded file IDs
-      if (groupLeaderSignatureFile) uploadedFileIds.push(groupLeaderSignatureFile.id);
-      if (guideSignatureFile) uploadedFileIds.push(guideSignatureFile.id);
-      additionalDocuments.forEach(file => uploadedFileIds.push(file.id));
+      // Basic validation
+      if (!svvNetId || !projectTitle || !projectDescription || !utility || receivedFinance === undefined || !totalBudget || !guideDetailsString || !studentsString || !expensesString) {
+        return res.status(400).json({ message: "Missing required form fields." });
+      }
 
-      // === Signature Validation ===
-      const checkSignature = (file, label) => {
-        if (file.mimetype !== "image/jpeg" || file.size > 5 * 1024 * 1024) {
-          throw new Error(`${label} must be a JPEG image under 5MB.`);
-        }
+      // Parse JSON strings back into arrays/objects
+      const guideDetails = JSON.parse(guideDetailsString);
+      const students = JSON.parse(studentsString);
+      const expenses = JSON.parse(expensesString);
+
+
+      const groupLeaderSignatureFile = files['groupLeaderSignature'] ? files['groupLeaderSignature'][0] : null;
+      const guideSignatureFile = files['guideSignature'] ? files['guideSignature'][0] : null;
+      const uploadedFiles = files['uploadedFiles'] || [];
+
+      // Function to upload a single file to GridFS
+      const uploadFile = async (file) => {
+        if (!file) return null;
+        return new Promise((resolve, reject) => {
+          const uploadStream = gfs.openUploadStream(file.originalname, {
+            contentType: file.mimetype,
+          });
+          uploadStream.end(file.buffer);
+          uploadStream.on('finish', () => {
+            uploadedFileIds.push(uploadStream.id); // Add to rollback list
+            resolve(uploadStream.id);
+          });
+          uploadStream.on('error', reject);
+        });
       };
 
-      if (!groupLeaderSignatureFile || !guideSignatureFile) {
-        return res.status(400).json({ message: "Both signatures are required." });
-      }
+      const groupLeaderSignatureId = groupLeaderSignatureFile ? await uploadFile(groupLeaderSignatureFile) : null;
+      const guideSignatureId = guideSignatureFile ? await uploadFile(guideSignatureFile) : null;
+      const uploadedFileIdsFromGridFS = uploadedFiles.length > 0 ? await Promise.all(uploadedFiles.map(uploadFile)) : [];
 
-      checkSignature(groupLeaderSignatureFile, "Group Leader Signature");
-      checkSignature(guideSignatureFile, "Guide Signature");
-
-      // === Uploaded Files Validation ===
-      let pdfCount = 0;
-      let zipCount = 0;
-
-      for (const file of additionalDocuments) {
-        if (file.mimetype === "application/pdf") {
-          pdfCount++;
-          if (file.size > 5 * 1024 * 1024) {
-            return res.status(400).json({ message: "Each PDF must be ≤ 5MB." });
-          }
-        } else if (
-          file.mimetype === "application/zip" ||
-          file.mimetype === "application/x-zip-compressed"
-        ) {
-          zipCount++;
-          if (file.size > 25 * 1024 * 1024) {
-            return res.status(400).json({ message: "ZIP must be ≤ 25MB." });
-          }
-        } else {
-          return res.status(400).json({ message: "Only PDF or ZIP files allowed." });
-        }
-      }
-
-      if (pdfCount > 5) {
-        return res.status(400).json({ message: "You can upload a maximum of 5 PDFs." });
-      }
-
-      if (zipCount > 1) {
-        return res.status(400).json({ message: "Only one ZIP file allowed." });
-      }
-
-      // === Parse Fields ===
-      const students = JSON.parse(req.body.students || "[]");
-      const expensesRaw = JSON.parse(req.body.expenses || "[]");
-      const guideDetails = JSON.parse(req.body.guideDetails || "[]");
-
-      if (!Array.isArray(students) || students.length === 0) {
-        throw new Error("At least one student must be provided.");
-      }
-
-      if (!Array.isArray(expensesRaw) || expensesRaw.length === 0) {
-        throw new Error("At least one expense entry must be provided.");
-      }
-
-      if (!Array.isArray(guideDetails) || guideDetails.length === 0) {
-        throw new Error("At least one guide must be provided.");
-      }
-
-      const expenses = expensesRaw.map(exp => ({
-        category: exp.category?.trim() || "",
-        amount: parseFloat(exp.amount) || 0,
-        details: exp.details?.trim() || "",
-      }));
-
-      const groupLeaderSignatureMetadata = {
-        originalName: groupLeaderSignatureFile.originalname,
-        filename: groupLeaderSignatureFile.filename,
-        mimetype: groupLeaderSignatureFile.mimetype,
-        size: groupLeaderSignatureFile.size,
-        id: groupLeaderSignatureFile.id,
-      };
-
-      const guideSignatureMetadata = {
-        originalName: guideSignatureFile.originalname,
-        filename: guideSignatureFile.filename,
-        mimetype: guideSignatureFile.mimetype,
-        size: guideSignatureFile.size,
-        id: guideSignatureFile.id,
-      };
-
-      const uploadedFilesMetadata = additionalDocuments.map(file => ({
-        originalName: file.originalname,
-        filename: file.filename,
-        mimetype: file.mimetype,
-        size: file.size,
-        id: file.id,
-      }));
-
-      const newForm = new UGForm2({
-        svvNetId: req.body.svvNetId,
-        projectTitle: req.body.projectTitle,
-        projectDescription: req.body.projectDescription,
-        utility: req.body.utility,
-        receivedFinance: req.body.receivedFinance === "true",
-        financeDetails: req.body.receivedFinance === "true" ? req.body.financeDetails : undefined,
+      const newForm = new UG2Form({
+        svvNetId,
+        projectTitle,
+        projectDescription,
+        utility,
+        receivedFinance,
+        financeDetails: receivedFinance ? financeDetails : undefined, // Conditionally set
         guideDetails,
         students,
         expenses,
-        totalBudget: Number(req.body.totalBudget),
-        groupLeaderSignature: groupLeaderSignatureMetadata,
-        guideSignature: guideSignatureMetadata,
-        uploadedFiles: uploadedFilesMetadata,
-        status: req.body.status || "pending",
+        totalBudget,
+        groupLeaderSignatureId,
+        guideSignatureId,
+        uploadedFilesIds: uploadedFileIdsFromGridFS,
+        status: 'pending', // Default status
+        submittedAt: new Date(),
       });
 
-      const savedForm = await newForm.save();
+      await newForm.save();
+      uploadedFileIds.length = 0; // Clear rollback list upon successful save
+      res.status(201).json({ message: 'UG-2 form submitted successfully!', id: newForm._id });
 
-      res.status(201).json({
-        message: "Form saved successfully!",
-        id: savedForm._id,
-      });
-    } catch (err) {
-      console.error("❌ Error saving form:", err.message);
+    } catch (error) {
+      console.error('❌ UG-2 Form submission error:', error);
 
-      // Cleanup uploaded files
+      // Rollback: Delete uploaded files if an error occurred during form processing or saving
       for (const fileId of uploadedFileIds) {
-        if (fileId && gfsBucket) {
+        if (fileId && gfs) {
           try {
-            await gfsBucket.delete(new mongoose.Types.ObjectId(fileId));
-            console.log(`🧹 Rolled back file: ${fileId}`);
+            await gfs.delete(new mongoose.Types.ObjectId(fileId));
+            console.log(`🧹 Deleted uploaded file due to error: ${fileId}`);
           } catch (deleteErr) {
-            console.error(`⚠️ Failed to delete file ${fileId}:`, deleteErr.message);
+            console.error(`❌ Failed to delete file ${fileId} during rollback:`, deleteErr.message);
           }
         }
       }
 
-      res.status(500).json({ message: "Error saving form", error: err.message });
+      res.status(500).json({ message: "Error submitting UG-2 form.", error: error.message });
     }
-  }
-);
+  });
+
+
+  // 🔄 PUT /:formId/review - Update UG-2 Form Review Status and Remarks
+  router.put("/:formId/review", async (req, res) => { // Renamed from formId to match frontend
+    const { status, remarks } = req.body;
+    const { formId } = req.params; // Destructure formId
+
+    try {
+      const form = await UG2Form.findById(formId); // Use formId
+      if (!form) return res.status(404).json({ message: "Not found" });
+
+      form.status = status || form.status;
+      form.remarks = remarks || form.remarks;
+      await form.save();
+
+      console.log(`✅ UG-2 form ${formId} reviewed. Status: ${status}, Remarks: ${remarks}`);
+      res.status(200).json({ message: "Review updated" });
+    } catch (error) {
+      console.error("❌ Error reviewing UG-2 form:", error);
+      res.status(500).json({ message: "Error reviewing form." });
+    }
+  });
+
+  // === Serve files from GridFS ===
+  router.get("/uploads/:fileId", async (req, res) => {
+    const { fileId } = req.params;
+    // Check if gfs is initialized and fileId is a valid ObjectId
+    if (!gfs || !mongoose.Types.ObjectId.isValid(fileId)) {
+      return res.status(400).send("Invalid file ID or GridFS not initialized.");
+    }
+
+    try {
+      const stream = gfs.openDownloadStream(new mongoose.Types.ObjectId(fileId));
+
+      stream.on("file", (file) => {
+        res.set("Content-Type", file.contentType || "application/octet-stream");
+        res.set("Content-Disposition", `inline; filename="${file.filename}"`);
+      });
+
+      stream.on("error", (err) => {
+        if (err.message.includes("File not found")) {
+          console.error(`❌ File ${fileId} not found in GridFS.`);
+          return res.status(404).send('File not found in GridFS.');
+        }
+        console.error(`❌ Error streaming file ${fileId}:`, err);
+        res.status(500).json({ message: "Error streaming file." });
+      });
+
+      stream.pipe(res);
+    } catch (error) {
+      console.error(`Error serving file ${fileId}:`, error);
+      res.status(500).json({ message: "Server error serving file." });
+    }
+  });
+
+}); // End of conn.once("open", ...) block
 
 export default router;

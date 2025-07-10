@@ -1,21 +1,5 @@
 import mongoose from "mongoose";
 
-const SignatureSchema = new mongoose.Schema({
-  originalName: String,
-  filename: String,
-  mimetype: String,
-  size: Number,
-  id: mongoose.Schema.Types.ObjectId,
-}, { _id: false });
-
-const FileSchema = new mongoose.Schema({
-  originalName: String,
-  filename: String,
-  mimetype: String,
-  size: Number,
-  id: mongoose.Schema.Types.ObjectId,
-}, { _id: false });
-
 const GuideSchema = new mongoose.Schema({
   name: { type: String, required: true },
   employeeCode: { type: String, required: true },
@@ -32,7 +16,7 @@ const StudentSchema = new mongoose.Schema({
 }, { _id: false });
 
 const ExpenseSchema = new mongoose.Schema({
-  category: { type: String, required: true }, // renamed from "category" to "head" for consistency
+  category: { type: String, required: true },
   amount: { type: Number, required: true },
   details: { type: String },
 }, { _id: false });
@@ -43,6 +27,7 @@ const UGForm2Schema = new mongoose.Schema({
   projectTitle: { type: String, required: true },
   projectDescription: { type: String, required: true },
   utility: { type: String, required: true },
+
   receivedFinance: { type: Boolean, required: true },
   financeDetails: {
     type: String,
@@ -50,47 +35,46 @@ const UGForm2Schema = new mongoose.Schema({
       return this.receivedFinance === true;
     },
   },
-  remarks: { type: String },
+
   guideDetails: {
-      type: [GuideSchema],
-      default: [],
-      validate: v => Array.isArray(v) && v.length > 0
+    type: [GuideSchema],
+    required: true,
+    validate: v => Array.isArray(v) && v.length > 0,
   },
 
   students: {
     type: [StudentSchema],
-    default: [],
-    validate: v => Array.isArray(v) && v.length > 0
+    required: true,
+    validate: v => Array.isArray(v) && v.length > 0,
   },
 
   expenses: {
     type: [ExpenseSchema],
-    default: [],
-    validate: v => Array.isArray(v) && v.length > 0
+    required: true,
+    validate: v => Array.isArray(v) && v.length > 0,
   },
 
   totalBudget: { type: Number, required: true },
 
-  groupLeaderSignature: {
-    type: SignatureSchema,
-    required: [true, "Group leader signature file is required."],
-  },
-  guideSignature: {
-    type: SignatureSchema,
-    required: [true, "Guide signature file is required."],
-  },
+  groupLeaderSignatureId: { type: mongoose.Schema.Types.ObjectId, ref: "uploads" },
+  guideSignatureId: { type: mongoose.Schema.Types.ObjectId, ref: "uploads" },
 
-  uploadedFiles: {
-    type: [FileSchema],
+  uploadedFilesIds: {
+    type: [mongoose.Schema.Types.ObjectId],
+    ref: "uploads",
     default: [],
   },
+
+  zipFileId: { type: mongoose.Schema.Types.ObjectId, ref: "uploads" },
 
   status: {
     type: String,
     enum: ["pending", "approved", "rejected"],
     default: "pending",
   },
+
+  remarks: { type: String },
 }, { timestamps: true });
 
-const UGForm2 = mongoose.model("UGForm2", UGForm2Schema);
-export default UGForm2;
+const UG2Form = mongoose.model("UGForm2", UGForm2Schema);
+export default UG2Form;

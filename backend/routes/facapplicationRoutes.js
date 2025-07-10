@@ -71,6 +71,7 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
    let processedForm = { ...form };
 
     processedForm._id = form._id.toString();
+    processedForm.formId = form._id.toString();
     processedForm.topic = form.projectTitle || form.paperTitle || form.topic || "Untitled Project";
     processedForm.name = form.studentName || form.applicantName || form.students?.[0]?.name || form.studentDetails?.[0]?.studentName || "N/A";
     processedForm.branch = userBranchFromRequest || form.branch || form.department || form.students?.[0]?.branch || form.studentDetails?.[0]?.branch || "N/A";
@@ -118,29 +119,45 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
             processedForm.guideNames = form.guides ? form.guides.map(g => g.guideName || "") : [];
             processedForm.employeeCodes = form.guides ? form.guides.map(g => g.employeeCode || "") : [];
             break;
-
         case "UG_2":
-            if (form.groupLeaderSignature && form.groupLeaderSignature.fileId) {
+            if (form.groupLeaderSignature?.fileId) {
                 processedForm.groupLeaderSignature = await getFileDetailsAndUrl(form.groupLeaderSignature.fileId, fileBaseUrl);
             }
-            if (form.guideSignature && form.guideSignature.fileId) {
+            if (form.guideSignature?.fileId) {
                 processedForm.guideSignature = await getFileDetailsAndUrl(form.guideSignature.fileId, fileBaseUrl);
             }
-            if (form.uploadedFiles && form.uploadedFiles.length > 0) {
-                const uploadedFileDetailsPromises = form.uploadedFiles.map(fileMeta => getFileDetailsAndUrl(fileMeta.fileId, fileBaseUrl));
-                processedForm.uploadedFiles = (await Promise.all(uploadedFileDetailsPromises)).filter(Boolean);
+
+            if (form.uploadedFiles?.length > 0) {
+                const allFiles = await Promise.all(
+                    form.uploadedFiles.map(fileMeta => getFileDetailsAndUrl(fileMeta.fileId, fileBaseUrl))
+                );
+
+                const pdfs = [];
+                let zip = null;
+
+                for (const file of allFiles) {
+                    if (!file) continue;
+                    if (file.mimetype === "application/pdf") {
+                        pdfs.push(file);
+                    } else if (
+                        file.mimetype === "application/zip" ||
+                        file.mimetype === "application/x-zip-compressed"
+                    ) {
+                        zip = file;
+                    }
+                }
+
+                processedForm.pdfFileUrls = pdfs;
+                processedForm.zipFile = zip || null;
             }
             processedForm.projectDescription = form.projectDescription;
             processedForm.utility = form.utility;
             processedForm.receivedFinance = form.receivedFinance;
             processedForm.financeDetails = form.financeDetails;
-            processedForm.guideName = form.guideName;
-            processedForm.employeeCode = form.employeeCode;
             processedForm.students = form.students;
             processedForm.expenses = form.expenses;
             processedForm.totalBudget = form.totalBudget;
             break;
-
         case "UG_3_A":
             if (form.uploadedImage && form.uploadedImage.fileId) {
                 processedForm.uploadedImage = await getFileDetailsAndUrl(form.uploadedImage.fileId, fileBaseUrl);
@@ -351,16 +368,6 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest) => {
     }
     return processedForm;
 };
-// --- API Endpoints ---
-
-/**
- * @route GET /api/application/pending
- * @desc Fetch all pending applications from all form collections for the authenticated user (all branches)
- * @access Private (requires authentication)
- * @queryParam {string} svvNetId - Required: The svvNetId of the currently logged-in user.
- */
-// --- API Endpoints ---
-
 /**
  * @route GET /api/application/pending
  * @desc Fetch all pending applications from all form collections for the authenticated user (all branches)
@@ -438,7 +445,8 @@ router.get("/stats", async (req, res) => {
   try {
     const statusQuery = {
       pending: { status: /^pending$/i },
-      approved: { status: { $in: [/^accepted$/i] } },
+      // FIX: Include both 'approved' and 'accepted' (case-insensitive)
+      approved: { status: { $in: [/^approved$/i, /^accepted$/i] } },
       rejected: { status: /^rejected$/i },
     };
 
@@ -469,6 +477,57 @@ router.get("/stats", async (req, res) => {
   }
 });
 
+router.patch("/:id/update-status", async (req, res) => {
+  const { id } = req.params;
+  let { status, remarks } = req.body;
+
+  // Trim inputs to avoid trailing spaces
+  status = status?.trim()?.toLowerCase();
+  remarks = remarks?.trim();
+
+  // Basic input validation
+  if (!id || !status || !remarks) {
+    return res.status(400).json({ message: "Application ID, status, and remarks are required." });
+  }
+
+  if (!['approved', 'rejected', 'pending'].includes(status)) {
+    return res.status(400).json({ message: "Invalid status provided. Use: approved, rejected, pending." });
+  }
+
+  const allFormModels = [
+    UG1Form, UGForm2, UG3AForm, UG3BForm,
+    PG1Form, PG2AForm, PG2BForm, R1Form
+  ];
+
+  try {
+    let updatedForm = null;
+
+    for (const Model of allFormModels) {
+      updatedForm = await Model.findByIdAndUpdate(
+        id,
+        { status, remarks },
+        { new: true }
+      );
+
+      if (updatedForm) break;
+    }
+
+    if (!updatedForm) {
+      console.log(`❌ Application with ID ${id} not found in any collection.`);
+      return res.status(404).json({ message: "Application not found in any collection." });
+    }
+
+    console.log(`✅ Application ${id} updated to status: ${status} with remarks: "${remarks}"`);
+
+    res.status(200).json({
+      message: "Application status updated successfully.",
+      updatedApplication: processFormForDisplay(updatedForm, updatedForm.formType)
+    });
+  } catch (error) {
+    console.error("❌ Server error during status update:", error);
+    res.status(500).json({ message: "Server error during status update." });
+  }
+});
 
 router.get("/accepted", async (req, res) => {
   try {
@@ -618,6 +677,104 @@ router.post("/view/ug1", async (req, res) => {
   }
 });
 
+router.post("/view/ug2", async (req, res) => {
+  const { formId } = req.body;
+
+  try {
+    const form = await UGForm2.findById(formId).lean(); // Use .lean() for plain JS objects, generally good practice for read-only ops
+    if (!form) return res.status(404).json({ error: "Form not found" });
+
+    const fileBaseUrl = `/api/application/file`;
+
+    // === Signatures ===
+    // CORRECTED: Access guideSignatureId directly
+    const guideSignature = form.guideSignatureId
+      ? await getFileDetailsAndUrl(form.guideSignatureId, fileBaseUrl)
+      : null;
+
+    // CORRECTED: Access groupLeaderSignatureId directly
+    const groupLeaderSignature = form.groupLeaderSignatureId
+      ? await getFileDetailsAndUrl(form.groupLeaderSignatureId, fileBaseUrl)
+      : null;
+
+    // === Uploaded Files ===
+    let pdfFiles = [];
+    let zipFileDetails = null;
+
+    // CORRECTED: Access uploadedFilesIds directly
+    if (Array.isArray(form.uploadedFilesIds) && form.uploadedFilesIds.length > 0) {
+      const resolvedFiles = await Promise.all(
+        // Map directly over the ObjectIDs in uploadedFilesIds
+        form.uploadedFilesIds.map((fileObjectId) =>
+          getFileDetailsAndUrl(fileObjectId, fileBaseUrl)
+        )
+      );
+
+      for (const file of resolvedFiles) {
+        if (!file) continue; // Skip if getFileDetailsAndUrl returned null (e.g., file not found in GridFS)
+        if (file.mimetype === "application/pdf") {
+          pdfFiles.push(file);
+        } else if (
+          file.mimetype === "application/zip" ||
+          file.mimetype === "application/x-zip-compressed"
+        ) {
+          zipFileDetails = file;
+        }
+      }
+    }
+
+    // Prepare guide details for the frontend
+    const guide = form.guideDetails?.[0] || {}; // Assuming guideDetails is an array and we take the first element
+
+    const students = (form.students || []).map((s) => ({
+        name: s.name || "",
+        rollNo: s.rollNo || "",
+        branch: s.branch || "",
+        year: s.year || "",
+        class: s.class || "",
+        div: s.div || "",
+        mobileNo: s.mobileNo || "",
+    }));
+
+    const expenses = (form.expenses || []).map((e) => ({
+        category: e.category || "",
+        amount: e.amount || 0,
+        details: e.details || "",
+    }));
+
+
+    // === Send response ===
+    res.json({
+      title: form.projectTitle || "",
+      description: form.projectDescription || "",
+      utility: form.utility || "",
+      receivedFinance: form.receivedFinance || false,
+      financeDetails: form.financeDetails || "",
+
+      // Send guide details in the format the frontend now expects (single object)
+      guide: {
+        guideName: guide.name || "",
+        employeeCode: guide.employeeCode || "",
+      },
+
+      students,
+      expenses,
+      totalBudget: form.totalBudget || 0,
+      status: form.status || "pending",
+      remarks: form.remarks || "",
+
+      // Send the processed file data
+      pdfFiles, // Renamed in frontend to match this
+      zipFileDetails, // Renamed in frontend to match this
+      guideSignature, // Correctly matched
+      leaderSignature: groupLeaderSignature, // Correctly matched in frontend
+    });
+  } catch (err) {
+    console.error("❌ Error fetching UG2 form for faculty view:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 router.get("/file/:fileId", async (req, res) => {
   try {
     const fileId = req.params.fileId;
@@ -660,7 +817,6 @@ router.post("/form/ug1", async (req, res) => {
     return res.status(500).json({ message: "Server error while fetching UG_1 forms" });
   }
 });
-
 
 // UG2 - Return ALL UG2 forms
 router.post("/form/ug2", async (req, res) => {
@@ -757,4 +913,230 @@ router.post("/form/r1", async (req, res) => {
     return res.status(500).json({ message: "Server error while fetching R1 forms" });
   }
 });
+
+router.post("/form/deptCoordDashboard", async (req, res) => {
+  try {
+    const [
+      ug1Forms,
+      ug2Forms,
+      ug3aForms,
+      ug3bForms,
+      pg1Forms,
+      pg2aForms,
+      pg2bForms,
+      r1Forms,
+    ] = await Promise.all([
+      UG1Form.find().sort({ createdAt: -1 }).lean(),
+      UGForm2.find().sort({ createdAt: -1 }).lean(),
+      UG3AForm.find().sort({ createdAt: -1 }).lean(),
+      UG3BForm.find().sort({ createdAt: -1 }).lean(),
+      PG1Form.find().sort({ createdAt: -1 }).lean(),
+      PG2AForm.find().sort({ createdAt: -1 }).lean(),
+      PG2BForm.find().sort({ createdAt: -1 }).lean(),
+      R1Form.find().sort({ createdAt: -1 }).lean(),
+    ]);
+
+    const results = await Promise.all([
+      ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1")),
+      ...ug2Forms.map((f) => processFormForDisplay(f, "UG_2")),
+      ...ug3aForms.map((f) => processFormForDisplay(f, "UG_3_A")),
+      ...ug3bForms.map((f) => processFormForDisplay(f, "UG_3_B")),
+      ...pg1Forms.map((f) => processFormForDisplay(f, "PG_1")),
+      ...pg2aForms.map((f) => processFormForDisplay(f, "PG_2_A")),
+      ...pg2bForms.map((f) => processFormForDisplay(f, "PG_2_B")),
+      ...r1Forms.map((f) => processFormForDisplay(f, "R1")),
+    ]);
+
+    console.log("✅ Total Applications fetched for Department Coordinator:", results.length);
+    return res.json(results);
+
+  } catch (error) {
+    console.error("❌ Error in /form/deptCoordDashboard:", error);
+    return res.status(500).json({ message: "Server error while fetching applications" });
+  }
+});
+
+router.post("/form/instCoordDashboard", async (req, res) => {
+  try {
+    // Fetch all forms from each collection
+    const [
+      ug1Forms,
+      ug2Forms,
+      ug3aForms,
+      ug3bForms,
+      pg1Forms,
+      pg2aForms,
+      pg2bForms,
+      r1Forms,
+    ] = await Promise.all([
+      UG1Form.find().sort({ createdAt: -1 }).lean(),
+      UGForm2.find().sort({ createdAt: -1 }).lean(),
+      UG3AForm.find().sort({ createdAt: -1 }).lean(),
+      UG3BForm.find().sort({ createdAt: -1 }).lean(),
+      PG1Form.find().sort({ createdAt: -1 }).lean(),
+      PG2AForm.find().sort({ createdAt: -1 }).lean(),
+      PG2BForm.find().sort({ createdAt: -1 }).lean(),
+      R1Form.find().sort({ createdAt: -1 }).lean(),
+    ]);
+
+    // Process forms for display, assuming processFormForDisplay is available
+    // This function should add 'topic', 'id' (applicant's roll no), 'submitted' (date), etc.
+    const results = await Promise.all([
+      ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1")),
+      ...ug2Forms.map((f) => processFormForDisplay(f, "UG_2")),
+      ...ug3aForms.map((f) => processFormForDisplay(f, "UG_3_A")),
+      ...ug3bForms.map((f) => processFormForDisplay(f, "UG_3_B")),
+      ...pg1Forms.map((f) => processFormForDisplay(f, "PG_1")),
+      ...pg2aForms.map((f) => processFormForDisplay(f, "PG_2_A")),
+      ...pg2bForms.map((f) => processFormForDisplay(f, "PG_2_B")),
+      ...r1Forms.map((f) => processFormForDisplay(f, "R1")),
+    ]);
+
+    console.log("✅ Total Applications fetched for Institute Coordinator:", results.length);
+    return res.json(results);
+
+  } catch (error) {
+    console.error("❌ Error in /form/instCoordDashboard:", error);
+    return res.status(500).json({ message: "Server error while fetching applications for Institute Coordinator" });
+  }
+});
+
+router.post("/form/hodDashboard", async (req, res) => { // Changed to POST request
+  try {
+    // Fetch all forms from each collection
+    const [
+      ug1Forms,
+      ug2Forms,
+      ug3aForms,
+      ug3bForms,
+      pg1Forms,
+      pg2aForms,
+      pg2bForms,
+      r1Forms,
+    ] = await Promise.all([
+      UG1Form.find().sort({ createdAt: -1 }).lean(),
+      UGForm2.find().sort({ createdAt: -1 }).lean(),
+      UG3AForm.find().sort({ createdAt: -1 }).lean(),
+      UG3BForm.find().sort({ createdAt: -1 }).lean(),
+      PG1Form.find().sort({ createdAt: -1 }).lean(),
+      PG2AForm.find().sort({ createdAt: -1 }).lean(),
+      PG2BForm.find().sort({ createdAt: -1 }).lean(),
+      R1Form.find().sort({ createdAt: -1 }).lean(),
+    ]);
+
+    // Process forms for display, assuming processFormForDisplay is available
+    // This function should add 'topic', 'id' (applicant's roll no), 'submitted' (date), etc.
+    const results = await Promise.all([
+      ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1")),
+      ...ug2Forms.map((f) => processFormForDisplay(f, "UG_2")),
+      ...ug3aForms.map((f) => processFormForDisplay(f, "UG_3_A")),
+      ...ug3bForms.map((f) => processFormForDisplay(f, "UG_3_B")),
+      ...pg1Forms.map((f) => processFormForDisplay(f, "PG_1")),
+      ...pg2aForms.map((f) => processFormForDisplay(f, "PG_2_A")),
+      ...pg2bForms.map((f) => processFormForDisplay(f, "PG_2_B")),
+      ...r1Forms.map((f) => processFormForDisplay(f, "R1")),
+    ]);
+
+    console.log("✅ Total Applications fetched for HOD", results.length);
+    return res.json(results);
+
+  } catch (error) {
+    console.error("❌ Error in /form/hodDashboard", error);
+    return res.status(500).json({ message: "Server error while fetching applications for HOD" });
+  }
+});
+
+router.get("/principal/applications", async (req, res) => { // Changed to GET request as per frontend
+  try {
+    // You can optionally add authorization here based on req.headers.
+    // For example, verify if the user (from headers) has a 'Principal' role.
+    // const svvNetId = req.headers['x-user-svvnetid'];
+    // const department = req.headers['x-user-department'];
+    // console.log(`Fetching applications for Principal: ${svvNetId}, Department: ${department}`);
+
+    // Fetch all forms from each collection
+    const [
+      ug1Forms,
+      ug2Forms,
+      ug3aForms,
+      ug3bForms,
+      pg1Forms,
+      pg2aForms,
+      pg2bForms,
+      r1Forms,
+    ] = await Promise.all([
+      UG1Form.find().sort({ createdAt: -1 }).lean(),
+      UGForm2.find().sort({ createdAt: -1 }).lean(),
+      UG3AForm.find().sort({ createdAt: -1 }).lean(),
+      UG3BForm.find().sort({ createdAt: -1 }).lean(),
+      PG1Form.find().sort({ createdAt: -1 }).lean(),
+      PG2AForm.find().sort({ createdAt: -1 }).lean(),
+      PG2BForm.find().sort({ createdAt: -1 }).lean(),
+      R1Form.find().sort({ createdAt: -1 }).lean(),
+    ]);
+
+    // Process forms for display, ensuring a consistent structure for the frontend
+    const results = await Promise.all([
+      ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1")),
+      ...ug2Forms.map((f) => processFormForDisplay(f, "UG_2")),
+      ...ug3aForms.map((f) => processFormForDisplay(f, "UG_3_A")),
+      ...ug3bForms.map((f) => processFormForDisplay(f, "UG_3_B")),
+      ...pg1Forms.map((f) => processFormForDisplay(f, "PG_1")),
+      ...pg2aForms.map((f) => processFormForDisplay(f, "PG_2_A")),
+      ...pg2bForms.map((f) => processFormForDisplay(f, "PG_2_B")),
+      ...r1Forms.map((f) => processFormForDisplay(f, "R1")),
+    ]);
+
+    console.log("✅ Total Applications fetched for Principal:", results.length);
+    return res.json(results); // Send the combined and processed results
+
+  } catch (error) {
+    console.error("❌ Error in /principal/applications:", error);
+    return res.status(500).json({ message: "Server error while fetching applications for Principal" });
+  }
+});
+
+router.get("/all-applications", async (req, res) => {
+  try {
+    // Fetch all forms from each collection
+    const [
+      ug1Forms,
+      ug2Forms,
+      ug3aForms,
+      ug3bForms,
+      pg1Forms,
+      pg2aForms,
+      pg2bForms,
+      r1Forms,
+    ] = await Promise.all([
+      UG1Form.find().sort({ createdAt: -1 }).lean(),
+      UGForm2.find().sort({ createdAt: -1 }).lean(),
+      UG3AForm.find().sort({ createdAt: -1 }).lean(),
+      UG3BForm.find().sort({ createdAt: -1 }).lean(),
+      PG1Form.find().sort({ createdAt: -1 }).lean(),
+      PG2AForm.find().sort({ createdAt: -1 }).lean(),
+      PG2BForm.find().sort({ createdAt: -1 }).lean(),
+      R1Form.find().sort({ createdAt: -1 }).lean(),
+    ]);
+
+    // Process all forms using your processor
+    const processedApplications = await Promise.all([
+      ...ug1Forms.map(f => processFormForDisplay(f, "UG_1")),
+      ...ug2Forms.map(f => processFormForDisplay(f, "UG_2")),
+      ...ug3aForms.map(f => processFormForDisplay(f, "UG_3_A")),
+      ...ug3bForms.map(f => processFormForDisplay(f, "UG_3_B")),
+      ...pg1Forms.map(f => processFormForDisplay(f, "PG_1")),
+      ...pg2aForms.map(f => processFormForDisplay(f, "PG_2_A")),
+      ...pg2bForms.map(f => processFormForDisplay(f, "PG_2_B")),
+      ...r1Forms.map(f => processFormForDisplay(f, "R1")),
+    ]);
+
+    console.log("✅ Total Applications fetched for Admin Dashboard:", processedApplications.length);
+    return res.json(processedApplications);
+  } catch (error) {
+    console.error("❌ Error in /all-applications:", error);
+    return res.status(500).json({ message: "Server error while fetching applications for Admin Dashboard" });
+  }
+});
+
 export default router;

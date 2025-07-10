@@ -1,3 +1,4 @@
+// ug3bFormRoutes.js (Updated)
 import express from 'express';
 import multer from 'multer';
 import mongoose from 'mongoose';
@@ -9,172 +10,136 @@ dotenv.config();
 const router = express.Router();
 const upload = multer(); // memory storage
 
-// ✅ Initialize GridFSBucket outside the route handler
+// Initialize GridFSBucket
 let gfsBucket;
 const conn = mongoose.connection;
 conn.once('open', () => {
-    gfsBucket = new GridFSBucket(conn.db, { bucketName: 'ug3bFiles' }); // Ensure this bucketName matches your setup
+    gfsBucket = new GridFSBucket(conn.db, { bucketName: 'ug3bFiles' });
     console.log("✅ GridFSBucket for UG3B forms initialized (using 'ug3bFiles' bucket)");
 });
 
-
+// Submit Route
 router.post('/submit', upload.fields([
-  { name: 'paperCopy', maxCount: 1 },
-  { name: 'groupLeaderSignature', maxCount: 1 },
-  { name: 'additionalDocuments', maxCount: 1 }, // This might be a single general document
-  { name: 'guideSignature', maxCount: 1 },
-  { name: 'pdfDocuments', maxCount: 5 },       // New: multiple PDFs
-  { name: 'zipFiles', maxCount: 2 }            // New: multiple ZIPs
+    { name: 'paperCopy', maxCount: 1 },
+    { name: 'groupLeaderSignature', maxCount: 1 },
+    { name: 'additionalDocuments', maxCount: 1 },
+    { name: 'guideSignature', maxCount: 1 },
+    { name: 'pdfDocuments', maxCount: 5 },
+    { name: 'zipFiles', maxCount: 2 }
 ]), async (req, res) => {
-  const uploadedFileIds = []; // To store IDs for potential rollback
+    const uploadedFileIds = [];
 
-  try {
-    const { files } = req;
-    const {
-      studentName,
-      yearOfAdmission,
-      feesPaid,
-      projectTitle,
-      guideName,
-      employeeCode,
-      conferenceDate,
-      organization,
-      publisher,
-      paperLink,
-      registrationFee,
-      previousClaim,
-      claimDate,
-      amountReceived,
-      amountSanctioned,
-      svvNetId, // <--- Extract svvNetId from the request body
-    } = req.body;
+    try {
+        const { files } = req;
+        const body = req.body;
 
-    // Sanitize svvNetId
-    let svvNetIdClean = svvNetId;
-    if (Array.isArray(svvNetIdClean)) {
-      svvNetIdClean = svvNetIdClean.find(v => typeof v === 'string' && v.trim() !== '')?.trim();
-    } else if (typeof svvNetIdClean === 'string') {
-      svvNetIdClean = svvNetIdClean.trim();
-    } else {
-      svvNetIdClean = '';
-    }
+        const uploadFile = (file) => {
+            if (!file) return null;
+            return new Promise((resolve, reject) => {
+                if (!gfsBucket) {
+                    return reject(new Error("GridFSBucket not initialized for uploads."));
+                }
+                const uploadStream = gfsBucket.openUploadStream(file.originalname, {
+                    contentType: file.mimetype,
+                    metadata: { originalName: file.originalname } // Optional: Store original name in metadata
+                });
+                const fileId = uploadStream.id;
+                uploadedFileIds.push(fileId);
+                uploadStream.end(file.buffer);
 
-    if (!svvNetIdClean) {
-      return res.status(400).json({ message: "svvNetId is required and must be a valid string." });
-    }
-
-    // Parse authors (assuming it's an array of strings)
-    // The previous logic for authors parsing is retained
-    const authors = Object.keys(req.body)
-      .filter(key => key.startsWith('authors['))
-      .sort((a, b) => {
-        const indexA = parseInt(a.match(/\[(\d+)\]/)[1], 10);
-        const indexB = parseInt(b.match(/\[(\d+)\]/)[1], 10);
-        return indexA - indexB;
-      })
-      .map(key => req.body[key]);
-
-    // Parse bankDetails (assuming it's a JSON string)
-    const parsedBankDetails = typeof req.body.bankDetails === 'string'
-      ? JSON.parse(req.body.bankDetails)
-      : req.body.bankDetails;
-
-    // Helper to upload a single file buffer to GridFS and return the file ID + metadata
-    const uploadFile = (file) => {
-      return new Promise((resolve, reject) => {
-        if (!gfsBucket) {
-            return reject(new Error("GridFSBucket is not initialized."));
-        }
-        const uploadStream = gfsBucket.openUploadStream(file.originalname, {
-          contentType: file.mimetype,
-          metadata: { originalName: file.originalname, size: file.size } // Store original name and size in metadata
-        });
-        uploadStream.end(file.buffer);
-        uploadStream.on('finish', () => {
-            uploadedFileIds.push(uploadStream.id); // Record for cleanup
-            resolve({
-                id: uploadStream.id,
-                filename: file.originalname, // GridFS uses filename from uploadStream
-                originalName: file.originalname,
-                mimetype: file.mimetype,
-                size: file.size
+                uploadStream.on('finish', () => {
+                    resolve({
+                        id: fileId.toString(), // ✅ IMPORTANT: Store GridFS ID here
+                        filename: file.originalname,
+                        originalname: file.originalname,
+                        mimetype: file.mimetype,
+                        size: file.size,
+                    });
+                });
+                uploadStream.on('error', reject);
             });
+        };
+
+        const paperCopyData = files.paperCopy ? await uploadFile(files.paperCopy[0]) : null;
+        const groupLeaderSignatureData = files.groupLeaderSignature ? await uploadFile(files.groupLeaderSignature[0]) : null;
+        const additionalDocumentsData = files.additionalDocuments ? await uploadFile(files.additionalDocuments[0]) : null;
+        const guideSignatureData = files.guideSignature ? await uploadFile(files.guideSignature[0]) : null;
+        const pdfDocumentsData = files.pdfDocuments ? await Promise.all(files.pdfDocuments.map(uploadFile)) : [];
+        const zipFilesData = files.zipFiles ? await Promise.all(files.zipFiles.map(uploadFile)) : [];
+
+        const authorsArray = typeof body.authors === 'string' ? JSON.parse(body.authors) : body.authors;
+        const parsedBankDetails = typeof body.bankDetails === 'string' ? JSON.parse(body.bankDetails) : body.bankDetails;
+        const svvNetIdClean = body.svvNetId ? String(body.svvNetId).trim() : '';
+
+        const newEntry = new UG3BForm({
+            svvNetId: svvNetIdClean,
+            department: body.department,
+            studentName: body.studentName,
+            yearOfAdmission: body.yearOfAdmission,
+            feesPaid: body.feesPaid,
+            projectTitle: body.projectTitle,
+            guideName: body.guideName,
+            employeeCode: body.employeeCode,
+            conferenceDate: body.conferenceDate,
+            organization: body.organization,
+            publisher: body.publisher,
+            paperLink: body.paperLink,
+            authors: authorsArray,
+            bankDetails: parsedBankDetails,
+            registrationFee: body.registrationFee,
+            previousClaim: body.previousClaim,
+            claimDate: body.claimDate,
+            amountReceived: body.amountReceived,
+            amountSanctioned: body.amountSanctioned,
+            paperCopy: paperCopyData,
+            groupLeaderSignature: groupLeaderSignatureData,
+            additionalDocuments: additionalDocumentsData,
+            guideSignature: guideSignatureData,
+            pdfDocuments: pdfDocumentsData,
+            zipFiles: zipFilesData,
         });
-        uploadStream.on('error', reject);
-      });
-    };
-    
-    // Upload single files (if present)
-    const paperCopyData = files.paperCopy ? await uploadFile(files.paperCopy[0]) : null;
-    const groupLeaderSignatureData = files.groupLeaderSignature ? await uploadFile(files.groupLeaderSignature[0]) : null;
-    const additionalDocumentsData = files.additionalDocuments ? await uploadFile(files.additionalDocuments[0]) : null;
-    const guideSignatureData = files.guideSignature ? await uploadFile(files.guideSignature[0]) : null;
 
-    // Upload multiple PDFs (max 5)
-    const pdfDocumentsData = files.pdfDocuments
-      ? await Promise.all(files.pdfDocuments.map(uploadFile))
-      : [];
+        await newEntry.save();
+        uploadedFileIds.length = 0;
 
-    // Upload multiple ZIPs (max 2)
-    const zipFilesData = files.zipFiles
-      ? await Promise.all(files.zipFiles.map(uploadFile))
-      : [];
+        res.status(201).json({ message: 'UG3B form submitted successfully!', id: newEntry._id });
 
-    // Create and save document
-    const newEntry = new UG3BForm({
-      studentName,
-      yearOfAdmission,
-      feesPaid,
-      projectTitle,
-      guideName,
-      employeeCode,
-      conferenceDate,
-      organization,
-      publisher,
-      paperLink,
-      authors,
-      bankDetails: {
-        beneficiary: parsedBankDetails.beneficiary,
-        ifsc: parsedBankDetails.ifsc,
-        bankName: parsedBankDetails.bankName,
-        branch: parsedBankDetails.branch,
-        accountType: parsedBankDetails.accountType,
-        accountNumber: parsedBankDetails.accountNumber,
-      },
-      registrationFee,
-      previousClaim,
-      claimDate,
-      amountReceived,
-      amountSanctioned,
-      paperCopy: paperCopyData,
-      groupLeaderSignature: groupLeaderSignatureData,
-      additionalDocuments: additionalDocumentsData,
-      guideSignature: guideSignatureData,
-      pdfDocuments: pdfDocumentsData,
-      zipFiles: zipFilesData,
-      svvNetId: svvNetIdClean,
-    });
+    } catch (error) {
+        console.error('UG3B form submission error:', error);
 
-    await newEntry.save();
-    uploadedFileIds.length = 0; // Clear rollback list upon successful save
-    res.status(201).json({ message: 'UG3B form submitted successfully!', id: newEntry._id }); // Return the ID
-  } catch (error) {
-    console.error('UG3B form submission error:', error);
-    
-    // Rollback: Delete uploaded files if an error occurred during form processing or saving
-    for (const fileId of uploadedFileIds) {
-      if (fileId && gfsBucket) {
-        try {
-          // Use delete method with ObjectId
-          await gfsBucket.delete(new mongoose.Types.ObjectId(fileId));
-          console.log(`🧹 Deleted uploaded file due to error: ${fileId}`);
-        } catch (deleteErr) {
-          console.error(`❌ Failed to delete file ${fileId} during rollback:`, deleteErr.message);
+        for (const fileId of uploadedFileIds) {
+            if (fileId && gfsBucket) {
+                try {
+                    await gfsBucket.delete(new mongoose.Types.ObjectId(fileId));
+                    console.log(`🧹 Deleted uploaded file due to error: ${fileId}`);
+                } catch (deleteErr) {
+                    console.error(`❌ Failed to delete file ${fileId} during rollback:`, deleteErr.message);
+                }
+            }
         }
-      }
+
+        res.status(500).json({ error: "Form submission failed.", details: error.message });
     }
-    res.status(500).json({ error: 'Failed to submit UG3B form', details: error.message });
-  }
+});
+
+// File Retrieval Route
+router.get('/file/:id', async (req, res) => {
+    try {
+        if (!gfsBucket) return res.status(500).json({ error: 'GridFSBucket not initialized.' });
+
+        const fileId = new mongoose.Types.ObjectId(req.params.id);
+        const files = await gfsBucket.find({ _id: fileId }).toArray();
+
+        if (!files || files.length === 0) return res.status(404).json({ error: 'File not found.' });
+
+        const file = files[0];
+        res.set('Content-Type', file.contentType);
+        const readStream = gfsBucket.openDownloadStream(fileId);
+        readStream.pipe(res);
+    } catch (error) {
+        console.error('Error fetching file:', error);
+        res.status(500).json({ error: 'Error fetching file.' });
+    }
 });
 
 export default router;
