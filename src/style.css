@@ -165,6 +165,7 @@ body {
 .app-table th {
   background-color: #f5f5f5;
   font-weight: 600;
+  color:black;
 }
 
 .status.pending {

@@ -227,6 +227,16 @@ label {
   margin-right: 10px;
 }
 
+.copyright-info-bottom {
+  width: 100%;
+  text-align: center;
+  padding: 20px 0;
+  background-color: white;
+  color: #333;
+  font-size: 14px;
+  margin-top: auto; /* This pushes it to the bottom if in a flex container */
+}
+
 /* Responsive Design */
 @media (max-width: 1024px) {
   .navbar {
