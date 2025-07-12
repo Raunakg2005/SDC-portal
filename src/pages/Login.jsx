@@ -215,7 +215,7 @@ const Login = () => {
             />
             {/* Added copyright info as per your image, adjust positioning with CSS */}
             <div className="copyright-info-bottom">
-              © {new Date().getFullYear()} K. J. Somaiya College of Engineering. All rights reserved.
+              © {new Date().getFullYear()} K. J. Somaiya School of Engineering. All rights reserved.
             </div>
           </div>
         </div>

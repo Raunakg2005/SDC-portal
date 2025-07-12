@@ -35,6 +35,25 @@
   text-align: center;
 }
 
+.add-user-button{
+    background-color: #c40000;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 20px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.3s;
+  margin-top: 10px;
+}
+.add-user-button:hover {
+  background-color: #a00000;
+  transform: translateY(-2px);
+}
+
+
 /* === Form Elements === */
 .form-group {
   margin-bottom: 20px;
@@ -90,6 +109,8 @@
   background-color: #a00000;
   transform: translateY(-2px);
 }
+
+
 
 /* === Error Message === */
 .error-message {
@@ -228,7 +249,9 @@
   .form-select {
     padding: 10px 12px;
   }
-  
+   .user-add-button {
+    padding: 10px 15px;
+  }
   .submit-button {
     padding: 10px 15px;
   }

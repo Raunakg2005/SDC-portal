@@ -318,7 +318,7 @@ const AddUser = () => {
               {modalError && <p className="modal-error-message">{modalError}</p>}
             </div>
             <div className="modal-footer">
-              <button className="cancel-btn" onClick={closeAddModal} disabled={isSubmitting}>Cancel</button>
+              <button className="submit-btn" onClick={closeAddModal} disabled={isSubmitting}>Cancel</button>
               <button className="submit-btn" onClick={handleAddNewUserSubmit} disabled={isSubmitting}>
                 {isSubmitting ? "Adding..." : "Add User"}
               </button>
@@ -375,7 +375,7 @@ const AddUser = () => {
               {modalError && <p className="modal-error-message">{modalError}</p>}
             </div>
             <div className="modal-footer">
-              <button className="cancel-btn" onClick={closeEditModal} disabled={isSubmitting}>Cancel</button>
+              <button className="submit-btn" onClick={closeEditModal} disabled={isSubmitting}>Cancel</button>
               <button className="submit-btn" onClick={handleEditUserSubmit} disabled={isSubmitting}>
                 {isSubmitting ? "Updating..." : "Save Changes"}
               </button>
