@@ -6,10 +6,10 @@ import JSZip from "jszip";
 // FilePreview Component (moved inside the same file for simplicity, or can be a separate file)
 const FilePreview = ({ fileList, onRemove, fieldName, viewOnly, isStudent }) => {
 
-  console.log(`FilePreview for ${fieldName}:`, { fileList, viewOnly, isStudent });
-  if (fieldName === 'uploadedFiles' && viewOnly && isStudent) {
-    return null; // Completely hide the section for students in viewOnly mode for additional documents
-  }
+  // console.log(`FilePreview for ${fieldName}:`, { fileList, viewOnly, isStudent }); // Keep for debugging if needed
+
+  // No longer returning null directly here for 'uploadedFiles' as the parent will handle it.
+  // This component will now only focus on rendering the list if it's supposed to be visible.
 
   // Determine if we should show the remove button
   const showRemoveButton = !viewOnly;
@@ -130,18 +130,18 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
 
   // Determine user role and if student
   const [currentUserRole, setCurrentUserRole] = useState("");
-  const isStudent = currentUserRole === "student";
+  const isStudent = currentUserRole.toLowerCase() === "student";
 
   // Effect to load user role from localStorage
   useEffect(() => {
-  const storedUser = localStorage.getItem("user");
-  if (storedUser) {
-    const parsedUser = JSON.parse(storedUser);
-    if (parsedUser.role) {
-      setCurrentUserRole(parsedUser.role);
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      if (parsedUser.role) {
+        setCurrentUserRole(parsedUser.role);
+      }
     }
-  }
-}, []);
+  }, []);
 
   useEffect(() => {
     const currentUserId = localStorage.getItem("svvNetId");
@@ -385,6 +385,7 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
       e.target.value = ''; // Clear file input if there's an error
     }
   };
+
 
   const handleRemoveFile = useCallback((fieldName, index) => {
     setFormData(prev => {
@@ -686,19 +687,18 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
             )}
           </div>
         )}
-        {/* Supporting Documents Section - File Preview (visible based on FilePreview's internal logic) */}
         {!(viewOnly && isStudent) && (
-          <div className="form-group">
-            <label>Supporting Documents:</label>
-            <FilePreview
-              fileList={formData.uploadedFiles}
-              onRemove={handleRemoveFile}
-              fieldName="uploadedFiles"
-              viewOnly={viewOnly}
-              isStudent={isStudent}
-            />
-          </div>
-        )}
+        <div className="form-group">
+          <label>Supporting Documents:</label>
+          <FilePreview
+            fileList={formData.uploadedFiles}
+            onRemove={handleRemoveFile}
+            fieldName="uploadedFiles"
+            viewOnly={viewOnly} // Pass viewOnly here
+            isStudent={isStudent} // Pass isStudent here
+          />
+        </div>
+      )}
         <div className="form-actions">
           <button type="button" className="back-btn" onClick={handleBack} disabled={isSubmitting}>Back</button>
           {!viewOnly && (

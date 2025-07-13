@@ -233,7 +233,10 @@ button {
 .back-btn {
   background: #f5f5f5;
   color: #424242;
-  margin-right: 1rem;
+  padding: 0.8rem 2rem;
+  font-size: 1rem;
+  margin-top: 1rem;
+  margin-left: 1rem;
 }
 
 .back-btn:hover {
@@ -372,4 +375,3 @@ button {
 form > * {
   animation: fadeIn 0.4s ease-out forwards;
 }
-

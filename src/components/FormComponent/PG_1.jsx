@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useRef ,  useCallback } from 'react'; // Import useRef
 import axios from "axios";
-
-// No need for FILE_DOWNLOAD_BASE_URL here. The backend provides the full URL.
-
 const PG_1 = ({ viewOnly = false, data = null }) => {
   const [messageBox, setMessageBox] = useState({ visible: false, text: '', type: '' });
 
@@ -498,7 +495,7 @@ const PG_1 = ({ viewOnly = false, data = null }) => {
 
       const response = await httpMethod(apiEndpoint, formPayload);
 
-      showMessageBox(`Form ${formId ? 'updated' : 'submitted'} successfully!`, "success");
+      showMessageBox(formId ? 'Form updated successfully and email sent!' : 'Form submitted successfully and an email has been sent to your Somaiya email ID!', 'success');
       console.log(`✅ Form ${formId ? 'updated' : 'submitted'}:`, response.data);
 
       if (!formId) {

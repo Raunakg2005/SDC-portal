@@ -886,7 +886,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
             disabled={viewOnly || userRole !== 'student'}
           />
         )}
-        {formData.uploadedFiles.length > 0 && (
+        {formData.uploadedFiles.length > 0 && !(viewOnly && userRole === 'student') && (
           <div className="uploaded-files-list">
             <h4>Uploaded Files:</h4>
             <ul>
