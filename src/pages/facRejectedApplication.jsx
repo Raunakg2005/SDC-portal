@@ -10,6 +10,8 @@ const FacRejectedApplications = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
+  // --- NEW STATE TO STORE AUTHENTICATED USER'S INFO ---
+  const [currentUser, setCurrentUser] = useState(null);
   // --- New States for Edit Remarks Modal ---
   const [showModal, setShowModal] = useState(false);
   const [currentApp, setCurrentApp] = useState(null);
@@ -25,7 +27,6 @@ const FacRejectedApplications = () => {
   const fetchApplications = async () => {
     setLoading(true); // Indicate that data fetching has started
     setError(null);   // Clear any previous errors
-
     try {
       // Make the API call to your backend endpoint for rejected applications
       const res = await fetch(`http://localhost:5000/api/facapplication/rejected?all=true`);
@@ -50,6 +51,22 @@ const FacRejectedApplications = () => {
   // useEffect hook to call fetchApplications when the component mounts
   useEffect(() => {
     fetchApplications();
+    // Load user from localStorage on component mount
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        setCurrentUser(JSON.parse(storedUser));
+      } catch (e) {
+        console.error("Failed to parse user data from localStorage", e);
+        // Handle error, e.g., clear localStorage and force re-login
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+         // Redirect to login
+      }
+    } else {
+      // If no user data, redirect to login
+      navigate('/');
+    }
   }, []); // Empty dependency array ensures this runs only once on component mount
 
   /**
@@ -77,21 +94,32 @@ const FacRejectedApplications = () => {
       setSaveError("Remarks cannot be empty.");
       return;
     }
-
+    // Ensure we have current user info before proceeding
+    if (!currentUser || !currentUser.svvNetId || !currentUser.role) {
+      setSaveError("User authentication details are missing. Please log in again.");
+      console.error("User details missing for status update:", currentUser);
+      return;
+    }
     setSavingRemarks(true);
     setSaveError(null);
 
     try {
       // Assuming your backend has an endpoint like /api/applications/:id for updates
       // This endpoint needs to be able to update 'remarks' field.
+      const token = localStorage.getItem('token');
       const res = await fetch(`http://localhost:5000/api/application/${currentApp._id}/remarks`, {
         method: "PUT", // or PATCH, depending on your API
         headers: {
           "Content-Type": "application/json",
           // Include authorization token if required by your API
-          // 'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ remarks: editedRemarks }),
+        body: JSON.stringify({
+          status: currentApp.status, // Keep the current status (e.g., 'rejected')
+          remarks: editedRemarks.trim(),
+          changedBy: currentUser.svvNetId,
+          changedByRole: currentUser.role,
+        }),
       });
 
       if (!res.ok) {

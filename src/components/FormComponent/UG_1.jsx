@@ -2,15 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import "../styles/UG1.css"; // Removed this import due to compilation error
 import JSZip from "jszip";
+import Modal from './Modal';
 
 // FilePreview Component (moved inside the same file for simplicity, or can be a separate file)
-const FilePreview = ({ fileList, onRemove, fieldName, viewOnly, isStudent }) => {
-
+const FilePreview = ({ fileList, onRemove, fieldName, viewOnly, isStudent , onViewFile }) => {
   // console.log(`FilePreview for ${fieldName}:`, { fileList, viewOnly, isStudent }); // Keep for debugging if needed
-
   // No longer returning null directly here for 'uploadedFiles' as the parent will handle it.
   // This component will now only focus on rendering the list if it's supposed to be visible.
-
   // Determine if we should show the remove button
   const showRemoveButton = !viewOnly;
 
@@ -64,14 +62,13 @@ const FilePreview = ({ fileList, onRemove, fieldName, viewOnly, isStudent }) => 
         return (
           <li key={fileInfo._id || fileInfo.id || index} className="flex items-center justify-between text-sm text-gray-700 p-1 border rounded bg-gray-50 mb-1">
             {viewOnly && isUploadedFile ? (
-              <a
-                href={displayUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline flex-grow"
+              <button
+                type="button"
+                className="text-blue-600 hover:underline flex-grow text-left"
+                onClick={() => onViewFile(displayUrl, linkText)}
               >
                 {linkText}
-              </a>
+              </button>
             ) : (
               <span className="flex-grow">{linkText}</span>
             )}
@@ -131,7 +128,24 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
   // Determine user role and if student
   const [currentUserRole, setCurrentUserRole] = useState("");
   const isStudent = currentUserRole.toLowerCase() === "student";
+ // States for document viewing modal
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  const [docModalUrl, setDocModalUrl] = useState('');
+  const [docModalTitle, setDocModalTitle] = useState('');
 
+  // Function to open the document viewing modal
+  const handleViewDocument = (url, title) => {
+    setDocModalUrl(url);
+    setDocModalTitle(title);
+    setIsDocModalOpen(true);
+  };
+
+  // Function to close the document viewing modal
+  const handleCloseDocumentModal = () => {
+    setIsDocModalOpen(false);
+    setDocModalUrl('');
+    setDocModalTitle('');
+  };
   // Effect to load user role from localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -632,6 +646,7 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
               fieldName="groupLeaderSignature"
               viewOnly={viewOnly}
               isStudent={isStudent}
+              onViewFile={handleViewDocument}
             />
           </div>
 
@@ -654,6 +669,7 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
               fieldName="guideSignature"
               viewOnly={viewOnly}
               isStudent={isStudent}
+              onViewFile={handleViewDocument}
             />
           </div>
         </div>
@@ -696,6 +712,7 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
             fieldName="uploadedFiles"
             viewOnly={viewOnly} // Pass viewOnly here
             isStudent={isStudent} // Pass isStudent here
+            onViewFile={handleViewDocument}
           />
         </div>
       )}
@@ -708,6 +725,24 @@ const UG1Form = ({ data = null, viewOnly = false }) => {
           )}
         </div>
       </form>
+
+      {/* --- The Document Viewing Modal --- */}
+      <Modal isOpen={isDocModalOpen} onClose={handleCloseDocumentModal} title={docModalTitle}>
+        {docModalUrl ? (
+          <iframe
+            src={docModalUrl}
+            title={docModalTitle}
+            width="100%"
+            height="100%"
+            style={{ border: 'none' }}
+            allowFullScreen
+          >
+            <p>Your browser does not support iframes, or the document cannot be displayed.</p>
+          </iframe>
+        ) : (
+          <p className="text-center text-gray-600">No document to display.</p>
+        )}
+      </Modal>
     </div>
   );
 };

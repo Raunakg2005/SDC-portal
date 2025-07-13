@@ -521,7 +521,6 @@ router.get("/pending", async (req, res) => {
     }
 });
 
-
 /**
  * @route GET /api/application/accepted
  * @desc Fetch all accepted applications for the authenticated user
@@ -905,24 +904,44 @@ router.put("/:id/remarks", async (req, res) => {
   ];
 
   try {
-    let updatedApp = null;
+    let currentApp = null;
+    let ModelUsed = null;
 
+    // 1. Find the application first to get its current status
     for (const Model of formCollections) {
-      updatedApp = await Model.findByIdAndUpdate(
-        id,
-        { remarks, updatedAt: new Date() },
-        { new: true }
-      ).lean();
-
-      if (updatedApp) break;
+      currentApp = await Model.findById(id).lean();
+      if (currentApp) {
+        ModelUsed = Model; // Store the model that found the application
+        break;
+      }
     }
 
-    if (!updatedApp) {
+    if (!currentApp) {
       return res.status(404).json({ message: "Application not found." });
     }
 
+    // Prepare the new status history entry
+    // The status in statusHistory will reflect the application's status
+    // at the time these remarks are being added.
+    const newStatusHistoryEntry = {
+      status: currentApp.status, // Use the current status of the application
+      date: new Date(),
+      remark: remarks // The new remark being added
+    };
+
+    // 2. Update the remarks field and push the new entry to statusHistory
+    const updatedApp = await ModelUsed.findByIdAndUpdate(
+      id,
+      {
+        $set: { remarks: remarks }, // Update the top-level remarks field
+        $push: { statusHistory: newStatusHistoryEntry }, // Push to statusHistory array
+        updatedAt: new Date() // Update the updatedAt timestamp
+      },
+      { new: true } // Return the updated document
+    ).lean();
+
     return res.status(200).json({
-      message: "Remarks updated successfully.",
+      message: "Remarks and status history updated successfully.",
       application: updatedApp
     });
   } catch (err) {

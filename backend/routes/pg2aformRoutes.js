@@ -104,6 +104,13 @@ router.post('/submit', uploadFields, async (req, res) => {
         guideSignature: guideSignatureId,
       },
       status: status || 'pending',
+    statusHistory: [{
+            status: initialStatus,
+            date: new Date(),
+            remark: 'Form submitted',
+            changedBy: svvNetIdClean,
+            changedByRole: 'Student'
+        }],
     });
 
     await newForm.save();
@@ -184,8 +191,15 @@ router.put('/:formId/review', async (req, res) => {
 
     form.status = status || form.status;
     form.hodRemarks = hodRemarks || form.hodRemarks; // Assuming a hodRemarks field
+    // Add new status entry to statusHistory
+    form.statusHistory.push({
+        status: form.status,
+        date: new Date(),
+        remark: remarks,
+        changedBy: req.user.svvNetId, // Assuming user info is available in req.user from middleware
+        changedByRole: req.user.role // Assuming user info is available in req.user from middleware
+    });
     await form.save();
-
     // --- NEW Email Logic: Send email on status update ---
     if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && form.svvNetId) {
         const subject = `Update on your PG2A Form (ID: ${form._id})`;

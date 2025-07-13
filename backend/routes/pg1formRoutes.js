@@ -94,7 +94,8 @@ router.post('/submit', uploadFields, async (req, res) => {
       svvNetIdClean = svvNetId ? svvNetId.trim() : '';
     }
 
-    const newForm = new PG1Form({
+    const initialStatus = 'pending';
+    const newForm = new PG1Form({
       svvNetId: svvNetIdClean,
       studentName,
       department,
@@ -123,7 +124,14 @@ router.post('/submit', uploadFields, async (req, res) => {
         pdfDocuments: pdfDocumentsData,
         zipFiles: zipFilesData,
       },
-      status: 'pending',
+      status: initialStatus,
+      statusHistory: [{
+        status: initialStatus,
+        date: new Date(),
+        remark: 'Form submitted',
+        changedBy: svvNetIdClean,
+        changedByRole: 'Student'
+      }],
     });
 
     await newForm.save();
@@ -131,7 +139,7 @@ router.post('/submit', uploadFields, async (req, res) => {
     console.log('Received svvNetId:', svvNetId);
     console.log('Cleaned svvNetId:', svvNetIdClean);
     // --- NEW: Send email on successful submission ---
-    // Check if email notifications are enabled via environment variable
+    // Check if email notifications are enabled via environment variable
     if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && newForm.svvNetId) {
             const subject = `PG1 Form Submitted Successfully! (ID: ${newForm._id})`;
             const htmlContent = `
@@ -203,9 +211,17 @@ router.put('/:formId/review', async (req, res) => {
     const oldStatus = form.status; // Store old status for email
     form.status = status || form.status;
     form.remarks = remarks || form.remarks;
+    // Add new status entry to statusHistory
+    form.statusHistory.push({
+        status: form.status,
+        date: new Date(),
+        remark: remarks,
+        changedBy: req.user.svvNetId, // Assuming user info is available in req.user from middleware
+        changedByRole: req.user.role // Assuming user info is available in req.user from middleware
+    });
     await form.save();
      // --- NEW: Send email on status update ---
-    // Check if email notifications are enabled via environment variable
+    // Check if email notifications are enabled via environment variable
     if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && form.svvNetId) { // Use svvNetId as the recipient email
             const subject = `Update on your PG1 Form (ID: ${form._id})`;
             const htmlContent = `

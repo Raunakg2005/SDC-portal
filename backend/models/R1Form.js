@@ -54,7 +54,13 @@ const R1FormSchema = new mongoose.Schema({
   dateOfSubmission: { type: Date, default: Date.now },
   remarksByHod: { type: String, default: '' },
   sdcChairpersonDate: { type: Date, default: null }, // Added for SDC Chairperson date
-
+  statusHistory: [{
+    status: String, // This will store the DETAILED status names (e.g., 'PENDING_HOD_APPROVAL', 'HOD_APPROVED', etc.)
+    date: { type: Date, default: Date.now },
+    remark: String ,// Optional: Specific remarks for this status change 
+    changedBy: String, // To store svvNetId of the user who changed the status
+    changedByRole: String // To store the role of the user who changed the status
+  }], 
 }, {
   timestamps: true // Adds createdAt and updatedAt fields automatically
 });

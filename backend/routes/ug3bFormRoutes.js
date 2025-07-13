@@ -5,7 +5,7 @@ import mongoose from 'mongoose';
 import { GridFSBucket } from 'mongodb';
 import UG3BForm from '../models/UG3BForm.js';
 import dotenv from 'dotenv';
-import { sendEmail } from '../utils/emailService.js'; // Import the email service utility
+import { sendEmail } from "../controllers/emailService.js";  // Import the email service utility
 
 dotenv.config();
 const router = express.Router();
@@ -18,6 +18,15 @@ conn.once('open', () => {
     gfsBucket = new GridFSBucket(conn.db, { bucketName: 'ug3bFiles' });
     console.log("✅ GridFSBucket for UG3B forms initialized (using 'ug3bFiles' bucket)");
 });
+
+// Helper to get user info from request (assuming auth middleware populates req.user)
+const getUserInfo = (req) => {
+    // req.user would typically be populated by an authentication middleware
+    return {
+        changedBy: req.user ? req.user.svvNetId : req.body.svvNetId || 'System', // Fallback to svvNetId from body or 'System'
+        changedByRole: req.user ? req.user.role : 'Student', // Fallback to 'Student' or a default role
+    };
+};
 
 // Submit Route
 router.post('/submit', upload.fields([
@@ -71,7 +80,7 @@ router.post('/submit', upload.fields([
         const authorsArray = typeof body.authors === 'string' ? JSON.parse(body.authors) : body.authors;
         const parsedBankDetails = typeof body.bankDetails === 'string' ? JSON.parse(body.bankDetails) : body.bankDetails;
         const svvNetIdClean = body.svvNetId ? String(body.svvNetId).trim() : '';
-
+        const { changedBy, changedByRole } = getUserInfo(req);
         const newEntry = new UG3BForm({
             svvNetId: svvNetIdClean,
             department: body.department,
@@ -98,6 +107,14 @@ router.post('/submit', upload.fields([
             guideSignature: guideSignatureData,
             pdfDocuments: pdfDocumentsData,
             zipFiles: zipFilesData,
+            status: 'pending', // Default status on submission
+            statusHistory: [{ // Initial status history entry
+                status: 'pending',
+                date: new Date(),
+                remark: 'Form submitted.',
+                changedBy: changedBy,
+                changedByRole: changedByRole,
+            }],
         });
 
         await newEntry.save();

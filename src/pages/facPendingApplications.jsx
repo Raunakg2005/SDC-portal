@@ -17,7 +17,7 @@ const FacPendingApplications = () => {
   const [currentAppId, setCurrentAppId] = useState(null); // Stores the _id of the application for modal action
   const [modalLoading, setModalLoading] = useState(false); // For submit button in modal
   const [modalError, setModalError] = useState(null);     // For displaying errors in modal
-
+  const [currentUser, setCurrentUser] = useState(null);
   // Function to fetch applications - REMAINS UNCHANGED
   const fetchApplications = async () => {
     setLoading(true); // Set loading to true before fetching
@@ -45,6 +45,16 @@ const FacPendingApplications = () => {
   // useEffect hook to call fetchApplications when the component mounts - REMAINS UNCHANGED
   useEffect(() => {
     fetchApplications();
+    const userString = localStorage.getItem('user'); // Or localStorage.getItem('token') and then decode it
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        setCurrentUser(user);
+      } catch (e) {
+        console.error("Failed to parse user data from localStorage", e);
+        // Handle cases where localStorage data is corrupted or not JSON
+      }
+    }
   }, []);
 
   // Handler for 'View', 'Approve', 'Reject' button clicks (modified)
@@ -68,7 +78,12 @@ const FacPendingApplications = () => {
       setModalError("Remarks are required.");
       return;
     }
-
+    // Ensure we have current user info before proceeding
+    if (!currentUser || !currentUser.svvNetId || !currentUser.role) {
+      setModalError("User authentication details are missing. Please log in again.");
+      console.error("User details missing for status update:", currentUser);
+      return;
+    }
     setModalLoading(true); // Start loading for modal submission
     setModalError(null); // Clear previous errors
 
@@ -81,11 +96,13 @@ const FacPendingApplications = () => {
         method: 'PATCH', // Use PATCH for partial updates
         headers: {
           'Content-Type': 'application/json',
-          // 'Authorization': `Bearer ${yourAuthToken}` // Uncomment and add if you have authentication
+          'Authorization': `Bearer ${localStorage.getItem('token')}`   // Uncomment and add if you have authentication
         },
         body: JSON.stringify({
           status: statusToSet,
-          remarks: remarks.trim() // Trim whitespace from remarks
+          remarks: remarks.trim(), // Trim whitespace from remarks
+          changedBy: currentUser.svvNetId, // Pass the SVVNetID of the current user
+          changedByRole: currentUser.role // Pass the role of the current user
         }),
       });
 

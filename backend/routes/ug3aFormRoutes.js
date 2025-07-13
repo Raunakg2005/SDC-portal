@@ -5,7 +5,7 @@ import mongoose from 'mongoose';
 import { GridFSBucket } from 'mongodb';
 import UG3AForm from '../models/UG3AForm.js'; // Your Mongoose model
 import dotenv from 'dotenv';
-import { sendEmail } from '../utils/emailService.js'; // Import the email service utility
+import { sendEmail } from "../controllers/emailService.js";  // Import the email service utility
 
 dotenv.config();
 const router = express.Router();
@@ -133,6 +133,13 @@ router.post('/submit', uploadFields, async (req, res) => {
             uploadedPdfs: uploadedPdfsData,
             uploadedZipFile: uploadedZipFileData,
             status: 'pending', // Default status. Ensure your schema allows 'pending' (lowercase).
+            statusHistory: [{
+                status: 'pending',
+                date: new Date(),
+                remark: 'Form submitted.',
+                changedBy: svvNetId ? String(svvNetId).trim() : 'N/A', // Assuming submitter is the svvNetId
+                changedByRole: 'Student' // Assuming student submits the form
+            }]
         });
 
         await newForm.save();
@@ -205,11 +212,18 @@ router.put('/:formId/review', async (req, res) => {
         if (!form) {
             return res.status(404).json({ message: "UG3A form not found." });
         }
-
-        form.status = status || form.status;
-        form.remarks = remarks || form.remarks; // Assuming a remarks field
+        const oldStatus = form.status; // Store old status for history and email
+        form.status = status || form.status;
+        form.remarks = remarks || form.remarks; // Assuming a remarks field
+        // Add to status history
+        form.statusHistory.push({
+            status: status || oldStatus, // Use the new status, or keep old if not provided
+            date: new Date(),
+            remark: remarks || 'Status updated.',
+            changedBy: changedBy || (req.user ? req.user.svvNetId : 'System/Unknown'), // Use req.user if available from auth middleware
+            changedByRole: changedByRole || (req.user ? req.user.role : 'Unknown') // Use req.user role if available
+        });
         await form.save();
-
         // Send email notification on form review update
         const studentEmail = form.svvNetId.includes('@') ? form.svvNetId : `${form.svvNetId}@somaiya.edu`; // Assuming svvNetId is or can form an email
         if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {

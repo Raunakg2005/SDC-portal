@@ -117,6 +117,13 @@ conn.once("open", () => {
                     groupLeaderSignatureId,
                     guideSignatureId,
                     status: 'pending',
+                    statusHistory: [{
+                        status: 'pending',
+                        date: new Date(),
+                        remark: 'Form submitted',
+                        changedBy: svvNetId ? String(svvNetId).trim() : 'N/A', // Assuming student is the one submitting
+                        changedByRole: 'Student' // Assuming student is the one submitting
+                    }]
                 }); 
                 console.log("Mongoose document to be saved:", newForm); // <--- ADD THIS LINE
                 await newForm.save();
@@ -179,7 +186,7 @@ conn.once("open", () => {
         // PUT (update) UG-1 form status
         router.put('/:formId/review', async (req, res) => {
             const { formId } = req.params;
-            const { status, remarks } = req.body;
+            const { status, remarks, changedBy, changedByRole } = req.body; // Destructure new fields
 
             try {
                 const form = await UG1Form.findById(formId);
@@ -189,6 +196,13 @@ conn.once("open", () => {
 
                 form.status = status || form.status;
                 form.remarks = remarks || form.remarks;
+                form.statusHistory.push({
+                    status: status,
+                    date: new Date(),
+                    remark: remarks,
+                    changedBy: changedBy,
+                    changedByRole: changedByRole
+                });
                 await form.save();
 
                 // --- NEW Email Logic: Send email on status update ---

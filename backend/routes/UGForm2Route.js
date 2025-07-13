@@ -4,7 +4,7 @@ import multer from "multer";
 import { GridFSBucket } from "mongodb";
 import UG2Form from "../models/UGForm2.js"; // Assuming your UG2 model is named UGForm2.js
 import dotenv from 'dotenv'; // Import dotenv to load environment variables
-import { sendEmail } from '../utils/emailService.js'; // Import the email service utility
+import { sendEmail } from "../controllers/emailService.js";  
 
 dotenv.config(); // Load environment variables
 
@@ -95,7 +95,14 @@ conn.once("open", () => {
           uploadStream.on('error', reject);
         });
       };
-
+    // Initial status history entry for submission
+      const initialStatusHistory = {
+          status: 'pending',
+          date: new Date(),
+          remark: 'Form submitted by student.',
+          changedBy: svvNetId, // Assuming svvNetId is the submitter
+          changedByRole: 'Student', // Assuming the submitter is a student
+      };
       const groupLeaderSignatureId = groupLeaderSignatureFile ? await uploadFile(groupLeaderSignatureFile) : null;
       const guideSignatureId = guideSignatureFile ? await uploadFile(guideSignatureFile) : null;
       const uploadedFileIdsFromGridFS = uploadedFiles.length > 0 ? await Promise.all(uploadedFiles.map(uploadFile)) : [];
@@ -116,6 +123,7 @@ conn.once("open", () => {
         uploadedFilesIds: uploadedFileIdsFromGridFS,
         status: 'pending', // Default status
         submittedAt: new Date(),
+        statusHistory: [initialStatusHistory],
       });
 
       await newForm.save();
@@ -166,9 +174,19 @@ conn.once("open", () => {
     try {
       const form = await UG2Form.findById(formId); // Use formId
       if (!form) return res.status(404).json({ message: "Not found" });
+     const oldStatus = form.status; // Store old status for history
 
       form.status = status || form.status;
       form.remarks = remarks || form.remarks;
+
+      // Add entry to statusHistory
+      form.statusHistory.push({
+          status: form.status, // The new status
+          date: new Date(),
+          remark: remarks || 'Status updated', // Use provided remarks or a default
+          changedBy: changedBy || 'System', // User who made the change or 'System'
+          changedByRole: changedByRole || 'N/A', // Role of the user or 'N/A'
+      });
       await form.save();
 
       // Send email notification on form status update

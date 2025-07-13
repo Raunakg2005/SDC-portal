@@ -1,3 +1,4 @@
+// pg2bformRoutes.js
 import express from 'express';
 import mongoose from 'mongoose';
 import multer from 'multer';
@@ -54,7 +55,7 @@ router.post('/submit', uploadFields, async (req, res) => {
       claimDate,
       amountReceived,
       amountSanctioned,
-      status,
+      // status, // We will set initial status explicitly
     } = req.body;
 
     // ✅ Validate svvNetId and department
@@ -109,6 +110,7 @@ router.post('/submit', uploadFields, async (req, res) => {
       (req.files?.additionalDocuments || []).map(uploadFile)
     );
 
+    const initialStatus = 'pending'; // Set initial status to 'pending'
     const newForm = new PG2BForm({
       svvNetId,
       studentName,
@@ -129,7 +131,14 @@ router.post('/submit', uploadFields, async (req, res) => {
       claimDate: claimDate ? new Date(claimDate) : undefined,
       amountReceived,
       amountSanctioned,
-      status: status || 'pending',
+      status: initialStatus, // Set initial status
+      statusHistory: [{ // Initialize statusHistory with the first entry
+        status: 'FORM_SUBMITTED', // Detailed status
+        date: new Date(),
+        remark: 'Initial submission by student',
+        changedBy: svvNetId, // The student's SVVNetID
+        changedByRole: 'Student' // The role of the submitter
+      }],
       paperCopy: paperCopyData,
       groupLeaderSignature: groupLeaderSignatureData,
       guideSignature: guideSignatureData,
@@ -139,24 +148,24 @@ router.post('/submit', uploadFields, async (req, res) => {
     await newForm.save();
     uploadedFileIds.length = 0;
 
-    // --- NEW Email Logic: Send email on successful submission ---
-    if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && newForm.svvNetId) {
-        const subject = `PG2B Form Submitted Successfully! (ID: ${newForm._id})`;
-        const htmlContent = `
-            <p>Dear ${newForm.studentName || 'Student'},</p>
-            <p>Your PG2B form for "${newForm.projectTitle}" has been successfully submitted.</p>
-            <p>Your Form ID: <strong>${newForm._id}</strong></p>
-            <p>You will be notified when there are updates to your application status.</p>
-            <p>Thank you for using the SDC Portal.</p>
-        `;
-        try {
-            await sendEmail(newForm.svvNetId, subject, htmlContent);
-            console.log(`Email sent for PG2B form submission to ${newForm.svvNetId}`);
-        } catch (emailError) {
-            console.error(`Failed to send email for PG2B form submission to ${newForm.svvNetId}:`, emailError);
-        }
-    }
-    // --- END NEW Email Logic ---
+    // --- NEW Email Logic: Send email on successful submission ---
+    if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && newForm.svvNetId) {
+        const subject = `PG2B Form Submitted Successfully! (ID: ${newForm._id})`;
+        const htmlContent = `
+            <p>Dear ${newForm.studentName || 'Student'},</p>
+            <p>Your PG2B form for "${newForm.projectTitle}" has been successfully submitted.</p>
+            <p>Your Form ID: <strong>${newForm._id}</strong></p>
+            <p>You will be notified when there are updates to your application status.</p>
+            <p>Thank you for using the SDC Portal.</p>
+        `;
+        try {
+            await sendEmail(newForm.svvNetId, subject, htmlContent);
+            console.log(`Email sent for PG2B form submission to ${newForm.svvNetId}`);
+        } catch (emailError) {
+            console.error(`Failed to send email for PG2B form submission to ${newForm.svvNetId}:`, emailError);
+        }
+    }
+    // --- END NEW Email Logic ---
 
     res.status(200).json({ message: 'PG2B form submitted', id: newForm._id });
 
@@ -222,47 +231,47 @@ router.get('/file/:fileId', async (req, res) => {
 // Example structure:
 /*
 router.put('/:formId/review', async (req, res) => {
-    const { formId } = req.params;
-    const { status, remarks } = req.body; // Adjust field names as per your PG2BForm model
+    const { formId } = req.params;
+    const { status, remarks } = req.body; // Adjust field names as per your PG2BForm model
 
-    try {
-        const form = await PG2BForm.findById(formId);
-        if (!form) {
-            return res.status(404).json({ message: "PG2B form not found." });
-        }
+    try {
+        const form = await PG2BForm.findById(formId);
+        if (!form) {
+            return res.status(404).json({ message: "PG2B form not found." });
+        }
 
-        const oldStatus = form.status;
+        const oldStatus = form.status;
 
-        form.status = status || form.status;
-        form.remarks = remarks || form.remarks; // Assuming 'remarks' field for comments
-        await form.save();
+        form.status = status || form.status;
+        form.remarks = remarks || form.remarks; // Assuming 'remarks' field for comments
+        await form.save();
 
-        // --- NEW Email Logic: Send email on status update ---
-        if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && form.svvNetId) {
-            const subject = `Update on your PG2B Form (ID: ${form._id})`;
-            const htmlContent = `
-                <p>Dear ${form.studentName || 'Student'},</p>
-                <p>The status of your PG2B form for "${form.projectTitle}" has been updated.</p>
-                <p><strong>Previous Status:</strong> ${oldStatus || 'N/A'}</p>
-                <p><strong>New Status:</strong> ${form.status}</p>
-                ${form.remarks ? `<p><strong>Remarks from Reviewer:</strong> ${form.remarks}</p>` : ''}
-                <p>Please log in to the SDC Portal to view the details.</p>
-                <p>Thank you.</p>
-            `;
-            try {
-                await sendEmail(form.svvNetId, subject, htmlContent);
-                console.log(`Email sent for PG2B form status update to ${form.svvNetId}`);
-            } catch (emailError) {
-                console.error(`Failed to send email for PG2B form status update to ${form.svvNetId}:`, emailError);
-            }
-        }
-        // --- END NEW Email Logic ---
+        // --- NEW Email Logic: Send email on status update ---
+        if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && form.svvNetId) {
+            const subject = `Update on your PG2B Form (ID: ${form._id})`;
+            const htmlContent = `
+                <p>Dear ${form.studentName || 'Student'},</p>
+                <p>The status of your PG2B form for "${form.projectTitle}" has been updated.</p>
+                <p><strong>Previous Status:</strong> ${oldStatus || 'N/A'}</p>
+                <p><strong>New Status:</strong> ${form.status}</p>
+                ${form.remarks ? `<p><strong>Remarks from Reviewer:</strong> ${form.remarks}</p>` : ''}
+                <p>Please log in to the SDC Portal to view the details.</p>
+                <p>Thank you.</p>
+            `;
+            try {
+                await sendEmail(form.svvNetId, subject, htmlContent);
+                console.log(`Email sent for PG2B form status update to ${form.svvNetId}`);
+            } catch (emailError) {
+                console.error(`Failed to send email for PG2B form status update to ${form.svvNetId}:`, emailError);
+            }
+        }
+        // --- END NEW Email Logic ---
 
-        res.status(200).json({ message: "PG2B form review updated successfully." });
-    } catch (error) {
-        console.error("Error updating PG2B form review:", error);
-        res.status(500).json({ message: "Server error updating form review." });
-    }
+        res.status(200).json({ message: "PG2B form review updated successfully." });
+    } catch (error) {
+        console.error("Error updating PG2B form review:", error);
+        res.status(500).json({ message: "Server error updating form review." });
+    }
 });
 */
 export default router;

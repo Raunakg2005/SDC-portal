@@ -47,7 +47,9 @@ router.post('/submit', uploadFields, async (req, res) => {
             numberOfDays, dateFrom, dateTo, registrationFee, bankDetails,
             amountClaimed, finalAmountSanctioned,
         } = req.body;
-
+        const cleanSvvNetId = Array.isArray(svvNetId)
+            ? String(svvNetId.find(id => typeof id === 'string' && id.trim()) || '').trim().replace(/^,+/, '')
+            : String(svvNetId || '').trim().replace(/^,+/, '');
         // Helper to upload a single file to GridFS
         const uploadFile = (file) => {
             if (!file) return null;
@@ -79,7 +81,7 @@ router.post('/submit', uploadFields, async (req, res) => {
         const parsedBankDetails = typeof bankDetails === 'string' ? JSON.parse(bankDetails) : bankDetails;
 
         const newForm = new R1Form({
-            svvNetId: svvNetId ? String(svvNetId).trim() : '',
+            svvNetId: cleanSvvNetId,
             guideName, coGuideName, employeeCodes, studentName,
             yearOfAdmission, branch, rollNo, mobileNo,
             feesPaid: feesPaid, // Convert to boolean
@@ -96,8 +98,13 @@ router.post('/submit', uploadFields, async (req, res) => {
             hodSignatureFileId, sdcChairpersonSignatureFileId,
             pdfFileIds, zipFileId,
             status: 'pending',
+            statusHistory: [{
+                status: 'pending',
+                remark: 'Form submitted.',
+                changedBy: cleanSvvNetId,
+                changedByRole: 'Student'
+            }]
         });
-
         await newForm.save();
         uploadedFileIds.length = 0; // Clear rollback list upon successful save
 
@@ -183,7 +190,13 @@ router.put('/:id/review', async (req, res) => {
     // If you also want to update sdcChairpersonDate here, add it:
     const { sdcChairpersonDate } = req.body;
     form.sdcChairpersonDate = sdcChairpersonDate || form.sdcChairpersonDate;
-    
+    // Add to status history
+    form.statusHistory.push({
+        status: status,
+        remark: remark || `Status changed to ${status}.`, // Use provided remark or default
+        changedBy: changedBy || 'System', // User who made the change
+        changedByRole: changedByRole || 'N/A' // Role of the user who made the change
+    });
     await form.save();
 
     // --- NEW Email Logic: Send email on status update ---
