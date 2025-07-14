@@ -109,7 +109,7 @@ const Navbar = () => {
         {userRole === "admin" ? (
           <Link to="/adduser" className="nav-link" onClick={closeMobileMenu}>Add User</Link>
         ) : (
-          <Link to="/dashboard" className="nav-link" onClick={closeMobileMenu}>Dashboard</Link>
+          <Link to="/dashboard" className="nav-link" onClick={closeMobileMenu}>Track Status</Link>
         )}
         <Link to="/policy" className="nav-link" onClick={closeMobileMenu}>Policy</Link>
         <button className="nav-link logout-btn" onClick={() => { handleLogout(); closeMobileMenu(); }}>

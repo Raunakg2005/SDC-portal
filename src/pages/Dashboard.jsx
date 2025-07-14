@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import "../components/styles/facPending.css"; // Ensure this CSS file contains styles for modal and status badges
+import "../components/styles/dashboard.css"; // Ensure this CSS file contains styles for modal and status badges
 
 const Dashboard = () => {
   const [applications, setApplications] = useState([]);
@@ -143,130 +143,125 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="main-wrapper">
-      <Navbar />
-      <Sidebar />
-      <div className="page-wrapper">
-        <div className="content-area p-6 max-w-6xl mx-auto">
-          <h2 className="page-title text-3xl font-bold mb-6 text-gray-800">Dashboard</h2> {/* Main Dashboard Title */}
-          <p className="text-gray-600 mb-8 leading-relaxed">
-            Welcome to your application dashboard. Here's a quick overview of your application statuses and recent activities.
-          </p>
+    <div className="dashboard-container">
+      <Navbar />
+      <Sidebar />
+      <div className="dashboard-content">
+        <div className="dashboard-main">
+          <h2 className="dashboard-title">Dashboard</h2>
+          <p className="dashboard-description">
+            Welcome to your application dashboard. Here's a quick overview of your application statuses and recent activities.
+          </p>
 
-          {/* --- Dashboard Stats Cards --- */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* Total Applications Card */}
-            <div className="bg-white rounded-lg shadow-md p-6 flex items-center justify-between border border-gray-200">
-              <div>
-                <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Applications</p>
-                <p className="text-3xl font-bold text-gray-800 mt-1">{totalApplications}</p>
-              </div>
-              <div className="text-4xl text-blue-500">
-                <i className="fa-solid fa-list-check"></i> {/* Example icon, ensure Font Awesome is linked */}
-              </div>
-            </div>
+          {/* Stats Cards */}
+          <div className="stats-grid">
+            <div className="stat-card total-apps">
+              <div>
+                <p className="stat-label">Total Applications</p>
+                <p className="stat-value">{totalApplications}</p>
+              </div>
+              <div className="stat-icon">
+                <i className="fa-solid fa-list-check"></i>
+              </div>
+            </div>
 
-            {/* Pending Applications Card */}
-            <div className="bg-white rounded-lg shadow-md p-6 flex items-center justify-between border border-gray-200">
-              <div>
-                <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Pending</p>
-                <p className="text-3xl font-bold text-gray-800 mt-1">{pendingApplications}</p>
-              </div>
-              <div className="text-4xl text-yellow-500">
-                <i className="fa-solid fa-hourglass-half"></i> {/* Example icon */}
-              </div>
-            </div>
+            <div className="stat-card pending-apps">
+              <div>
+                <p className="stat-label">Pending</p>
+                <p className="stat-value">{pendingApplications}</p>
+              </div>
+              <div className="stat-icon">
+                <i className="fa-solid fa-hourglass-half"></i>
+              </div>
+            </div>
 
-            {/* Accepted Applications Card */}
-            <div className="bg-white rounded-lg shadow-md p-6 flex items-center justify-between border border-gray-200">
-              <div>
-                <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Accepted</p>
-                <p className="text-3xl font-bold text-gray-800 mt-1">{acceptedApplications}</p>
-              </div>
-              <div className="text-4xl text-green-500">
-                <i className="fa-solid fa-circle-check"></i> {/* Example icon */}
-              </div>
-            </div>
+            <div className="stat-card accepted-apps">
+              <div>
+                <p className="stat-label">Accepted</p>
+                <p className="stat-value">{acceptedApplications}</p>
+              </div>
+              <div className="stat-icon">
+                <i className="fa-solid fa-circle-check"></i>
+              </div>
+            </div>
 
-            {/* Rejected Applications Card */}
-            <div className="bg-white rounded-lg shadow-md p-6 flex items-center justify-between border border-gray-200">
-              <div>
-                <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Rejected</p>
-                <p className="text-3xl font-bold text-gray-800 mt-1">{rejectedApplications}</p>
-              </div>
-              <div className="text-4xl text-red-500">
-                <i className="fa-solid fa-circle-xmark"></i> {/* Example icon */}
-              </div>
-            </div>
-          </div>
-          {/* --- End Dashboard Stats Cards --- */}
+            <div className="stat-card rejected-apps">
+              <div>
+                <p className="stat-label">Rejected</p>
+                <p className="stat-value">{rejectedApplications}</p>
+              </div>
+              <div className="stat-icon">
+                <i className="fa-solid fa-circle-xmark"></i>
+              </div>
+            </div>
+          </div>
 
-          <h3 className="page-subtitle text-2xl font-bold mb-4 text-gray-800">Recent Applications</h3> {/* Table Title */}
+          <h3 className="table-title">Recent Applications</h3>
 
-          <div className="table-wrapper overflow-x-auto bg-white rounded-lg shadow-md border border-gray-200">
-            <table className="custom-table min-w-full divide-y divide-gray-200 text-left">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="p-4 text-sm font-semibold text-gray-700 uppercase tracking-wider">Form Type</th>
-                  <th className="p-4 text-sm font-semibold text-gray-700 uppercase tracking-wider">Name</th>
-                  <th className="p-4 text-sm font-semibold text-gray-700 uppercase tracking-wider">Roll No.</th>
-                  <th className="p-4 text-sm font-semibold text-gray-700 uppercase tracking-wider">Submitted On</th>
-                  <th className="p-4 text-sm font-semibold text-gray-700 uppercase tracking-wider">Branch</th>
-                  <th className="p-4 text-sm font-semibold text-gray-700 uppercase tracking-wider">Status</th>
-                  <th className="p-4 text-sm font-semibold text-gray-700 uppercase tracking-wider">Remarks</th>
-                  <th className="p-4 text-sm font-semibold text-gray-700 uppercase tracking-wider">Action</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {applications.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="text-center text-gray-500 py-6 text-base">
-                      No applications found.
-                    </td>
-                  </tr>
-                ) : (
-                  applications.map((app) => (
-                    <tr key={app._id} className="hover:bg-gray-50 transition duration-150 ease-in-out">
-                      <td className="p-4 text-gray-800 font-medium">{app.formType || 'N/A'}</td>
-                      <td className="p-4 text-gray-800">{app.name || 'N/A'}</td>
-                      <td className="p-4 text-gray-700">
-                        {app.rollNumber || app.rollNo || app.students?.[0]?.rollNo || app.studentDetails?.[0]?.rollNumber || "N/A"}
-                      </td>
-                      <td className="p-4 text-gray-700">
-                        {new Date(app.submitted).toLocaleString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true,
-                        })}
-                      </td>
-                      <td className="p-4 text-gray-700">{app.branch || 'N/A'}</td>
-                      <td className="p-4 text-gray-700">
-                        <span className={`status-badge status-${app.status?.toLowerCase()}`}>
-                          {app.status || 'N/A'}
-                        </span>
-                      </td>
-                      <td className="p-4 text-gray-700">{app.remarks || 'No remarks provided.'}</td>
-                      <td className="p-4">
-                        <button
-                          onClick={() => handleViewClick(app._id)}
-                          className="view-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-                        >
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+          <div className="applications-table-container">
+            <table className="applications-table">
+              <thead>
+                <tr>
+                  <th>Form Type</th>
+                  <th>Name</th>
+                  <th>Roll No.</th>
+                  <th>Submitted On</th>
+                  <th>Branch</th>
+                  <th>Status</th>
+                  <th>Remarks</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {applications.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="no-applications">
+                      No applications found.
+                    </td>
+                  </tr>
+                ) : (
+                  applications.map((app) => (
+                    <tr key={app._id}>
+                      <td>{app.formType || 'N/A'}</td>
+                      <td>{app.name || 'N/A'}</td>
+                      <td>
+                        {app.rollNumber || app.rollNo || app.students?.[0]?.rollNo || app.studentDetails?.[0]?.rollNumber || "N/A"}
+                      </td>
+                      <td>
+                        {new Date(app.submitted).toLocaleString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true,
+                        })}
+                      </td>
+                      <td>{app.branch || 'N/A'}</td>
+                      <td>
+                        <span className={`status-badge ${app.status?.toLowerCase()}`}>
+                          {app.status || 'N/A'}
+                        </span>
+                      </td>
+                      <td>{app.remarks || 'No remarks provided.'}</td>
+                      <td>
+                        <button
+                          onClick={() => handleViewClick(app._id)}
+                          className="view-button"
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default Dashboard;
