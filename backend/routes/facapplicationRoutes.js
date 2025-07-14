@@ -670,6 +670,60 @@ router.get("/rejected", async (req, res) => {
   }
 });
 
+router.get("/all-by-svvnetid", async (req, res) => {
+    try {
+        const { svvNetId } = req.query; // Get svvNetId from query parameters
+
+        if (!svvNetId) {
+            return res.status(400).json({ message: "svvNetId is required." });
+        }
+
+        // Define a base filter that includes svvNetId
+        const baseFilter = {
+            $or: [
+                { svvNetId: svvNetId }, // Assuming svvNetId might be a top-level field
+                { "students.svvNetId": svvNetId }, // Or nested within a 'students' array
+                { "studentDetails.svvNetId": svvNetId } // Or nested within 'studentDetails'
+            ]
+        };
+
+        const [
+            ug1Forms,
+            ug2Forms,
+            ug3aForms,
+            ug3bForms,
+            pg1Forms,
+            pg2aForms,
+            pg2bForms,
+            r1Forms,
+        ] = await Promise.all([
+            UG1Form.find(baseFilter).sort({ createdAt: -1 }).lean(),
+            UGForm2.find(baseFilter).sort({ createdAt: -1 }).lean(),
+            UG3AForm.find(baseFilter).sort({ createdAt: -1 }).lean(),
+            UG3BForm.find(baseFilter).sort({ createdAt: -1 }).lean(),
+            PG1Form.find(baseFilter).sort({ createdAt: -1 }).lean(),
+            PG2AForm.find(baseFilter).sort({ createdAt: -1 }).lean(),
+            PG2BForm.find(baseFilter).sort({ createdAt: -1 }).lean(),
+            R1Form.find(baseFilter).sort({ createdAt: -1 }).lean(),
+        ]);
+
+        const results = await Promise.all([
+            ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1")),
+            ...ug2Forms.map((f) => processFormForDisplay(f, "UG_2")),
+            ...ug3aForms.map((f) => processFormForDisplay(f, "UG_3_A")),
+            ...ug3bForms.map((f) => processFormForDisplay(f, "UG_3_B")),
+            ...pg1Forms.map((f) => processFormForDisplay(f, "PG_1")),
+            ...pg2aForms.map((f) => processFormForDisplay(f, "PG_2_A")),
+            ...pg2bForms.map((f) => processFormForDisplay(f, "PG_2_B")),
+            ...r1Forms.map((f) => processFormForDisplay(f, "R1")),
+        ]);
+
+        res.json(results);
+    } catch (error) {
+        console.error("❌ Error in /facapplication/all-by-svvnetid:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
 // GET /api/facapplication/status-tracking/:id - Get a single application for status tracking
 router.get("/status-tracking/:id", async (req, res) => {
   const { id } = req.params;
@@ -714,7 +768,6 @@ router.get("/status-tracking/:id", async (req, res) => {
     res.status(500).json({ message: "Server error while fetching application for status tracking." });
   }
 });
-
 
 router.post("/view/ug1", async (req, res) => {
   const { formId } = req.body;
