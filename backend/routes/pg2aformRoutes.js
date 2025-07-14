@@ -34,7 +34,6 @@ conn.once('open', () => {
 
 router.post('/submit', uploadFields, async (req, res) => {
   const uploadedFileIds = []; // To store IDs for potential rollback
-
   try {
     const {
       svvNetId,
@@ -84,9 +83,15 @@ router.post('/submit', uploadFields, async (req, res) => {
     const zipFileIds = await Promise.all(zips.map(uploadFile));
     const studentSignatureId = await uploadFile(studentSignature);
     const guideSignatureId = await uploadFile(guideSignature);
-
+    const initialStatus = 'pending';
+    let svvNetIdClean = '';
+    if (Array.isArray(svvNetId)) {
+      svvNetIdClean = svvNetId[0].trim();
+    } else {
+      svvNetIdClean = svvNetId ? svvNetId.trim() : '';
+    }
     const newForm = new PG2AForm({
-      svvNetId: svvNetId ? String(svvNetId).trim() : '',
+      svvNetId: svvNetIdClean,
       organizingInstitute,
       projectTitle,
       teamName,
@@ -104,18 +109,17 @@ router.post('/submit', uploadFields, async (req, res) => {
         guideSignature: guideSignatureId,
       },
       status: status || 'pending',
-    statusHistory: [{
-            status: initialStatus,
-            date: new Date(),
-            remark: 'Form submitted',
-            changedBy: svvNetIdClean,
-            changedByRole: 'Student'
+        statusHistory: [{
+                status: initialStatus,
+                date: new Date(),
+                remark: 'Form submitted',
+                changedBy: svvNetIdClean,
+                changedByRole: 'Student'
         }],
     });
 
     await newForm.save();
     uploadedFileIds.length = 0; // Clear rollback list upon successful save
-    
     // --- NEW Email Logic: Send email on successful submission ---
     if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && newForm.svvNetId) {
         const subject = `PG2A Form Submitted Successfully! (ID: ${newForm._id})`;

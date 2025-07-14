@@ -51,20 +51,22 @@ const FacRejectedApplications = () => {
   // useEffect hook to call fetchApplications when the component mounts
   useEffect(() => {
     fetchApplications();
-    // Load user from localStorage on component mount
+   // Load user from localStorage on component mount
     const storedUser = localStorage.getItem('user');
+    console.log("useEffect - userString from localStorage (FacRejected):", storedUser); // Debug log
     if (storedUser) {
       try {
-        setCurrentUser(JSON.parse(storedUser));
+        const user = JSON.parse(storedUser);
+        setCurrentUser(user);
+        console.log("useEffect - Parsed currentUser (FacRejected):", user); // Debug log
       } catch (e) {
-        console.error("Failed to parse user data from localStorage", e);
+        console.error("Failed to parse user data from localStorage (FacRejected)", e);
         // Handle error, e.g., clear localStorage and force re-login
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-         // Redirect to login
+        navigate('/');
       }
     } else {
       // If no user data, redirect to login
+      console.log("useEffect - No 'user' found in localStorage (FacRejected). Redirecting to login."); // Debug log
       navigate('/');
     }
   }, []); // Empty dependency array ensures this runs only once on component mount
@@ -111,7 +113,6 @@ const FacRejectedApplications = () => {
         method: "PUT", // or PATCH, depending on your API
         headers: {
           "Content-Type": "application/json",
-          // Include authorization token if required by your API
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({
@@ -126,7 +127,6 @@ const FacRejectedApplications = () => {
         const errorData = await res.json();
         throw new Error(errorData.message || `Failed to update remarks. Status: ${res.status}`);
       }
-
       // If save is successful, re-fetch applications to update the table
       await fetchApplications();
       setShowModal(false); // Close the modal

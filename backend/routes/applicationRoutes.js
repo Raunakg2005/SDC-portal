@@ -924,11 +924,14 @@ router.put("/:id/remarks", async (req, res) => {
     // The status in statusHistory will reflect the application's status
     // at the time these remarks are being added.
     const newStatusHistoryEntry = {
-      status: currentApp.status, // Use the current status of the application
-      date: new Date(),
-      remark: remarks // The new remark being added
+            status: currentApp.status, // Use the current status of the application
+            date: new Date(),
+            remark: remarks, // Use the new remark being added
+            changedBy: changedBy || 'System', // Use changedBy from request, or 'System'
+            changedByRole: changedByRole || 'N/A' // Use changedByRole from request, or 'N/A'
     };
-
+    // Debugging: Log the new status history entry before pushing
+    console.log("Backend /:id/remarks - New Status History Entry:", newStatusHistoryEntry);
     // 2. Update the remarks field and push the new entry to statusHistory
     const updatedApp = await ModelUsed.findByIdAndUpdate(
       id,

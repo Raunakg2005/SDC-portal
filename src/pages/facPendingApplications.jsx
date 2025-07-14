@@ -78,31 +78,29 @@ const FacPendingApplications = () => {
       setModalError("Remarks are required.");
       return;
     }
-    // Ensure we have current user info before proceeding
     if (!currentUser || !currentUser.svvNetId || !currentUser.role) {
       setModalError("User authentication details are missing. Please log in again.");
       console.error("User details missing for status update:", currentUser);
       return;
     }
-    setModalLoading(true); // Start loading for modal submission
-    setModalError(null); // Clear previous errors
+    setModalLoading(true);
+    setModalError(null);
 
     const statusToSet = currentAction === "approve" ? "approved" : "rejected";
     const actionName = currentAction === "approve" ? "Approve" : "Reject";
 
     try {
-      // API call to update the application status and remarks in the database - REMAINS UNCHANGED LOGICALLY
       const res = await fetch(`http://localhost:5000/api/facapplication/${currentAppId}/update-status`, {
-        method: 'PATCH', // Use PATCH for partial updates
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`   // Uncomment and add if you have authentication
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
         body: JSON.stringify({
           status: statusToSet,
-          remarks: remarks.trim(), // Trim whitespace from remarks
-          changedBy: currentUser.svvNetId, // Pass the SVVNetID of the current user
-          changedByRole: currentUser.role // Pass the role of the current user
+          remarks: remarks.trim(),
+          changedBy: currentUser.svvNetId,   // Pass the SVVNetID of the current user
+          changedByRole: currentUser.role   // Pass the role of the current user
         }),
       });
 
@@ -111,26 +109,22 @@ const FacPendingApplications = () => {
         throw new Error(errorData.message || `Failed to ${actionName} application.`);
       }
 
-      // If the API call is successful, update the local state: remove the acted-upon application
       const newList = applications.filter((app) => app._id !== currentAppId);
       setApplications(newList);
 
-      // Reset modal states and close modal
       setRemarks("");
       setShowModal(false);
       setCurrentAction(null);
       setCurrentAppId(null);
 
-      // Navigate to the respective page after successful action
       navigate(`/${currentAction === "approve" ? "facaccepted" : "facRejected"}`);
 
     } catch (err) {
       console.error(`Error ${actionName} application:`, err);
       setModalError(`Failed to ${actionName} application: ${err.message || "Please try again."}`);
-      // Re-fetch applications to ensure state consistency if update failed on backend
-      fetchApplications(); // Fallback to re-fetch all
+      fetchApplications();
     } finally {
-      setModalLoading(false); // End loading for modal submission
+      setModalLoading(false);
     }
   };
 

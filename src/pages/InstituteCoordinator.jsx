@@ -18,7 +18,7 @@ const InstCoordDash = () => {
   const [currentAppId, setCurrentAppId] = useState(null); // Stores the _id of the application for modal action
   const [modalLoading, setModalLoading] = useState(false); // For submit button in modal
   const [modalError, setModalError] = useState(null);     // For displaying errors in modal
-
+  const [currentUser, setCurrentUser] = useState(null); // State to store current user info
   // Function to fetch applications
   const fetchApplications = async () => {
     setLoading(true); // Set loading to true before fetching
@@ -41,6 +41,16 @@ const InstCoordDash = () => {
   // useEffect hook to call fetchApplications when the component mounts
   useEffect(() => {
     fetchApplications();
+    const userString = localStorage.getItem('user'); // Or localStorage.getItem('token') and then decode it
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        setCurrentUser(user);
+      } catch (e) {
+        console.error("Failed to parse user data from localStorage", e);
+        // Handle cases where localStorage data is corrupted or not JSON
+      }
+    }
   }, []); // Empty dependency array means this effect runs once on component mount
 
   // Handler for 'View' button click
@@ -59,48 +69,48 @@ const InstCoordDash = () => {
 
   // Handles submitting remarks from the modal
   const handleModalSubmit = async () => {
+    console.log("handleModalSubmit - currentUser at start:", currentUser); // Log currentUser before validation
     if (!remarks.trim()) {
       setModalError("Remarks are required.");
       return;
     }
 
-    setModalLoading(true); // Start loading for modal submission
-    setModalError(null); // Clear previous errors
+    // Ensure currentUser is available before proceeding
+    if (!currentUser || !currentUser.svvNetId || !currentUser.role) {
+      setModalError("User authentication details are missing. Please log in again.");
+      console.error("User details missing for status update:", currentUser);
+      return;
+    }
+
+    setModalLoading(true);
+    setModalError(null);
 
     const statusToSet = currentAction === "approve" ? "approved" : "rejected";
     const actionName = currentAction === "approve" ? "Approve" : "Reject";
 
     try {
       // API call to update the application status and remarks in the database
-      // Reusing the endpoint from FacPendingApplications, assuming it's generic enough
       const res = await axios.patch(`http://localhost:5000/api/facapplication/${currentAppId}/update-status`, {
         status: statusToSet,
-        remarks: remarks.trim() // Trim whitespace from remarks
+        remarks: remarks.trim(),
+        changedBy: currentUser.svvNetId, // Pass the SVVNetID of the current user
+        changedByRole: currentUser.role // Pass the role of the current user
       });
 
-      // If the API call is successful, update the local state: remove the acted-upon application
-      // For a dashboard, we typically just remove the item or re-fetch.
-      // Here, we'll remove it from the list to reflect the change immediately.
       const newList = applications.filter((app) => app._id !== currentAppId);
       setApplications(newList);
 
-      // Reset modal states and close modal
       setRemarks("");
       setShowModal(false);
       setCurrentAction(null);
       setCurrentAppId(null);
 
-      // No navigation here, as it's a dashboard, and the item is simply removed.
-      // If specific navigation is desired, it can be added here.
-
     } catch (err) {
       console.error(`Error ${actionName} application:`, err);
-      // Check if err.response exists for more detailed error from backend
       setModalError(`Failed to ${actionName} application: ${err.response?.data?.message || "Please try again."}`);
-      // Re-fetch applications to ensure state consistency if update failed on backend
-      fetchApplications(); // Fallback to re-fetch all
+      fetchApplications();
     } finally {
-      setModalLoading(false); // End loading for modal submission
+      setModalLoading(false);
     }
   };
 

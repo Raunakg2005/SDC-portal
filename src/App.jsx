@@ -26,6 +26,8 @@ import DeptCoordDashboard from "./pages/DepartmentCoordinator";
 import PrincipalDash from "./pages/Principal";
 import InstCoordDash from "./pages/InstituteCoordinator";
 import AdminDashboard from "./pages/Admin";
+import StatusTracking from './pages/StatusTracking'; 
+import Dashboard from './pages/Dashboard';
 import FacUGForm1 from "./components/FormComponent/FacUG1";
 import FacUGForm2 from "./components/FormComponent/FacUG2";
 import FacUGForm3A from "./components/FormComponent/FacUG3a";
@@ -59,6 +61,8 @@ const App = () => {
         <Route path="/faqs" element={<FAQ />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/pending" element={<PendingApplications />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/status-tracking/:id" element={<StatusTracking />} />
         <Route path="/application/:id" element={<ApplicationDetails />} />
         <Route path="/facPending" element={<FacPendingApplications />} />
         <Route path="/facRejected" element={<FacRejectedApplications />} />

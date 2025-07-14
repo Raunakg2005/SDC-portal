@@ -11,6 +11,7 @@ const FacAcceptedApplications = () => {
   const navigate = useNavigate(); // For the 'View' button
 
   // --- NEW STATES FOR EDIT REMARKS MODAL ---
+  const [currentUser, setCurrentUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [currentApp, setCurrentApp] = useState(null);
   const [editedRemarks, setEditedRemarks] = useState("");
@@ -44,6 +45,24 @@ const FacAcceptedApplications = () => {
   // Fetch applications when the component mounts - REMAINS UNCHANGED
   useEffect(() => {
     fetchApplications();
+    // Load user from localStorage on component mount
+    const storedUser = localStorage.getItem('user');
+    console.log("useEffect - userString from localStorage (FacAccepted):", storedUser); // Debug log
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        setCurrentUser(user);
+        console.log("useEffect - Parsed currentUser (FacAccepted):", user); // Debug log
+      } catch (e) {
+        console.error("Failed to parse user data from localStorage (FacAccepted)", e);
+        // Redirect to login
+        navigate('/');
+      }
+    } else {
+      // If no user data, redirect to login
+      console.log("useEffect - No 'user' found in localStorage (FacAccepted). Redirecting to login."); // Debug log
+      navigate('/');
+    }
   }, []);
 
   /**
@@ -70,27 +89,39 @@ const FacAcceptedApplications = () => {
    * Handles saving the edited remarks to the backend.
    */
   const handleSaveChanges = async () => {
+    console.log("handleSaveChanges - currentUser at start (FacAccepted):", currentUser); // Debug log
+
     if (!editedRemarks.trim()) {
       setSaveError("Remarks cannot be empty.");
       return;
     }
 
+    // Ensure we have current user info before proceeding
+    if (!currentUser || !currentUser.svvNetId || !currentUser.role) {
+      setSaveError("User authentication details are missing. Please log in again.");
+      console.error("User details missing for remarks update (FacAccepted):", currentUser);
+      return;
+    }
     setSavingRemarks(true);
     setSaveError(null);
 
     try {
       // Assuming your backend has an endpoint like /api/applications/:id/remarks for updates
       // This endpoint needs to be able to update 'remarks' field.
-      const res = await fetch(`http://localhost:5000/api/application/${currentApp._id}/remarks`, {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/facapplication/${currentApp._id}/remarks`, { // Corrected endpoint
         method: "PUT", // or PATCH, depending on your API
         headers: {
           "Content-Type": "application/json",
-          // Include authorization token if required by your API
-          // 'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`, // Include authorization token
         },
-        body: JSON.stringify({ remarks: editedRemarks }),
+        body: JSON.stringify({
+          remarks: editedRemarks.trim(),
+          changedBy: currentUser.svvNetId, // Pass the user who made the change
+          changedByRole: currentUser.role, // Pass the role of the user who made the change
+        }),
       });
-
+      
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || `Failed to update remarks. Status: ${res.status}`);

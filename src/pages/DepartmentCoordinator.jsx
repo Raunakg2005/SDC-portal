@@ -18,7 +18,7 @@ const DeptCoordDashboard = () => {
   const [currentAppId, setCurrentAppId] = useState(null); // Stores the _id of the application for modal action
   const [modalLoading, setModalLoading] = useState(false); // For submit button in modal
   const [modalError, setModalError] = useState(null);     // For displaying errors in modal
-
+  const [currentUser, setCurrentUser] = useState(null); // State to store current user info
   // Function to fetch applications
   const fetchApplications = async () => {
     setLoading(true); // Set loading to true before fetching
@@ -37,6 +37,19 @@ const DeptCoordDashboard = () => {
 
   useEffect(() => {
     fetchApplications();
+    const userString = localStorage.getItem('user'); // Get user data from localStorage
+    console.log("useEffect - userString from localStorage (DeptCoord):", userString); // Debug log
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        setCurrentUser(user);
+        console.log("useEffect - Parsed currentUser (DeptCoord):", user); // Debug log
+      } catch (e) {
+        console.error("Failed to parse user data from localStorage (DeptCoord)", e);
+      }
+    } else {
+        console.log("useEffect - No 'user' found in localStorage (DeptCoord)."); // Debug log
+    }
   }, []);
 
   // Roll number extractor
@@ -66,11 +79,17 @@ const DeptCoordDashboard = () => {
 
   // Handles submitting remarks from the modal
   const handleModalSubmit = async () => {
+    console.log("handleModalSubmit - currentUser at start (DeptCoord):", currentUser); // Debug log
     if (!remarks.trim()) {
       setModalError("Remarks are required.");
       return;
     }
-
+    // Ensure currentUser is available before proceeding
+    if (!currentUser || !currentUser.svvNetId || !currentUser.role) {
+      setModalError("User authentication details are missing. Please log in again.");
+      console.error("User details missing for status update (DeptCoord):", currentUser);
+      return;
+    }
     setModalLoading(true); // Start loading for modal submission
     setModalError(null); // Clear previous errors
 
@@ -82,7 +101,9 @@ const DeptCoordDashboard = () => {
       // Assuming the same endpoint structure as faculty/institute dashboards
       const res = await axios.patch(`http://localhost:5000/api/facapplication/${currentAppId}/update-status`, {
         status: statusToSet,
-        remarks: remarks.trim() // Trim whitespace from remarks
+        remarks: remarks.trim(),
+        changedBy: currentUser.svvNetId,   // Pass the SVVNetID of the current user
+        changedByRole: currentUser.role 
       });
 
       // If the API call is successful, update the local state: remove the acted-upon application

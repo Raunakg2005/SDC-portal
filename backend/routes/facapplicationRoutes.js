@@ -478,55 +478,92 @@ router.get("/stats", async (req, res) => {
 });
 
 router.patch("/:id/update-status", async (req, res) => {
-  const { id } = req.params;
-  let { status, remarks } = req.body;
+    const { id } = req.params;
+    let { status, remarks, changedBy, changedByRole } = req.body;
 
-  // Trim inputs to avoid trailing spaces
-  status = status?.trim()?.toLowerCase();
-  remarks = remarks?.trim();
+    status = status?.trim()?.toLowerCase();
+    remarks = remarks?.trim();
 
-  // Basic input validation
-  if (!id || !status || !remarks) {
-    return res.status(400).json({ message: "Application ID, status, and remarks are required." });
-  }
-
-  if (!['approved', 'rejected', 'pending'].includes(status)) {
-    return res.status(400).json({ message: "Invalid status provided. Use: approved, rejected, pending." });
-  }
-
-  const allFormModels = [
-    UG1Form, UGForm2, UG3AForm, UG3BForm,
-    PG1Form, PG2AForm, PG2BForm, R1Form
-  ];
-
-  try {
-    let updatedForm = null;
-
-    for (const Model of allFormModels) {
-      updatedForm = await Model.findByIdAndUpdate(
-        id,
-        { status, remarks },
-        { new: true }
-      );
-
-      if (updatedForm) break;
+    if (!id || !status || remarks === undefined || remarks === null) {
+        return res.status(400).json({ message: "Application ID, status, and remarks are required." });
     }
 
-    if (!updatedForm) {
-      console.log(`❌ Application with ID ${id} not found in any collection.`);
-      return res.status(404).json({ message: "Application not found in any collection." });
+    if (!['approved', 'rejected', 'pending'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status provided. Use: approved, rejected, pending." });
     }
 
-    console.log(`✅ Application ${id} updated to status: ${status} with remarks: "${remarks}"`);
+    const allFormModels = [
+        UG1Form, UGForm2, UG3AForm, UG3BForm,
+        PG1Form, PG2AForm, PG2BForm, R1Form
+    ];
 
-    res.status(200).json({
-      message: "Application status updated successfully.",
-      updatedApplication: processFormForDisplay(updatedForm, updatedForm.formType)
-    });
-  } catch (error) {
-    console.error("❌ Server error during status update:", error);
-    res.status(500).json({ message: "Server error during status update." });
-  }
+    try {
+        let foundForm = null;
+
+        for (const Model of allFormModels) {
+            foundForm = await Model.findById(id);
+            if (foundForm) {
+                const oldStatus = foundForm.status;
+
+                foundForm.status = status;
+                // This updates the top-level 'remarks' field on the form document itself
+                foundForm.remarks = remarks; 
+
+                if (foundForm.schema.paths.statusHistory) {
+                    const newStatusEntry = {
+                        status: status,
+                        date: new Date(), // Changed from 'timestamp' to 'date' to match schema
+                    };
+
+                    // Use 'remark' (singular) to match schema field name
+                    // Explicitly set to empty string if no remarks are provided from frontend
+                    if (remarks !== undefined && remarks !== null) {
+                        newStatusEntry.remark = remarks; 
+                    } else {
+                        newStatusEntry.remark = ""; // Ensure 'remark' field is always present
+                    }
+
+                    // Use 'changedBy' to match schema field name
+                    // Frontend logs confirmed these are present, add fallback just in case
+                    if (changedBy) { 
+                        newStatusEntry.changedBy = changedBy;
+                    } else {
+                        newStatusEntry.changedBy = "System"; 
+                    }
+
+                    // Use 'changedByRole' to match schema field name
+                    if (changedByRole) { 
+                        newStatusEntry.changedByRole = changedByRole;
+                    } else {
+                        newStatusEntry.changedByRole = "N/A"; 
+                    }
+
+                    foundForm.statusHistory.push(newStatusEntry);
+                } else {
+                    console.warn(`Model ${Model.modelName} does not have 'statusHistory' path. Skipping history update.`);
+                }
+
+                break;
+            }
+        }
+
+        if (!foundForm) {
+            console.log(`❌ Application with ID ${id} not found in any collection.`);
+            return res.status(404).json({ message: "Application not found in any collection." });
+        }
+
+        await foundForm.save();
+
+        console.log(`✅ Application ${id} updated to status: ${status} with remarks: "${remarks}"`);
+
+        res.status(200).json({
+            message: "Application status updated successfully.",
+            updatedApplication: processFormForDisplay(foundForm, foundForm.formType)
+        });
+    } catch (error) {
+        console.error("❌ Server error during status update:", error);
+        res.status(500).json({ message: "Server error during status update." });
+    }
 });
 
 router.get("/accepted", async (req, res) => {
@@ -632,6 +669,52 @@ router.get("/rejected", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+// GET /api/facapplication/status-tracking/:id - Get a single application for status tracking
+router.get("/status-tracking/:id", async (req, res) => {
+  const { id } = req.params;
+  // userBranch is not directly needed for fetching a single app by ID here,
+  // but could be passed to processFormForDisplay if specific logic for display depends on it.
+  const { userBranch } = req.query;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid application ID." });
+  }
+
+  const formModels = [UG1Form, UGForm2, UG3AForm, UG3BForm, PG1Form, PG2AForm, PG2BForm, R1Form];
+  let foundApplication = null;
+  let formType = null;
+
+  for (const Model of formModels) {
+    foundApplication = await Model.findById(id).lean();
+    if (foundApplication) {
+      // Determine the formType
+      if (Model === UG1Form) formType = "UG_1";
+      else if (Model === UGForm2) formType = "UG_2";
+      else if (Model === UG3AForm) formType = "UG_3_A";
+      else if (Model === UG3BForm) formType = "UG_3_B";
+      else if (Model === PG1Form) formType = "PG_1";
+      else if (Model === PG2AForm) formType = "PG_2_A";
+      else if (Model === PG2BForm) formType = "PG_2_B";
+      else if (Model === R1Form) formType = "R1";
+      break;
+    }
+  }
+
+  if (!foundApplication) {
+    return res.status(404).json({ message: "Application not found." });
+  }
+
+  try {
+    // Process the found application for display
+    const processedApplication = await processFormForDisplay(foundApplication, formType, userBranch);
+    res.status(200).json(processedApplication);
+  } catch (error) {
+    console.error(`❌ Error fetching application for status tracking with ID ${id}:`, error);
+    res.status(500).json({ message: "Server error while fetching application for status tracking." });
+  }
+});
+
 
 router.post("/view/ug1", async (req, res) => {
   const { formId } = req.body;
