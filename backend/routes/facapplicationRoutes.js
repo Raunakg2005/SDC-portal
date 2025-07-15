@@ -26,6 +26,66 @@ conn.once("open", () => {
     console.log("✅ GridFSBucket initialized in application routes (using 'uploads' bucket)");
 });
 
+// Placeholder Authentication Middleware
+// In a real application, this would decode a JWT and attach user info (role, svvNetId, branch) to req.user
+const protect = (req, res, next) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (token) {
+        try {
+            const dummyUser = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+            // Normalize the role immediately after parsing from the token
+            const normalizedRole = dummyUser.role ? String(dummyUser.role).toLowerCase().trim().replace(/\s+/g, '_') : 'student';
+
+            req.user = {
+                _id: dummyUser._id || 'dummyUserId',
+                svvNetId: dummyUser.svvNetId || 'dummySvvNetId',
+                role: normalizedRole, // Use the normalized role
+                branch: dummyUser.branch || 'COMPS' // Default branch for testing
+            };
+            console.log("Protect middleware - User assigned:", req.user); // Added for debugging
+        } catch (e) {
+            console.error("Token parsing error (dummy protect):", e.message);
+            req.user = null;
+        }
+    } else {
+        req.user = null; // No token provided
+    }
+    next();
+};
+
+// Helper to build query based on user role and branch
+const buildRoleBasedFilter = (user, statusFilter = {}) => {
+    let query = { ...statusFilter };
+
+    if (!user || user.role === 'student') {
+        // For students, filter by their svvNetId across relevant fields
+        if (user && user.svvNetId) {
+            query.$or = [
+                { svvNetId: user.svvNetId },
+                { "students.svvNetId": user.svvNetId },
+                { "studentDetails.svvNetId": user.svvNetId }
+            ];
+        } else {
+            // If no user or svvNetId for student, return empty results or error
+            // This prevents accidental exposure of all data to unauthenticated/unidentified students.
+            query._id = null; // Forces no results if no specific student ID
+        }
+    } else if (user.role === 'dept_coordinator') {
+        // Dept Coordinator sees applications from their branch
+        if (user.branch) {
+            // This assumes 'branch' is a top-level field or can be matched across forms.
+            // You might need more complex $or conditions if branch is nested differently per form.
+            query.branch = user.branch;
+        } else {
+            // If dept coordinator has no branch, or branch is not set, return no results
+            query._id = null;
+        }
+    } else if (user.role === 'faculty' || user.role === 'institute_coordinator' || user.role === 'admin' || user.role === 'validator') {
+        // Faculty, Admins, Institute Coordinators, and Validators see all applications (no additional branch filter needed here)
+        // The statusFilter (e.g., pending, accepted, rejected) will still apply.
+    }
+    return query;
+};
 /**
  * Helper: Fetches file details from GridFS and constructs its URL.
  * This function uses the 'gfsBucket' instance to query the 'uploads.files' collection
@@ -384,7 +444,14 @@ router.get("/pending", async (req, res) => {
     const facultyFilter = {
       status: /^pending$/i,
     };
-
+    // Define a base filter that includes svvNetId
+    const baseFilter = {
+            $or: [
+                { svvNetId: svvNetId }, // Assuming svvNetId might be a top-level field
+                { "students.svvNetId": svvNetId }, // Or nested within a 'students' array
+                { "studentDetails.svvNetId": svvNetId } // Or nested within 'studentDetails'
+            ]
+    };
     // Optional: Filter by currentApprover if not showing all
     if (!showAll && svvNetId) {
       facultyFilter.currentApprover = svvNetId;
@@ -421,7 +488,7 @@ router.get("/pending", async (req, res) => {
       PG2BForm.find(facultyFilter).sort({ createdAt: -1 }).lean(),
       R1Form.find(facultyFilter).sort({ createdAt: -1 }).lean(),
     ]);
-
+    
     // Tag with formType and format output
     const results = await Promise.all([
       ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1")),
@@ -767,6 +834,80 @@ router.get("/status-tracking/:id", async (req, res) => {
     console.error(`❌ Error fetching application for status tracking with ID ${id}:`, error);
     res.status(500).json({ message: "Server error while fetching application for status tracking." });
   }
+});
+
+// NEW Route: Fetch applications based on role and optional status
+router.get("/applications-by-role", protect, async (req, res) => {
+    try {
+        const user = req.user; // User object from protect middleware
+        const statusParam = req.query.status; // Optional status filter from query (e.g., 'pending', 'accepted', 'rejected')
+
+        if (!user) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+
+        // Initialize status filter based on query parameter
+        let statusFilter = {};
+        if (statusParam) {
+            const lowerStatus = statusParam.toLowerCase();
+            if (lowerStatus === 'pending') {
+                statusFilter = { status: /^pending$/i };
+            } else if (lowerStatus === 'accepted') {
+                statusFilter = { status: { $in: [/^approved$/i, /^accepted$/i] } };
+            } else if (lowerStatus === 'rejected') {
+                statusFilter = { status: /^rejected$/i };
+            } else {
+                // If status param is invalid, or if 'all' is explicitly requested, no status filter
+                // For this route, if statusParam is provided but invalid, we ignore it.
+                // If no statusParam, it means fetch all statuses for the role.
+            }
+        }
+
+        // Build the final query based on user role and the determined status filter
+        const finalQuery = buildRoleBasedFilter(user, statusFilter);
+
+        // For student role, this route should not be used.
+        // Students should use /all-by-svvnetid.
+        if (user.role === 'student') {
+            return res.status(403).json({ message: "Students should use the /all-by-svvnetid endpoint." });
+        }
+
+        const [
+            ug1Forms,
+            ug2Forms,
+            ug3aForms,
+            ug3bForms,
+            pg1Forms,
+            pg2aForms,
+            pg2bForms,
+            r1Forms,
+        ] = await Promise.all([
+            UG1Form.find(finalQuery).sort({ createdAt: -1 }).lean(),
+            UGForm2.find(finalQuery).sort({ createdAt: -1 }).lean(),
+            UG3AForm.find(finalQuery).sort({ createdAt: -1 }).lean(),
+            UG3BForm.find(finalQuery).sort({ createdAt: -1 }).lean(),
+            PG1Form.find(finalQuery).sort({ createdAt: -1 }).lean(),
+            PG2AForm.find(finalQuery).sort({ createdAt: -1 }).lean(),
+            PG2BForm.find(finalQuery).sort({ createdAt: -1 }).lean(),
+            R1Form.find(finalQuery).sort({ createdAt: -1 }).lean(),
+        ]);
+
+        const results = await Promise.all([
+            ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1", user?.branch)),
+            ...ug2Forms.map((f) => processFormForDisplay(f, "UG_2", user?.branch)),
+            ...ug3aForms.map((f) => processFormForDisplay(f, "UG_3_A", user?.branch)),
+            ...ug3bForms.map((f) => processFormForDisplay(f, "UG_3_B", user?.branch)),
+            ...pg1Forms.map((f) => processFormForDisplay(f, "PG_1", user?.branch)),
+            ...pg2aForms.map((f) => processFormForDisplay(f, "PG_2_A", user?.branch)),
+            ...pg2bForms.map((f) => processFormForDisplay(f, "PG_2_B", user?.branch)),
+            ...r1Forms.map((f) => processFormForDisplay(f, "R1", user?.branch)),
+        ]);
+
+        res.json(results);
+    } catch (error) {
+        console.error("❌ Error in /facapplication/applications-by-role:", error);
+        res.status(500).json({ message: "Server error" });
+    }
 });
 
 router.post("/view/ug1", async (req, res) => {
@@ -1137,49 +1278,62 @@ router.post("/form/instCoordDashboard", async (req, res) => {
   }
 });
 
-router.post("/form/hodDashboard", async (req, res) => { // Changed to POST request
-  try {
-    // Fetch all forms from each collection
-    const [
-      ug1Forms,
-      ug2Forms,
-      ug3aForms,
-      ug3bForms,
-      pg1Forms,
-      pg2aForms,
-      pg2bForms,
-      r1Forms,
-    ] = await Promise.all([
-      UG1Form.find().sort({ createdAt: -1 }).lean(),
-      UGForm2.find().sort({ createdAt: -1 }).lean(),
-      UG3AForm.find().sort({ createdAt: -1 }).lean(),
-      UG3BForm.find().sort({ createdAt: -1 }).lean(),
-      PG1Form.find().sort({ createdAt: -1 }).lean(),
-      PG2AForm.find().sort({ createdAt: -1 }).lean(),
-      PG2BForm.find().sort({ createdAt: -1 }).lean(),
-      R1Form.find().sort({ createdAt: -1 }).lean(),
-    ]);
+router.post("/form/hodDashboard", protect, async (req, res) => { // Added protect middleware
+    try {
+        const user = req.user; // Get user from protect middleware
 
-    // Process forms for display, assuming processFormForDisplay is available
-    // This function should add 'topic', 'id' (applicant's roll no), 'submitted' (date), etc.
-    const results = await Promise.all([
-      ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1")),
-      ...ug2Forms.map((f) => processFormForDisplay(f, "UG_2")),
-      ...ug3aForms.map((f) => processFormForDisplay(f, "UG_3_A")),
-      ...ug3bForms.map((f) => processFormForDisplay(f, "UG_3_B")),
-      ...pg1Forms.map((f) => processFormForDisplay(f, "PG_1")),
-      ...pg2aForms.map((f) => processFormForDisplay(f, "PG_2_A")),
-      ...pg2bForms.map((f) => processFormForDisplay(f, "PG_2_B")),
-      ...r1Forms.map((f) => processFormForDisplay(f, "R1")),
-    ]);
+        if (!user) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
 
-    console.log("✅ Total Applications fetched for HOD", results.length);
-    return res.json(results);
+        // Check if the user is a 'dept_coordinator' or 'hod' and has a branch
+        if (!['dept_coordinator', 'hod'].includes(user.role) || !user.branch) {
+             console.warn(`Attempted access to HOD dashboard by non-dept_coordinator/hod or user without branch: Role=${user.role}, Branch=${user.branch}`);
+             return res.status(403).json({ message: "Access denied. Only Department Coordinators or HODs with a specified branch can view this dashboard." });
+        }
+        // Build a filter specifically for the HOD (dept_coordinator/hod)
+        // The buildRoleBasedFilter will add the branch filter if user.role is 'dept_coordinator' or 'hod'
+        const hodFilter = buildRoleBasedFilter(user, {}); // No initial status filter, as HOD sees all statuses in their branch
+        // Fetch all forms from each collection with the HOD's branch filter
+        const [
+            ug1Forms,
+            ug2Forms,
+            ug3aForms,
+            ug3bForms,
+            pg1Forms,
+            pg2aForms,
+            pg2bForms,
+            r1Forms,
+        ] = await Promise.all([
+            UG1Form.find(hodFilter).sort({ createdAt: -1 }).lean(),
+            UGForm2.find(hodFilter).sort({ createdAt: -1 }).lean(),
+            UG3AForm.find(hodFilter).sort({ createdAt: -1 }).lean(),
+            UG3BForm.find(hodFilter).sort({ createdAt: -1 }).lean(),
+            PG1Form.find(hodFilter).sort({ createdAt: -1 }).lean(),
+            PG2AForm.find(hodFilter).sort({ createdAt: -1 }).lean(),
+            PG2BForm.find(hodFilter).sort({ createdAt: -1 }).lean(),
+            R1Form.find(hodFilter).sort({ createdAt: -1 }).lean(),
+        ]);
 
-  } catch (error) {
-    console.error("❌ Error in /form/hodDashboard", error);
-    return res.status(500).json({ message: "Server error while fetching applications for HOD" });
-  }
+        // Process forms for display, assuming processFormForDisplay is available
+        const results = await Promise.all([
+            ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1", user.branch)), // Pass user.branch to processFormForDisplay
+            ...ug2Forms.map((f) => processFormForDisplay(f, "UG_2", user.branch)),
+            ...ug3aForms.map((f) => processFormForDisplay(f, "UG_3_A", user.branch)),
+            ...ug3bForms.map((f) => processFormForDisplay(f, "UG_3_B", user.branch)),
+            ...pg1Forms.map((f) => processFormForDisplay(f, "PG_1", user.branch)),
+            ...pg2aForms.map((f) => processFormForDisplay(f, "PG_2_A", user.branch)),
+            ...pg2bForms.map((f) => processFormForDisplay(f, "PG_2_B", user.branch)),
+            ...r1Forms.map((f) => processFormForDisplay(f, "R1", user.branch)),
+        ]);
+
+        console.log("✅ Total Applications fetched for HOD", results.length);
+        return res.json(results);
+
+    } catch (error) {
+        console.error("❌ Error in /form/hodDashboard", error);
+        return res.status(500).json({ message: "Server error" });
+    }
 });
 
 router.get("/principal/applications", async (req, res) => { // Changed to GET request as per frontend
