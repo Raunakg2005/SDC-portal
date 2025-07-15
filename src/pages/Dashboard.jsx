@@ -12,6 +12,22 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   /**
+   * Helper function to get the branch from various possible locations in an application object.
+   * This provides a more robust display on the frontend by prioritizing nested student branch.
+   * @param {Object} app The application object.
+   * @returns {string} The branch name or 'N/A' if not found.
+   */
+  const getBranchForDisplay = (app) => {
+    return (
+      app.students?.[0]?.branch || // Prioritize nested in students array
+      app.studentDetails?.[0]?.branch || // Prioritize nested in studentDetails array
+      app.branch || // Fallback to top-level 'branch' field
+      app.department || // Fallback to 'department' field
+      "N/A"
+    );
+  };
+
+  /**
    * Fetches applications based on the current user's role.
    * Consolidates them into a single list for display.
    */
@@ -29,14 +45,17 @@ const Dashboard = () => {
         throw new Error("User data not available. Please log in.");
       }
 
-      // Normalize the user role for consistent matching
-      const normalizedRole = user.role ? String(user.role).toLowerCase().trim() : '';
-      console.log("fetchApplications - Original Role:", user.role, "Normalized Role:", normalizedRole); // Added for debugging
+      // Keep original role for logging to see what's coming from localStorage
+      const originalRole = user.role;
+      // Normalize the user role for consistent matching: lowercase, trim, replace spaces with underscores
+      const normalizedRole = originalRole ? String(originalRole).toLowerCase().trim().replace(/\s+/g, '_') : '';
+
+      console.log("fetchApplications - Original Role from user object:", originalRole, "Normalized Role:", normalizedRole);
 
       // Base URL for API calls
       const baseURL = "http://localhost:5000/api/facapplication";
 
-      switch (normalizedRole) { // Use normalizedRole here
+      switch (normalizedRole) {
         case 'student':
           // Students fetch all their applications from a single endpoint
           const studentRes = await fetch(`${baseURL}/all-by-svvnetid?svvNetId=${user.svvNetId}`, { headers });
@@ -47,33 +66,20 @@ const Dashboard = () => {
         case 'faculty':
         case 'validator':
         case 'dept_coordinator':
+        case 'department_coordinator': // Explicitly handle both forms
+        case 'hod': // Added case for 'hod' role
         case 'institute_coordinator':
         case 'admin':
-          // These roles fetch from pending, accepted, and rejected endpoints
+          // These roles now fetch from the new /applications-by-role endpoint
           // The backend's buildRoleBasedFilter will handle the specific filtering for each role (e.g., by branch for dept_coordinator)
-          // 'all=true' can be used by admin/institute_coordinator to bypass status filter if needed,
-          // but for general dashboard view, we want to see all statuses, so we call each status endpoint.
-          const [pendingRes, acceptedRes, rejectedRes] = await Promise.all([
-            fetch(`${baseURL}/pending`, { headers }),
-            fetch(`${baseURL}/accepted`, { headers }),
-            fetch(`${baseURL}/rejected`, { headers }),
-          ]);
-
-          if (!pendingRes.ok) throw new Error(`HTTP error fetching pending apps! Status: ${pendingRes.status}`);
-          if (!acceptedRes.ok) throw new Error(`HTTP error fetching accepted apps! Status: ${acceptedRes.status}`);
-          if (!rejectedRes.ok) throw new Error(`HTTP error fetching rejected apps! Status: ${rejectedRes.status}`);
-
-          const [pendingData, acceptedData, rejectedData] = await Promise.all([
-            pendingRes.json(),
-            acceptedRes.json(),
-            rejectedRes.json(),
-          ]);
-
-          fetchedData = [...pendingData, ...acceptedData, ...rejectedData];
+          // By not providing a 'status' query param, this route will return all applications for the given role.
+          const roleBasedRes = await fetch(`${baseURL}/applications-by-role`, { headers });
+          if (!roleBasedRes.ok) throw new Error(`HTTP error fetching role-based apps! Status: ${roleBasedRes.status}`);
+          fetchedData = await roleBasedRes.json();
           break;
 
         default:
-          console.warn("Unknown user role in fetchApplications switch:", user.role);
+          console.warn("Unknown user role in fetchApplications switch:", originalRole); // Log the original role that caused the issue
           setError("Unknown user role. Cannot fetch applications.");
           setLoading(false);
           return;
@@ -102,6 +108,7 @@ const Dashboard = () => {
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser);
+        console.log("useEffect - Raw user role from localStorage:", user.role); // New console log
         setCurrentUser(user);
         fetchApplications(user); // Call fetchApplications with the user object
       } catch (e) {
@@ -132,9 +139,12 @@ const Dashboard = () => {
 
   // Dynamic content based on user role
   const getDashboardContent = (role) => {
-    // Normalize the role string for consistent matching
-    const normalizedRole = role ? String(role).toLowerCase().trim() : '';
-    console.log("getDashboardContent - Original Role:", role, "Normalized Role:", normalizedRole); // Added for debugging
+    // Handle cases where 'role' might be undefined initially
+    const originalRole = role;
+    // Normalize the role string for consistent matching: lowercase, trim, replace spaces with underscores
+    const normalizedRole = originalRole ? String(originalRole).toLowerCase().trim().replace(/\s+/g, '_') : '';
+
+    console.log("getDashboardContent - Original Role:", originalRole, "Normalized Role:", normalizedRole);
 
     switch (normalizedRole) {
       case 'student':
@@ -153,6 +163,8 @@ const Dashboard = () => {
           description: "Overview of all applications awaiting validation or review.",
         };
       case 'dept_coordinator':
+      case 'department_coordinator': // Explicitly handle both forms
+      case 'hod': // Added case for 'hod' role
         return {
           title: `Department Coordinator Dashboard (${currentUser?.branch || 'N/A'})`,
           description: `Overview of applications for the ${currentUser?.branch || 'your'} department.`,
@@ -168,7 +180,7 @@ const Dashboard = () => {
           description: "Full administrative overview of all applications.",
         };
       default:
-        console.warn("Unknown or unhandled user role in getDashboardContent switch:", role); // Log the original role
+        console.warn("Unknown or unhandled user role in getDashboardContent switch:", originalRole); // Log the original role
         return {
           title: "Dashboard",
           description: "Welcome to your application dashboard.",
@@ -305,7 +317,7 @@ const Dashboard = () => {
                           hour12: true,
                         })}
                       </td>
-                      <td>{app.branch || 'N/A'}</td>
+                      <td>{getBranchForDisplay(app)}</td> {/* Using the new helper function */}
                       <td>
                         <span className={`status-badge ${app.status?.toLowerCase()}`}>
                           {app.status || 'N/A'}

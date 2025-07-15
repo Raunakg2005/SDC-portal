@@ -16,7 +16,25 @@ const HodDashboard = () => {
       try {
         setLoading(true);
         setError(null); // Clear any previous errors before a new fetch
-        const response = await axios.post("http://localhost:5000/api/facapplication/form/hodDashboard", {});
+
+        // Retrieve the token from localStorage
+        const token = localStorage.getItem('token');
+        if (!token) {
+          // If no token is found, redirect to login or show an error
+          setError("Authentication token not found. Please log in.");
+          setLoading(false);
+          navigate('/'); // Redirect to login page
+          return;
+        }
+
+        // Include the token in the request headers
+        const config = {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        };
+
+        const response = await axios.post("http://localhost:5000/api/facapplication/form/hodDashboard", {}, config); // Pass config here
 
         // Process the data received from the backend
         const allApps = response.data.map((app) => ({
@@ -32,6 +50,10 @@ const HodDashboard = () => {
         // Handle errors during the API call
         setError("Failed to fetch applications. Please try again.");
         console.error("Error fetching applications:", err);
+        // If it's a 401 or 403 error, redirect to login
+        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+          navigate('/');
+        }
       } finally {
         // Always set loading to false when the fetch operation completes
         setLoading(false);
@@ -40,7 +62,7 @@ const HodDashboard = () => {
 
     // Call the fetch function when the component mounts
     fetchApplications();
-  }, []); // Empty dependency array means this effect runs once after initial render
+  }, [navigate]); // Empty dependency array means this effect runs once after initial render
 
   const getRollNumber = (app) => {
     return (
@@ -48,6 +70,16 @@ const HodDashboard = () => {
       app.rollNo ||
       app.students?.[0]?.rollNo ||
       app.studentDetails?.[0]?.rollNumber ||
+      "N/A"
+    );
+  };
+
+  const getBranchForDisplay = (app) => {
+    return (
+      app.students?.[0]?.branch || // Prioritize nested in students array
+      app.studentDetails?.[0]?.branch || // Prioritize nested in studentDetails array
+      app.branch || // Fallback to top-level 'branch' field
+      app.department || // Fallback to 'department' field
       "N/A"
     );
   };
@@ -90,6 +122,7 @@ const HodDashboard = () => {
                     <th>Form</th>
                     <th>Applicant’s Roll No.</th>
                     <th>Application Date</th>
+                    <th>Branch</th> {/* Added Branch Header */}
                     <th>Status</th>
                     <th>Validator ID</th>
                     <th>Action</th>
@@ -102,13 +135,14 @@ const HodDashboard = () => {
                         <td>{app.topic || 'N/A'}</td> {/* Add fallback for display */}
                         <td>{getRollNumber(app)}</td>
                         <td>{new Date(app.submitted).toLocaleString('en-GB', {
-                                      day: '2-digit',
-                                      month: 'short',
-                                      year: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      hour12: true // Use AM/PM format
-                              })}</td>
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true // Use AM/PM format
+                                })}</td>
+                        <td>{getBranchForDisplay(app)}</td> {/* Added Branch Data */}
                         {/* Ensure app.status is a string for className, or provide fallback */}
                         <td className={`status ${app.status ? app.status.toLowerCase() : ''}`}>
                           {app.status || 'N/A'}
@@ -126,7 +160,7 @@ const HodDashboard = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6">No Applications Found</td>
+                      <td colSpan="7">No Applications Found</td> {/* Updated colspan */}
                     </tr>
                   )}
                 </tbody>

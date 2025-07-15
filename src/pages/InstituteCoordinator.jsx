@@ -153,6 +153,7 @@ const InstCoordDash = () => {
             <table className="app-table">
               <thead>
                 <tr>
+                  <th>Sr.No</th>
                   <th>Form</th>
                   <th>Applicant’s Roll No.</th>
                   <th>Application Date</th>
@@ -164,6 +165,7 @@ const InstCoordDash = () => {
                 {applications.length > 0 ? (
                   applications.map((app, index) => (
                     <tr key={index}>
+                      <td>{index + 1}</td> 
                       <td>{app.topic}</td>
                       <td>{getRollNumber(app)}</td>
                       <td>{new Date(app.submitted).toLocaleString('en-GB', {
