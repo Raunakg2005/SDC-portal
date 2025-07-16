@@ -25,14 +25,37 @@ const InstCoordDash = () => {
     setError(null); // Clear any previous errors
 
     try {
-      // Make a POST request to your backend endpoint
-      const response = await axios.post("http://localhost:5000/api/facapplication/form/instCoordDashboard");
+      const token = localStorage.getItem('token');
+      const userString = localStorage.getItem('user');
+
+      if (!token || !userString) {
+        setError("Authentication token or user data not found. Please log in.");
+        setLoading(false);
+        navigate('/'); // Redirect to login page
+        return;
+      }
+
+      const user = JSON.parse(userString);
+      setCurrentUser(user); // Set current user for display purposes
+
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      };
+
+      // Make a POST request to your backend endpoint, including the authorization header
+      const response = await axios.post("http://localhost:5000/api/facapplication/form/instCoordDashboard", {}, config); // Pass config here
+      
       // Assuming the backend returns an array of applications directly
       setApplications(response.data);
     } catch (err) {
       console.error("Error fetching applications for Institute Coordinator Dashboard:", err);
       // Check if err.response exists for more detailed error from backend
       setError(err.response?.data?.message || "Failed to load applications. Please try again later.");
+      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+        navigate('/'); // Redirect to login page on auth errors
+      }
     } finally {
       setLoading(false); // Set loading to false after fetching (whether success or error)
     }

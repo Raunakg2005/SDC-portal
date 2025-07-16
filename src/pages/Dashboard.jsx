@@ -8,7 +8,7 @@ const Dashboard = () => {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null); // Initialize as null
   const navigate = useNavigate();
 
   /**
@@ -45,19 +45,15 @@ const Dashboard = () => {
         throw new Error("User data not available. Please log in.");
       }
 
-      // Keep original role for logging to see what's coming from localStorage
       const originalRole = user.role;
-      // Normalize the user role for consistent matching: lowercase, trim, replace spaces with underscores
       const normalizedRole = originalRole ? String(originalRole).toLowerCase().trim().replace(/\s+/g, '_') : '';
 
       console.log("fetchApplications - Original Role from user object:", originalRole, "Normalized Role:", normalizedRole);
 
-      // Base URL for API calls
       const baseURL = "http://localhost:5000/api/facapplication";
 
       switch (normalizedRole) {
         case 'student':
-          // Students fetch all their applications from a single endpoint
           const studentRes = await fetch(`${baseURL}/all-by-svvnetid?svvNetId=${user.svvNetId}`, { headers });
           if (!studentRes.ok) throw new Error(`HTTP error fetching student apps! Status: ${studentRes.status}`);
           fetchedData = await studentRes.json();
@@ -66,20 +62,16 @@ const Dashboard = () => {
         case 'faculty':
         case 'validator':
         case 'dept_coordinator':
-        case 'department_coordinator': // Explicitly handle both forms
-        case 'hod': // Added case for 'hod' role
+        case 'department_coordinator':
+        case 'hod':
         case 'institute_coordinator':
         case 'admin':
-          // These roles now fetch from the new /applications-by-role endpoint
-          // The backend's buildRoleBasedFilter will handle the specific filtering for each role (e.g., by branch for dept_coordinator)
-          // By not providing a 'status' query param, this route will return all applications for the given role.
           const roleBasedRes = await fetch(`${baseURL}/applications-by-role`, { headers });
           if (!roleBasedRes.ok) throw new Error(`HTTP error fetching role-based apps! Status: ${roleBasedRes.status}`);
           fetchedData = await roleBasedRes.json();
           break;
-
         default:
-          console.warn("Unknown user role in fetchApplications switch:", originalRole); // Log the original role that caused the issue
+          console.warn("Unknown user role in fetchApplications switch:", originalRole);
           setError("Unknown user role. Cannot fetch applications.");
           setLoading(false);
           return;
@@ -87,7 +79,6 @@ const Dashboard = () => {
 
       console.log("Applications fetched:", fetchedData);
 
-      // Sort applications by submission date, newest first
       fetchedData.sort((a, b) => new Date(b.submitted) - new Date(a.submitted));
       setApplications(fetchedData);
 
@@ -95,7 +86,6 @@ const Dashboard = () => {
       console.error("Error fetching applications:", err);
       setError(err.message);
       if (err.message.includes('401') || err.message.includes('403') || err.message.includes('User data not available')) {
-        // Redirect to login if unauthorized/forbidden or user data is missing
         navigate('/');
       }
     } finally {
@@ -107,10 +97,22 @@ const Dashboard = () => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
-        const user = JSON.parse(storedUser);
-        console.log("useEffect - Raw user role from localStorage:", user.role); // New console log
-        setCurrentUser(user);
-        fetchApplications(user); // Call fetchApplications with the user object
+        let user = JSON.parse(storedUser); // Use 'let' to allow reassignment
+        console.log("useEffect - Raw user object from localStorage:", user); // Log the full user object
+        
+        // Normalize role for internal checks
+        const normalizedRoleFromStorage = user.role ? String(user.role).toLowerCase().trim().replace(/\s+/g, '_') : '';
+
+        // Ensure branch is present for relevant roles if missing from localStorage
+        if ((normalizedRoleFromStorage === 'dept_coordinator' || normalizedRoleFromStorage === 'hod') && !user.branch) {
+            // Create a new object to ensure React detects the state change
+            user = { ...user, branch: 'COMPS' }; // Assign a default branch
+            console.warn("User branch missing in localStorage for coordinator/HOD. Assigned default 'COMPS' for display.");
+        }
+        
+        setCurrentUser(user); // Set currentUser state with the potentially updated user object
+        console.log("useEffect - currentUser set to:", user); // Verify immediately after setting
+        fetchApplications(user); // Fetch applications after user is set
       } catch (e) {
         console.error("Failed to parse user data from localStorage", e);
         setError("Error loading user data. Please log in again.");
@@ -122,26 +124,15 @@ const Dashboard = () => {
       setLoading(false);
       navigate('/');
     }
-  }, [navigate]); // navigate is a dependency
+  }, [navigate]);
 
   const handleViewClick = (id) => {
     navigate(`/status-tracking/${id}`);
   };
 
-  // --- Calculate Dashboard Statistics ---
-  const totalApplications = applications.length;
-  const pendingApplications = applications.filter(app => app.status?.toLowerCase() === 'pending').length;
-  const acceptedApplications = applications.filter(app => {
-    const statusLower = app.status?.toLowerCase();
-    return statusLower === 'accepted' || statusLower === 'approved';
-  }).length;
-  const rejectedApplications = applications.filter(app => app.status?.toLowerCase() === 'rejected').length;
-
   // Dynamic content based on user role
   const getDashboardContent = (role) => {
-    // Handle cases where 'role' might be undefined initially
     const originalRole = role;
-    // Normalize the role string for consistent matching: lowercase, trim, replace spaces with underscores
     const normalizedRole = originalRole ? String(originalRole).toLowerCase().trim().replace(/\s+/g, '_') : '';
 
     console.log("getDashboardContent - Original Role:", originalRole, "Normalized Role:", normalizedRole);
@@ -163,10 +154,11 @@ const Dashboard = () => {
           description: "Overview of all applications awaiting validation or review.",
         };
       case 'dept_coordinator':
-      case 'department_coordinator': // Explicitly handle both forms
-      case 'hod': // Added case for 'hod' role
+      case 'department_coordinator':
+      case 'hod':
         return {
-          title: `Department Coordinator Dashboard (${currentUser?.branch || 'N/A'})`,
+          // Conditionally include branch in title only if it exists
+          title: currentUser?.branch ? `Department Coordinator Dashboard (${currentUser.branch})` : "Department Coordinator Dashboard",
           description: `Overview of applications for the ${currentUser?.branch || 'your'} department.`,
         };
       case 'institute_coordinator':
@@ -180,7 +172,7 @@ const Dashboard = () => {
           description: "Full administrative overview of all applications.",
         };
       default:
-        console.warn("Unknown or unhandled user role in getDashboardContent switch:", originalRole); // Log the original role
+        console.warn("Unknown or unhandled user role in getDashboardContent switch:", originalRole);
         return {
           title: "Dashboard",
           description: "Welcome to your application dashboard.",
@@ -188,7 +180,22 @@ const Dashboard = () => {
     }
   };
 
-  const dashboardInfo = getDashboardContent(currentUser?.role);
+  // Calculate dashboard info only when currentUser is available
+  const dashboardInfo = currentUser ? getDashboardContent(currentUser.role) : {
+    title: "Loading Dashboard",
+    description: "Please wait while we load your information."
+  };
+
+  // --- Calculate Dashboard Statistics ---
+  // These calculations depend on 'applications' state, which is populated after fetch.
+  const totalApplications = applications.length;
+  const pendingApplications = applications.filter(app => app.status?.toLowerCase() === 'pending').length;
+  const acceptedApplications = applications.filter(app => {
+    const statusLower = app.status?.toLowerCase();
+    return statusLower === 'accepted' || statusLower === 'approved';
+  }).length;
+  const rejectedApplications = applications.filter(app => app.status?.toLowerCase() === 'rejected').length;
+
 
   if (loading) {
     return (
@@ -317,7 +324,7 @@ const Dashboard = () => {
                           hour12: true,
                         })}
                       </td>
-                      <td>{getBranchForDisplay(app)}</td> {/* Using the new helper function */}
+                      <td>{getBranchForDisplay(app)}</td>
                       <td>
                         <span className={`status-badge ${app.status?.toLowerCase()}`}>
                           {app.status || 'N/A'}
