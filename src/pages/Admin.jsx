@@ -43,11 +43,12 @@ const AdminDashboard = () => {
 
   const handleEdit = async (app) => {
     const newStatus = window.prompt("Enter new status: Approved / Rejected / Pending", app.status);
-    if (!newStatus || !["Approved", "Rejected", "Pending"].includes(newStatus)) {
-      alert("Invalid status. Use 'Approved', 'Rejected', or 'Pending'.");
+    const lowerCaseNewStatus = newStatus ? newStatus.toLowerCase() : '';
+
+    if (!lowerCaseNewStatus || !["approved", "rejected", "pending", "accepted", "reverted"].includes(lowerCaseNewStatus)) {
+      alert("Invalid status. Use 'Approved', 'Rejected', 'Pending', 'Accepted', or 'Reverted'.");
       return;
     }
-
     const newRemarks = window.prompt("Enter new remarks:", app.remarks || "");
     if (!newRemarks) {
       alert("Remarks required.");
@@ -56,7 +57,7 @@ const AdminDashboard = () => {
 
     try {
       await axios.patch(`http://localhost:5000/api/facapplication/${app._id}/update-status`, {
-        status: newStatus.toLowerCase(),
+        status: lowerCaseNewStatus, 
         remarks: newRemarks,
       });
 

@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import "../components/styles/dashboard.css"; // Ensure this CSS file contains styles for modal and status badges
+import axios from 'axios'; // Import axios for API calls
 
 const Dashboard = () => {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null); // Initialize as null
+  const [currentUser, setCurrentUser] = useState(null);
   const navigate = useNavigate();
 
   /**
@@ -54,22 +55,35 @@ const Dashboard = () => {
 
       switch (normalizedRole) {
         case 'student':
-          const studentRes = await fetch(`${baseURL}/all-by-svvnetid?svvNetId=${user.svvNetId}`, { headers });
-          if (!studentRes.ok) throw new Error(`HTTP error fetching student apps! Status: ${studentRes.status}`);
-          fetchedData = await studentRes.json();
+          // Student: Use the new /all-by-svvnetid route
+          if (user.svvNetId) {
+            const studentRes = await axios.get(`${baseURL}/all-by-svvnetid?svvNetId=${user.svvNetId}`, { headers });
+            fetchedData = studentRes.data;
+          } else {
+            throw new Error("Student SVVNetID not found.");
+          }
           break;
 
         case 'faculty':
         case 'validator':
-        case 'dept_coordinator':
-        case 'department_coordinator':
-        case 'hod':
         case 'institute_coordinator':
         case 'admin':
-          const roleBasedRes = await fetch(`${baseURL}/applications-by-role`, { headers });
-          if (!roleBasedRes.ok) throw new Error(`HTTP error fetching role-based apps! Status: ${roleBasedRes.status}`);
-          fetchedData = await roleBasedRes.json();
+        case 'principal':
+          // For these roles, use the /applications-by-role endpoint.
+          // The backend's `protect` middleware and `filterApplicationsByApprovalChain` will handle
+          // the specific filtering based on the `req.user` object.
+          const roleBasedRes = await axios.get(`${baseURL}/applications-by-role`, { headers });
+          fetchedData = roleBasedRes.data;
           break;
+
+        case 'department_coordinator': // Corrected case to match normalized role
+        case 'hod':
+          // For Department Coordinator and HOD, use the specific dashboard endpoint
+          // which already filters by branch and applies approval chain logic.
+          const deptCoordRes = await axios.get(`${baseURL}/form/deptCoordDashboard`, { headers });
+          fetchedData = deptCoordRes.data;
+          break;
+
         default:
           console.warn("Unknown user role in fetchApplications switch:", originalRole);
           setError("Unknown user role. Cannot fetch applications.");
@@ -84,8 +98,8 @@ const Dashboard = () => {
 
     } catch (err) {
       console.error("Error fetching applications:", err);
-      setError(err.message);
-      if (err.message.includes('401') || err.message.includes('403') || err.message.includes('User data not available')) {
+      setError(err.response?.data?.message || err.message); // Use err.message if no response data
+      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
         navigate('/');
       }
     } finally {
@@ -97,22 +111,19 @@ const Dashboard = () => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
-        let user = JSON.parse(storedUser); // Use 'let' to allow reassignment
-        console.log("useEffect - Raw user object from localStorage:", user); // Log the full user object
-        
-        // Normalize role for internal checks
+        let user = JSON.parse(storedUser);
+        console.log("useEffect - Raw user object from localStorage:", user);
+
         const normalizedRoleFromStorage = user.role ? String(user.role).toLowerCase().trim().replace(/\s+/g, '_') : '';
 
-        // Ensure branch is present for relevant roles if missing from localStorage
-        if ((normalizedRoleFromStorage === 'dept_coordinator' || normalizedRoleFromStorage === 'hod') && !user.branch) {
-            // Create a new object to ensure React detects the state change
-            user = { ...user, branch: 'COMPS' }; // Assign a default branch
+        if ((normalizedRoleFromStorage === 'department_coordinator' || normalizedRoleFromStorage === 'hod') && !user.branch) { // Corrected normalized role check
+            user = { ...user, branch: 'COMPS' }; // Assign a default branch if missing for these roles
             console.warn("User branch missing in localStorage for coordinator/HOD. Assigned default 'COMPS' for display.");
         }
         
-        setCurrentUser(user); // Set currentUser state with the potentially updated user object
-        console.log("useEffect - currentUser set to:", user); // Verify immediately after setting
-        fetchApplications(user); // Fetch applications after user is set
+        setCurrentUser(user);
+        console.log("useEffect - currentUser set to:", user);
+        fetchApplications(user);
       } catch (e) {
         console.error("Failed to parse user data from localStorage", e);
         setError("Error loading user data. Please log in again.");
@@ -153,9 +164,8 @@ const Dashboard = () => {
           title: "Validator Dashboard",
           description: "Overview of all applications awaiting validation or review.",
         };
-      case 'dept_coordinator':
-      case 'department_coordinator':
-      case 'hod':
+      case 'department_coordinator': // Corrected case to match normalized role
+      case 'hod': // Both HOD and Department Coordinator map to the same display logic
         return {
           // Conditionally include branch in title only if it exists
           title: currentUser?.branch ? `Department Coordinator Dashboard (${currentUser.branch})` : "Department Coordinator Dashboard",
@@ -170,6 +180,11 @@ const Dashboard = () => {
         return {
           title: "Admin Dashboard",
           description: "Full administrative overview of all applications.",
+        };
+      case 'principal':
+        return {
+          title: "Principal Dashboard",
+          description: "Overview of applications awaiting final approval across the institute.",
         };
       default:
         console.warn("Unknown or unhandled user role in getDashboardContent switch:", originalRole);
@@ -187,7 +202,6 @@ const Dashboard = () => {
   };
 
   // --- Calculate Dashboard Statistics ---
-  // These calculations depend on 'applications' state, which is populated after fetch.
   const totalApplications = applications.length;
   const pendingApplications = applications.filter(app => app.status?.toLowerCase() === 'pending').length;
   const acceptedApplications = applications.filter(app => {
@@ -324,7 +338,7 @@ const Dashboard = () => {
                           hour12: true,
                         })}
                       </td>
-                      <td>{getBranchForDisplay(app)}</td>
+                      <td>{app.branch || 'N/A'}</td>
                       <td>
                         <span className={`status-badge ${app.status?.toLowerCase()}`}>
                           {app.status || 'N/A'}

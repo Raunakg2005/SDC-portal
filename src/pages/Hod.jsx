@@ -8,24 +8,28 @@ import axios from "axios"; // Import axios
 const HodDashboard = () => {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true); // State for loading indicator
+  const [currentUser, setCurrentUser] = useState(null); // State to store current user info
   const [error, setError] = useState(null); // State for error handling
   const navigate = useNavigate();
 
-  useEffect(() => {
+   useEffect(() => {
     const fetchApplications = async () => {
       try {
         setLoading(true);
         setError(null); // Clear any previous errors before a new fetch
 
-        // Retrieve the token from localStorage
         const token = localStorage.getItem('token');
-        if (!token) {
-          // If no token is found, redirect to login or show an error
-          setError("Authentication token not found. Please log in.");
+        const userString = localStorage.getItem('user');
+
+        if (!token || !userString) {
+          setError("Authentication token or user data not found. Please log in.");
           setLoading(false);
           navigate('/'); // Redirect to login page
           return;
         }
+
+        const user = JSON.parse(userString);
+        setCurrentUser(user); // Set current user for display purposes
 
         // Include the token in the request headers
         const config = {
@@ -34,35 +38,31 @@ const HodDashboard = () => {
           }
         };
 
-        const response = await axios.post("http://localhost:5000/api/facapplication/form/hodDashboard", {}, config); // Pass config here
+        // Fetch applications using the /applications-by-role endpoint
+        // The backend will filter based on the HOD's role and approval chain logic
+        // CHANGED: From axios.post to axios.get to match backend route definition
+        const response = await axios.get("http://localhost:5000/api/facapplication/form/hodDashboard", config);
 
         // Process the data received from the backend
         const allApps = response.data.map((app) => ({
           ...app,
-          // 'status' is now expected to be a string (e.g., "Pending", "Approved", "Rejected")
-          // from the backend's processFormForDisplay function.
           status: app.status,
-          // Generate validatorId on frontend if backend doesn't provide it
-          validatorId: app.validatorId || generateValidatorID(),
+          validatorId: app.validatorId || 'N/A', // Assuming validatorId is set by backend or N/A
         }));
         setApplications(allApps);
       } catch (err) {
-        // Handle errors during the API call
         setError("Failed to fetch applications. Please try again.");
         console.error("Error fetching applications:", err);
-        // If it's a 401 or 403 error, redirect to login
         if (err.response && (err.response.status === 401 || err.response.status === 403)) {
           navigate('/');
         }
       } finally {
-        // Always set loading to false when the fetch operation completes
         setLoading(false);
       }
     };
 
-    // Call the fetch function when the component mounts
     fetchApplications();
-  }, [navigate]); // Empty dependency array means this effect runs once after initial render
+  }, [navigate]);
 
   const getRollNumber = (app) => {
     return (

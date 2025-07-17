@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from 'axios'; // Import axios for API calls
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
-import axios from 'axios'; // Import axios for API calls
 import "../style.css";
 
 const InstCoordDash = () => {
@@ -19,6 +19,23 @@ const InstCoordDash = () => {
   const [modalLoading, setModalLoading] = useState(false); // For submit button in modal
   const [modalError, setModalError] = useState(null);     // For displaying errors in modal
   const [currentUser, setCurrentUser] = useState(null); // State to store current user info
+
+  /**
+   * Helper function to get the branch from various possible locations in an application object.
+   * This provides a more robust display on the frontend by prioritizing nested student branch.
+   * @param {Object} app The application object.
+   * @returns {string} The branch name or 'N/A' if not found.
+   */
+  const getBranchForDisplay = (app) => {
+    return (
+      app.students?.[0]?.branch || // Prioritize nested in students array
+      app.studentDetails?.[0]?.branch || // Prioritize nested in studentDetails array
+      app.branch || // Fallback to top-level 'branch' field
+      app.department || // Fallback to 'department' field
+      "N/A"
+    );
+  };
+
   // Function to fetch applications
   const fetchApplications = async () => {
     setLoading(true); // Set loading to true before fetching
@@ -44,8 +61,9 @@ const InstCoordDash = () => {
         }
       };
 
-      // Make a POST request to your backend endpoint, including the authorization header
-      const response = await axios.post("http://localhost:5000/api/facapplication/form/instCoordDashboard", {}, config); // Pass config here
+      // Changed to axios.get as this is a data retrieval operation
+      // Using the /applications-by-role endpoint which is filtered by backend's approval chain logic
+      const response = await axios.get("http://localhost:5000/api/facapplication/applications-by-role", config); 
       
       // Assuming the backend returns an array of applications directly
       setApplications(response.data);
@@ -64,17 +82,7 @@ const InstCoordDash = () => {
   // useEffect hook to call fetchApplications when the component mounts
   useEffect(() => {
     fetchApplications();
-    const userString = localStorage.getItem('user'); // Or localStorage.getItem('token') and then decode it
-    if (userString) {
-      try {
-        const user = JSON.parse(userString);
-        setCurrentUser(user);
-      } catch (e) {
-        console.error("Failed to parse user data from localStorage", e);
-        // Handle cases where localStorage data is corrupted or not JSON
-      }
-    }
-  }, []); // Empty dependency array means this effect runs once on component mount
+  }, [navigate]); // Added navigate to dependency array as it's used inside fetchApplications
 
   // Handler for 'View' button click
   const handleViewClick = (id) => {
@@ -112,26 +120,30 @@ const InstCoordDash = () => {
     const actionName = currentAction === "approve" ? "Approve" : "Reject";
 
     try {
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      };
+
       // API call to update the application status and remarks in the database
-      const res = await axios.patch(`http://localhost:5000/api/facapplication/${currentAppId}/update-status`, {
+      await axios.patch(`http://localhost:5000/api/facapplication/${currentAppId}/status`, { // Changed to /status endpoint
         status: statusToSet,
         remarks: remarks.trim(),
         changedBy: currentUser.svvNetId, // Pass the SVVNetID of the current user
         changedByRole: currentUser.role // Pass the role of the current user
-      });
+      }, config); // Pass config here
 
-      const newList = applications.filter((app) => app._id !== currentAppId);
-      setApplications(newList);
-
-      setRemarks("");
-      setShowModal(false);
-      setCurrentAction(null);
-      setCurrentAppId(null);
+      // Refresh applications after successful update
+      fetchApplications();
+      handleModalClose(); // Close modal on success
 
     } catch (err) {
       console.error(`Error ${actionName} application:`, err);
       setModalError(`Failed to ${actionName} application: ${err.response?.data?.message || "Please try again."}`);
-      fetchApplications();
+      // No need to call fetchApplications here again, it's called in finally
     } finally {
       setModalLoading(false);
     }
@@ -172,66 +184,76 @@ const InstCoordDash = () => {
               </div>
             </div>
 
-            <h2 className="dashboard-title">Recents</h2>
-            <table className="app-table">
-              <thead>
-                <tr>
-                  <th>Sr.No</th>
-                  <th>Form</th>
-                  <th>Applicant’s Roll No.</th>
-                  <th>Application Date</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {applications.length > 0 ? (
-                  applications.map((app, index) => (
-                    <tr key={index}>
-                      <td>{index + 1}</td> 
-                      <td>{app.topic}</td>
-                      <td>{getRollNumber(app)}</td>
-                      <td>{new Date(app.submitted).toLocaleString('en-GB', {
-                                      day: '2-digit',
-                                      month: 'short',
-                                      year: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      hour12: true // Use AM/PM format
-                              })}</td>
-                      <td className={`status ${app.status.toLowerCase()}`}>
-                        {app.status}
-                      </td>
-                      <td>
-                        <button
-                          className="view-button"
-                          onClick={() => handleViewClick(app._id)}
-                        >
-                          View Form
-                        </button>
-                        {/* New Approve/Reject buttons */}
-                        <button
-                          className="approve-btn"
-                          onClick={() => handleActionClick("approve", app._id)}
-                        >
-                          Approve
-                        </button>
-                        <button
-                          className="reject-btn"
-                          onClick={() => handleActionClick("reject", app._id)}
-                        >
-                          Reject
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
+            <h2 className="dashboard-title">Applications Overview</h2>
+            {loading && <p>Loading applications...</p>}
+            {error && <p className="error-message">{error}</p>}
+            {!loading && !error && (
+              <table className="app-table">
+                <thead>
                   <tr>
-                    <td colSpan="6">No Applications Found</td>
+                    <th>Sr.No</th>
+                    <th>Form</th>
+                    <th>Applicant’s Roll No.</th>
+                    <th>Application Date</th>
+                    <th>Branch</th> {/* Added Branch column */}
+                    <th>Status</th>
+                    <th>Action</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {applications.length > 0 ? (
+                    applications.map((app, index) => (
+                      <tr key={index}>
+                        <td>{index + 1}</td> 
+                        <td>{app.topic || 'N/A'}</td>
+                        <td>{getRollNumber(app)}</td>
+                        <td>{new Date(app.submitted).toLocaleString('en-GB', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true
+                                })}</td>
+                        <td>{getBranchForDisplay(app)}</td> {/* Display Branch */}
+                        <td className={`status ${app.status ? app.status.toLowerCase() : ''}`}>
+                          {app.status || 'N/A'}
+                        </td>
+                        <td>
+                          <button
+                            className="view-button"
+                            onClick={() => handleViewClick(app._id)}
+                          >
+                            View Form
+                          </button>
+                          {/* Only show approve/reject if status is 'pending' for the current stage */}
+                          {(app.status?.toLowerCase() === 'pending') && (
+                            <>
+                              <button
+                                className="approve-btn"
+                                onClick={() => handleActionClick("approve", app._id)}
+                              >
+                                Approve
+                              </button>
+                              <button
+                                className="reject-btn"
+                                onClick={() => handleActionClick("reject", app._id)}
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="7">No Applications Found</td> {/* Updated colspan */}
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </main>
         </div>
       </div>
