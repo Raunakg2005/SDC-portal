@@ -527,11 +527,9 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
 
   // Helper function to render file display (adjust for your specific UI)
   const FilePreview = useCallback((fileInfo, type, index = null) => {
-    // Skip rendering if file is invalid in viewOnly student mode
-    if (viewOnly && isStudent && !fileInfo?.url && !fileInfo?.fileId && !fileInfo?.id && !(fileInfo?.file instanceof File)) {
-      return null;
+    if (!fileInfo || (!fileInfo.url && !fileInfo.fileId && !fileInfo.id && !(fileInfo.file instanceof File))) {
+       return null;
     }
-
     // Skip rendering if file is invalid in any mode
     if (!fileInfo || (!fileInfo.url && !fileInfo.fileId && !fileInfo.id && !(fileInfo.file instanceof File))) {
       return null;
@@ -592,23 +590,6 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
       </div>
     );
   }, [viewOnly, handleRemoveFile, isStudent]);
-
-  // Determine if the file uploads section should be visible for a student in viewOnly mode
-  const shouldShowFileUploadsForStudentInViewMode =
-    viewOnly && isStudent && (
-      (data?.uploadedImage?.id || files.image.url) ||
-      (data?.uploadedPdfs?.length > 0 || files.pdfs.length > 0) ||
-      (data?.uploadedZipFile?.fileId || data?.zipFile?.id || files.zipFile.url)
-    );
-
-  // Determine if the file uploads section should be visible in general (non-student or not viewOnly)
-  const shouldShowFileUploadsGenerally = !viewOnly || !isStudent;
-
-  // Final condition to render the entire section
-  if (!shouldShowFileUploadsGenerally && !shouldShowFileUploadsForStudentInViewMode) {
-    return null; // Hide the entire section if no files to show for a student in viewOnly
-  }
-
   return (
     <div className="form-container max-w-4xl mx-auto p-5 bg-gray-50 rounded-lg shadow-md">
       <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">Under Graduate Form 3A - Project Competition</h1>
@@ -1029,7 +1010,7 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
           />
         )}
         {/* File preview is visible ONLY if user is NOT a student OR user is a student and NOT in viewOnly mode */}
-        {(userRole !== 'student' || !viewOnly) && FilePreview(files.image, 'image')}
+        {FilePreview(files.image, 'image')}
         {validationErrors.image && <p className="error-message">{validationErrors.image}</p>}
       </div>
 
@@ -1047,7 +1028,7 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
             ref={pdfsInputRef}
           />
         )}
-        {files.pdfs.length > 0 && (userRole !== 'student' || !viewOnly) && (
+        {files.pdfs.length > 0 && (
           <div className="uploaded-files-list">
             <h4>Uploaded PDFs:</h4>
             <ul>
@@ -1075,7 +1056,7 @@ const UG3AForm = ({ data = null, viewOnly = false }) => {
             ref={zipFileInputRef}
           />
         )}
-        {(userRole !== 'student' || !viewOnly) && FilePreview(files.zipFile, 'zipFile')}
+        {FilePreview(files.zipFile, 'zipFile')}
         {validationErrors.zipFile && <p className="error-message">{validationErrors.zipFile}</p>}
       </div>
 

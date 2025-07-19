@@ -826,7 +826,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
               />
             )}
             {/* MODIFIED CONDITION HERE for Group Leader Signature */}
-            {(viewOnly && userRole !== 'student') && formData.groupLeaderSignature?.url ? (
+            {viewOnly && formData.groupLeaderSignature?.url ? (
               <a
                 href={formData.groupLeaderSignature.url}
                 target="_blank"
@@ -855,7 +855,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
               />
             )}
             {/* MODIFIED CONDITION HERE for Guide Signature */}
-            {(viewOnly && userRole !== 'student') && formData.guideSignature?.url ? (
+            {viewOnly && formData.guideSignature?.url ? (
               <a
                 href={formData.guideSignature.url}
                 target="_blank"
@@ -886,7 +886,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
             disabled={viewOnly || userRole !== 'student'}
           />
         )}
-        {formData.uploadedFiles.length > 0 && !(viewOnly && userRole === 'student') && (
+        {formData.uploadedFiles.length > 0  && (
           <div className="uploaded-files-list">
             <h4>Uploaded Files:</h4>
             <ul>
@@ -898,7 +898,7 @@ const UGForm2 = ({ viewOnly = false, data = null }) => {
                 return (
                   <li key={index}>
                     {/* MODIFIED CONDITION HERE for Uploaded Files */}
-                    {(viewOnly && userRole !== 'student') && file.url ? (
+                    {viewOnly && file.url ? (
                       <a
                         href={file.url}
                         target="_blank"

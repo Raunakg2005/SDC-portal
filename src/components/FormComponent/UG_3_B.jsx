@@ -800,9 +800,7 @@ const UG_3_B = ({ viewOnly = false, data = null }) => {
           <div className="mb-6 space-y-4">
             <div>
               <label className="block font-semibold mb-2">Attached Documents:</label>
-
-              {userRole !== 'student' ? (
-                <div className="bg-gray-100 p-3 rounded border space-y-2">
+              <div className="bg-gray-100 p-3 rounded border space-y-2">
 
                   {/* Paper Copy */}
                   {files.paperCopy && (
@@ -856,11 +854,6 @@ const UG_3_B = ({ viewOnly = false, data = null }) => {
                   )}
 
                 </div>
-              ) : (
-                <div className="bg-gray-100 p-3 rounded border">
-                  <p className="text-sm text-gray-600">Document previews are not available for students in read-only mode.</p>
-                </div>
-              )}
             </div>
           </div>
         )}
