@@ -11,6 +11,7 @@ import PG1Form from "../models/PG1Form.js";
 import PG2AForm from "../models/PG2AForm.js";
 import PG2BForm from "../models/PG2BForm.js";
 import R1Form from "../models/R1Form.js"; // Import R1Form
+import { sendEmail } from "../controllers/emailService.js";  
 
 const router = express.Router();
 const conn = mongoose.connection;
@@ -125,7 +126,6 @@ const hasApprovedByRoleInHistory = (form, roleToCheck) => {
 const buildRoleBasedFilter = (user, statusFilter = {}) => {
     let query = { ...statusFilter };
     const normalizedUserBranch = (user.branch || '').toLowerCase();
-
     if (['department_coordinator', 'hod'].includes(user.role)) {
         if (normalizedUserBranch) {
             // Instead of matching directly in DB, allow post-query filtering for branch case issues
@@ -141,11 +141,12 @@ const buildRoleBasedFilter = (user, statusFilter = {}) => {
 // Helper to normalize application branch from multiple possible locations
 const getNormalizedAppBranch = (app) => {
     return (
-        (app.branch || 
-         app.studentDetails?.[0]?.branch || 
-         app.students?.[0]?.branch || 
-         '').toLowerCase()
-    );
+        app.students?.[0]?.branch || 
+        app.studentDetails?.[0]?.branch || 
+        app.branch ||
+        app.department ||
+        ''
+    ).toLowerCase().trim();
 };
 
 // Helper to filter applications based on the role's approval chain
@@ -223,6 +224,7 @@ const filterApplicationsByApprovalChain = (applications, user) => {
         }
     });
 };
+
 /**
  * Helper: Fetches file details from GridFS and constructs its URL.
  * This function uses the 'gfsBucket' instance to query the 'uploads.files' collection
@@ -704,39 +706,45 @@ router.patch("/:id/update-status", async (req, res) => {
 
     try {
         let foundForm = null;
+        let formType = null; // ✅ ADD: Declare formType variable
+        let oldStatus = null; // ✅ MOVE: Declare oldStatus outside the loop
 
         for (const Model of allFormModels) {
             foundForm = await Model.findById(id);
             if (foundForm) {
-                const oldStatus = foundForm.status;
+                oldStatus = foundForm.status; // ✅ MOVE: Store old status here
+
+                // ✅ ADD: Determine form type based on model
+                if (Model === UG1Form) formType = "UG-1";
+                else if (Model === UGForm2) formType = "UG-2";
+                else if (Model === UG3AForm) formType = "UG-3A";
+                else if (Model === UG3BForm) formType = "UG-3B";
+                else if (Model === PG1Form) formType = "PG-1";
+                else if (Model === PG2AForm) formType = "PG-2A";
+                else if (Model === PG2BForm) formType = "PG-2B";
+                else if (Model === R1Form) formType = "R-1";
 
                 foundForm.status = status;
-                // This updates the top-level 'remarks' field on the form document itself
                 foundForm.remarks = remarks; 
 
                 if (foundForm.schema.paths.statusHistory) {
                     const newStatusEntry = {
                         status: status,
-                        date: new Date(), // Changed from 'timestamp' to 'date' to match schema
+                        date: new Date(),
                     };
 
-                    // Use 'remark' (singular) to match schema field name
-                    // Explicitly set to empty string if no remarks are provided from frontend
                     if (remarks !== undefined && remarks !== null) {
                         newStatusEntry.remark = remarks; 
                     } else {
-                        newStatusEntry.remark = ""; // Ensure 'remark' field is always present
+                        newStatusEntry.remark = "";
                     }
 
-                    // Use 'changedBy' to match schema field name
-                    // Frontend logs confirmed these are present, add fallback just in case
                     if (changedBy) { 
                         newStatusEntry.changedBy = changedBy;
                     } else {
                         newStatusEntry.changedBy = "System"; 
                     }
 
-                    // Use 'changedByRole' to match schema field name
                     if (changedByRole) { 
                         newStatusEntry.changedByRole = changedByRole;
                     } else {
@@ -757,13 +765,86 @@ router.patch("/:id/update-status", async (req, res) => {
             return res.status(404).json({ message: "Application not found in any collection." });
         }
 
+        // ✅ ADD: Safety check for formType
+        if (!formType) {
+            formType = "Unknown Form";
+            console.warn(`Could not determine form type for ID: ${foundForm._id}`);
+        }
+
+        // **✅ SEND EMAIL NOTIFICATION**
+        if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
+            try {
+                // Determine student email
+                const studentEmail = foundForm.svvNetId?.includes('@') 
+                    ? foundForm.svvNetId 
+                    : `${foundForm.svvNetId}@somaiya.edu`;
+
+                // Get project/form title
+                const projectTitle = foundForm.projectTitle || 
+                                   foundForm.paperTitle || 
+                                   foundForm.sttpTitle || 
+                                   foundForm.topic || 
+                                   "Your Application";
+
+                // Create email subject
+                const subject = `${formType} Form Status Update - ${projectTitle}`;
+
+                // Create HTML email content
+                const htmlContent = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                    <h2 style="color: #2c5aa0; text-align: center; margin-bottom: 20px;">
+                        ${formType} Form Status Updated
+                    </h2>
+                    
+                    <p style="font-size: 16px; color: #333;">Dear Student,</p>
+                    
+                    <p style="font-size: 14px; color: #555; line-height: 1.6;">
+                        Your ${formType} form for <strong>"${projectTitle}"</strong> has been reviewed and updated.
+                    </p>
+                    
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>Application ID:</strong> ${foundForm._id}</p>
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>Previous Status:</strong> ${oldStatus || 'N/A'}</p>
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>New Status:</strong> <span style="color: ${status === 'approved' ? '#28a745' : status === 'rejected' ? '#dc3545' : '#ffc107'}; font-weight: bold; text-transform: capitalize;">${status}</span></p>
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>Reviewed By:</strong> ${changedBy || 'System'} (${changedByRole || 'N/A'})</p>
+                        ${remarks ? `<p style="margin: 5px 0; font-size: 14px;"><strong>Remarks:</strong> ${remarks}</p>` : ''}
+                    </div>
+                    
+                    <p style="font-size: 14px; color: #555; line-height: 1.6;">
+                        Please log in to the <strong>SDC Portal</strong> to view the complete details and take any required action.
+                    </p>
+                    
+                    <div style="text-align: center; margin: 20px 0;">
+                        <a href="${process.env.FRONTEND_URL || 'https://your-portal-url.com'}" 
+                           style="background-color: #2c5aa0; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                            View in Portal
+                        </a>
+                    </div>
+                    
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                    
+                    <p style="color: #666; font-size: 12px; text-align: center;">
+                        This is an automated notification from the Somaiya University SDC Portal.<br>
+                        Please do not reply to this email.
+                    </p>
+                </div>`;
+
+                await sendEmail(studentEmail, subject, htmlContent);
+                console.log(`[EMAIL] ✅ Status update email SENT to ${studentEmail} for ${formType} form (ID: ${foundForm._id})`);
+
+            } catch (emailError) {
+                console.error(`[EMAIL] ❌ Failed to send status update email for ${formType} form (ID: ${foundForm._id}):`, emailError);
+                // Don't fail the status update if email fails
+            }
+        } else {
+            console.log(`[EMAIL] ⚠️ Email notifications are DISABLED. No email sent for ${formType} status update (ID: ${foundForm._id})`);
+        }
+
         await foundForm.save();
-
         console.log(`✅ Application ${id} updated to status: ${status} with remarks: "${remarks}"`);
-
         res.status(200).json({
             message: "Application status updated successfully.",
-            updatedApplication: processFormForDisplay(foundForm, foundForm.formType)
+            updatedApplication: await processFormForDisplay(foundForm, formType) // ✅ FIX: Use formType instead of foundForm.formType
         });
     } catch (error) {
         console.error("❌ Server error during status update:", error);
@@ -932,10 +1013,8 @@ router.get("/all-by-svvnetid", async (req, res) => {
 
 // Existing Route: Get single application by ID
 // This route is typically used for `StatusTracking.jsx` and `ApplicationDetails.jsx`
-router.get("/status-tracking/:id", protect, async (req, res) => { // Added protect middleware
+router.get("/status-tracking/:id", protect, async (req, res) => {
     const { id } = req.params;
-    // Removed { userBranch } from req.query as it's redundant with req.user.branch
-    // const { userBranch } = req.query; 
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ message: "Invalid application ID." });
@@ -948,7 +1027,6 @@ router.get("/status-tracking/:id", protect, async (req, res) => { // Added prote
     for (const Model of formModels) {
         foundApplication = await Model.findById(id).lean();
         if (foundApplication) {
-            // Determine the formType
             if (Model === UG1Form) formType = "UG_1";
             else if (Model === UGForm2) formType = "UG_2";
             else if (Model === UG3AForm) formType = "UG_3_A";
@@ -966,48 +1044,55 @@ router.get("/status-tracking/:id", protect, async (req, res) => { // Added prote
     }
 
     try {
-        const user = req.user; // Get user from protect middleware
+        const user = req.user;
         let authorized = false;
+        const appBranch = foundApplication.students?.[0]?.branch ||
+                          foundApplication.studentDetails?.[0]?.branch ||
+                          foundApplication.branch ||
+                          foundApplication.department;
 
-        // Extract the branch from the found application using robust logic
-        // This is crucial because foundApplication.branch might be undefined directly
-        const appBranchForAuth = foundApplication.students?.[0]?.branch || 
-                                 foundApplication.studentDetails?.[0]?.branch || 
-                                 foundApplication.branch || 
-                                 foundApplication.department; // No "N/A" here, keep it null/undefined if not found for comparison
+        const normalizeBranch = (branch) => {
+          const map = {
+              'comp': 'comps',
+              'comps': 'comps',
+              'computer': 'comps',
+              'it': 'it',
+              'entc': 'entc',
+              // add more as needed
+          };
+          return map[branch?.toLowerCase().trim()] || branch?.toLowerCase().trim();
+        };
+        const normalizedAppBranch = normalizeBranch(appBranch);
+        const normalizedUserBranch = normalizeBranch(user.branch);  
 
-        // --- DEBUGGING LOGS START ---
-        console.log(`DEBUG (status-tracking): User Role: '${user.role}'`);
-        console.log(`DEBUG (status-tracking): User Branch: '${user.branch}'`);
-        console.log(`DEBUG (status-tracking): Found Application Branch (extracted for auth): '${appBranchForAuth}'`);
-        console.log(`DEBUG (status-tracking): Is User Admin/InstCoord/Faculty/Validator/Principal? ${user.role === 'admin' || user.role === 'institute_coordinator' || user.role === 'faculty' || user.role === 'validator' || user.role === 'principal'}`);
-        console.log(`DEBUG (status-tracking): Is User Student and own app? ${user.role === 'student' && foundApplication.svvNetId === user.svvNetId}`);
-        console.log(`DEBUG (status-tracking): Is User Dept Coord and branch matches? ${user.role === 'department_coordinator' && appBranchForAuth === user.branch}`);
-        console.log(`DEBUG (status-tracking): Is User HOD and branch matches? ${user.role === 'hod' && appBranchForAuth === user.branch}`);
-        // --- DEBUGGING LOGS END ---
+        // Logs for debugging
+        console.log(`✅ User: ${user.svvNetId}, Role: ${user.role}, Branch: ${user.branch}`);
+        console.log(`✅ Application Branch: ${appBranch} -> Normalized: ${normalizedAppBranch}`);
+        console.log("🔍 Authorization checks:");
+        console.log(`  → Is Admin/etc: ${['admin', 'institute_coordinator', 'faculty', 'validator', 'principal'].includes(user.role)}`);
+        console.log(`  → Is Student and Own App: ${user.role === 'student' && foundApplication.svvNetId === user.svvNetId}`);
+        console.log(`  → Is Dept Coordinator, Branch Match: ${user.role === 'department_coordinator' && normalizedAppBranch === normalizedUserBranch}`);
+        console.log(`  → Is HOD, Branch Match: ${user.role === 'hod' && normalizedAppBranch === normalizedUserBranch}`);
 
-        if (user) {
-            if (user.role === 'admin' || user.role === 'institute_coordinator' || user.role === 'faculty' || user.role === 'validator' || user.role === 'principal') {
-                authorized = true; // Admins, Institute Coordinators, Faculty, Validators, and Principal can see all
-            } else if (user.role === 'student' && foundApplication.svvNetId === user.svvNetId) {
-                authorized = true; // Student can see their own application
-            } else if (user.role === 'department_coordinator' && appBranchForAuth === user.branch) { // Use extracted branch
-                authorized = true;
-            } else if (user.role === 'hod' && appBranchForAuth === user.branch) { // Use extracted branch
-                authorized = true;
-            }
+        if (
+            ['admin', 'institute_coordinator', 'faculty', 'validator', 'principal'].includes(user.role) ||
+            (user.role === 'student' && foundApplication.svvNetId === user.svvNetId) ||
+            (user.role === 'department_coordinator' && normalizedAppBranch === normalizedUserBranch) ||
+            (user.role === 'hod' && normalizedAppBranch === normalizedUserBranch)
+        ) {
+            authorized = true;
         }
 
         if (!authorized) {
             return res.status(403).json({ message: "Access denied. You do not have permission to view this application." });
         }
 
-        // Process the found application for display (this will also add the 'branch' field to the returned object)
         const processedApplication = await processFormForDisplay(foundApplication, formType, user?.branch);
-        res.status(200).json(processedApplication);
+        return res.status(200).json(processedApplication);
+
     } catch (error) {
         console.error(`❌ Error fetching application for status tracking with ID ${id}:`, error);
-        res.status(500).json({ message: "Server error while fetching application for status tracking." });
+        return res.status(500).json({ message: "Server error while fetching application for status tracking." });
     }
 });
 
@@ -1372,68 +1457,56 @@ router.post("/form/r1", async (req, res) => {
 // Updated route for Department Coordinator Dashboard
 router.get("/form/deptCoordDashboard", protect, async (req, res) => {
     try {
-        const user = req.user; // Get user from protect middleware
-
-        if (!user) {
-            return res.status(401).json({ message: "Authentication required." });
-        }
-
-        // --- DEBUGGING LOGS START ---
-        const currentRole = String(user.role).toLowerCase().trim().replace(/\s+/g, '_'); // Re-normalize just to be absolutely sure
-        console.log(`DEBUG: User role value (from req.user.role): '${user.role}'`);
-        console.log(`DEBUG: Re-normalized currentRole: '${currentRole}'`);
-        console.log(`DEBUG: User branch value: '${user.branch}'`);
-        // --- DEBUGGING LOGS END ---
-
-        // Check if the user is either 'department_coordinator' or 'hod' and has a branch
+        const user = req.user;
+        const currentRole = String(user.role).toLowerCase().replace(/\s+/g, '_');
         if (!['department_coordinator', 'hod'].includes(currentRole) || !user.branch) {
-            console.warn(`Attempted access to Department Coordinator dashboard by non-department_coordinator/hod or user without branch: Role=${user.role}, Branch=${user.branch}`);
-            return res.status(403).json({ message: "Access denied. Only Department Coordinators or HODs with a specified branch can view this dashboard." });
+            return res.status(403).json({ message: "Access denied." });
         }
 
-        // Build a filter specifically for the Department Coordinator based on branch
-        const deptCoordFilter = buildRoleBasedFilter(user, {});
+        // Normalize user branch
+        const normalizedUserBranch = (user.branch || '').toLowerCase().trim();
 
-        // Fetch forms from multiple collections based on the filter for Department Coordinators
+        // Fetch all forms (for each collection)
         const [
-            ug1Forms,
-            ug2Forms,
-            ug3aForms,
-            ug3bForms,
-            pg1Forms,
-            pg2aForms,
-            pg2bForms,
-            r1Forms,
+            ug1FormsAll, ug2FormsAll, ug3aFormsAll, ug3bFormsAll,
+            pg1FormsAll, pg2aFormsAll, pg2bFormsAll, r1FormsAll
         ] = await Promise.all([
-            UG1Form.find(deptCoordFilter).sort({ createdAt: -1 }).lean(),
-            UGForm2.find(deptCoordFilter).sort({ createdAt: -1 }).lean(),
-            UG3AForm.find(deptCoordFilter).sort({ createdAt: -1 }).lean(),
-            UG3BForm.find(deptCoordFilter).sort({ createdAt: -1 }).lean(),
-            PG1Form.find(deptCoordFilter).sort({ createdAt: -1 }).lean(),
-            PG2AForm.find(deptCoordFilter).sort({ createdAt: -1 }).lean(),
-            PG2BForm.find(deptCoordFilter).sort({ createdAt: -1 }).lean(),
-            R1Form.find(deptCoordFilter).sort({ createdAt: -1 }).lean(),
+            UG1Form.find().sort({ createdAt: -1 }).lean(),
+            UGForm2.find().sort({ createdAt: -1 }).lean(),
+            UG3AForm.find().sort({ createdAt: -1 }).lean(),
+            UG3BForm.find().sort({ createdAt: -1 }).lean(),
+            PG1Form.find().sort({ createdAt: -1 }).lean(),
+            PG2AForm.find().sort({ createdAt: -1 }).lean(),
+            PG2BForm.find().sort({ createdAt: -1 }).lean(),
+            R1Form.find().sort({ createdAt: -1 }).lean(),
         ]);
 
-        // Process and map the forms to a unified format for display
+        // Filter where branch matches using the robust utility
+        const branchMatches = (app) => getNormalizedAppBranch(app) === normalizedUserBranch;
+
+        // Now filter for each collection
+        const ug1Forms = ug1FormsAll.filter(branchMatches);
+        const ug2Forms = ug2FormsAll.filter(branchMatches);
+        const ug3aForms = ug3aFormsAll.filter(branchMatches);
+        const ug3bForms = ug3bFormsAll.filter(branchMatches);
+        const pg1Forms = pg1FormsAll.filter(branchMatches);
+        const pg2aForms = pg2aFormsAll.filter(branchMatches);
+        const pg2bForms = pg2bFormsAll.filter(branchMatches);
+        const r1Forms = r1FormsAll.filter(branchMatches);
+
         let results = await Promise.all([
-            ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1", user.branch)),
-            ...ug2Forms.map((f) => processFormForDisplay(f, "UG_2", user.branch)),
-            ...ug3aForms.map((f) => processFormForDisplay(f, "UG_3_A", user.branch)),
-            ...ug3bForms.map((f) => processFormForDisplay(f, "UG_3_B", user.branch)),
-            ...pg1Forms.map((f) => processFormForDisplay(f, "PG_1", user.branch)),
-            ...pg2aForms.map((f) => processFormForDisplay(f, "PG_2_A", user.branch)),
-            ...pg2bForms.map((f) => processFormForDisplay(f, "PG_2_B", user.branch)),
-            ...r1Forms.map((f) => processFormForDisplay(f, "R1", user.branch)),
+            ...ug1Forms.map(f => processFormForDisplay(f, "UG_1", user.branch)),
+            ...ug2Forms.map(f => processFormForDisplay(f, "UG_2", user.branch)),
+            ...ug3aForms.map(f => processFormForDisplay(f, "UG_3_A", user.branch)),
+            ...ug3bForms.map(f => processFormForDisplay(f, "UG_3_B", user.branch)),
+            ...pg1Forms.map(f => processFormForDisplay(f, "PG_1", user.branch)),
+            ...pg2aForms.map(f => processFormForDisplay(f, "PG_2_A", user.branch)),
+            ...pg2bForms.map(f => processFormForDisplay(f, "PG_2_B", user.branch)),
+            ...r1Forms.map(f => processFormForDisplay(f, "R1", user.branch)),
         ]);
 
-        // Apply post-fetch filtering based on approval chain (e.g., approved by Faculty/Validator, pending for Dept Coord)
         results = filterApplicationsByApprovalChain(results, user);
-
-        console.log("✅ Total Applications fetched for Department Coordinator:", results.length);
-
-        return res.json(results); // Return the filtered results to the frontend
-
+        return res.json(results);
     } catch (error) {
         console.error("❌ Error in /form/deptCoordDashboard:", error);
         return res.status(500).json({ message: "Server error while fetching applications" });
@@ -1500,58 +1573,44 @@ router.get("/form/instCoordDashboard", protect, async (req, res) => { // Changed
     }
 });
 
-router.get("/form/hodDashboard", protect, async (req, res) => { // Changed from POST to GET
+// HOD Dashboard: Branch-specific (reusing code from deptCoord)
+router.get("/form/hodDashboard", protect, async (req, res) => {
     try {
-        const user = req.user; // Get user from protect middleware
-
-        if (!user) {
-            return res.status(401).json({ message: "Authentication required." });
+        const user = req.user;
+        const currentRole = String(user.role).toLowerCase().trim().replace(/\s+/g, '_');
+        if (!['department_coordinator', 'hod'].includes(currentRole) || !user.branch) {
+            return res.status(403).json({ message: "Access denied. Only Department Coordinators or HODs with a specified branch can view this dashboard." });
         }
-
-        // --- DEBUGGING LOGS START ---
-        const currentRole = String(user.role).toLowerCase().trim().replace(/\s+/g, '_'); // Re-normalize just to be absolutely sure
-        console.log(`DEBUG: User role value (from req.user.role): '${user.role}'`);
-        console.log(`DEBUG: User role type: ${typeof user.role}`);
-        console.log(`DEBUG: User role length: ${user.role.length}`);
-        console.log(`DEBUG: Re-normalized currentRole: '${currentRole}'`);
-        console.log(`DEBUG: currentRole === 'department_coordinator': ${currentRole === 'department_coordinator'}`);
-        console.log(`DEBUG: ['department_coordinator', 'hod'].includes(currentRole): ${['department_coordinator', 'hod'].includes(currentRole)}`);
-        console.log(`DEBUG: User branch value: '${user.branch}'`);
-        console.log(`DEBUG: !user.branch: ${!user.branch}`);
-        // --- DEBUGGING LOGS END ---
-
-        // Check if the user is a 'department_coordinator' or 'hod' and has a branch
-        if (!['department_coordinator', 'hod'].includes(currentRole) || !user.branch) { // Using currentRole for the check
-             console.warn(`Attempted access to HOD dashboard by non-department_coordinator/hod or user without branch: Role=${user.role}, Branch=${user.branch}`);
-             return res.status(403).json({ message: "Access denied. Only Department Coordinators or HODs with a specified branch can view this dashboard." });
-        }
-
-        // Build a filter specifically for the HOD (department_coordinator/hod)
-        // The buildRoleBasedFilter will add the branch filter if user.role is 'department_coordinator' or 'hod'
-        const hodFilter = buildRoleBasedFilter(user, {}); // No initial status filter, as HOD sees all statuses in their branch
-        // Fetch all forms from each collection with the HOD's branch filter
+        // Normalize user branch
+        const normalizedUserBranch = (user.branch || '').toLowerCase().trim();
+        // Fetch all forms (for each collection)
         const [
-            ug1Forms,
-            ug2Forms,
-            ug3aForms,
-            ug3bForms,
-            pg1Forms,
-            pg2aForms,
-            pg2bForms,
-            r1Forms,
+            ug1FormsAll, ug2FormsAll, ug3aFormsAll, ug3bFormsAll,
+            pg1FormsAll, pg2aFormsAll, pg2bFormsAll, r1FormsAll
         ] = await Promise.all([
-            UG1Form.find(hodFilter).sort({ createdAt: -1 }).lean(),
-            UGForm2.find(hodFilter).sort({ createdAt: -1 }).lean(),
-            UG3AForm.find(hodFilter).sort({ createdAt: -1 }).lean(),
-            UG3BForm.find(hodFilter).sort({ createdAt: -1 }).lean(),
-            PG1Form.find(hodFilter).sort({ createdAt: -1 }).lean(),
-            PG2AForm.find(hodFilter).sort({ createdAt: -1 }).lean(),
-            PG2BForm.find(hodFilter).sort({ createdAt: -1 }).lean(),
-            R1Form.find(hodFilter).sort({ createdAt: -1 }).lean(),
+            UG1Form.find().sort({ createdAt: -1 }).lean(),
+            UGForm2.find().sort({ createdAt: -1 }).lean(),
+            UG3AForm.find().sort({ createdAt: -1 }).lean(),
+            UG3BForm.find().sort({ createdAt: -1 }).lean(),
+            PG1Form.find().sort({ createdAt: -1 }).lean(),
+            PG2AForm.find().sort({ createdAt: -1 }).lean(),
+            PG2BForm.find().sort({ createdAt: -1 }).lean(),
+            R1Form.find().sort({ createdAt: -1 }).lean(),
         ]);
+        // Filter where branch matches
+        const branchMatches = (app) => getNormalizedAppBranch(app) === normalizedUserBranch;
 
+        // Now filter for each collection
+        const ug1Forms = ug1FormsAll.filter(branchMatches);
+        const ug2Forms = ug2FormsAll.filter(branchMatches);
+        const ug3aForms = ug3aFormsAll.filter(branchMatches);
+        const ug3bForms = ug3bFormsAll.filter(branchMatches);
+        const pg1Forms = pg1FormsAll.filter(branchMatches);
+        const pg2aForms = pg2aFormsAll.filter(branchMatches);
+        const pg2bForms = pg2bFormsAll.filter(branchMatches);
+        const r1Forms = r1FormsAll.filter(branchMatches);
         let results = await Promise.all([
-            ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1", user.branch)), // Pass user.branch to processFormForDisplay
+            ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1", user.branch)),
             ...ug2Forms.map((f) => processFormForDisplay(f, "UG_2", user.branch)),
             ...ug3aForms.map((f) => processFormForDisplay(f, "UG_3_A", user.branch)),
             ...ug3bForms.map((f) => processFormForDisplay(f, "UG_3_B", user.branch)),
@@ -1560,57 +1619,34 @@ router.get("/form/hodDashboard", protect, async (req, res) => { // Changed from 
             ...pg2bForms.map((f) => processFormForDisplay(f, "PG_2_B", user.branch)),
             ...r1Forms.map((f) => processFormForDisplay(f, "R1", user.branch)),
         ]);
-
-        // Apply post-fetch filtering based on approval chain
         results = filterApplicationsByApprovalChain(results, user);
-
-        console.log("✅ Total Applications fetched for HOD", results.length);
         return res.json(results);
-
     } catch (error) {
         console.error("❌ Error in /form/hodDashboard", error);
         return res.status(500).json({ message: "Server error" });
     }
 });
-
-router.get("/principal/applications", protect, async (req, res) => { // Added protect middleware
+// Principal: All applications across all branches
+router.get("/principal/applications", protect, async (req, res) => {
     try {
-        const user = req.user; // Get user from protect middleware
-
-        if (!user) {
-            return res.status(401).json({ message: "Authentication required." });
+        const user = req.user;
+        if (!user || (user.role || '').toLowerCase() !== 'principal') {
+            return res.status(403).json({ message: "Access denied. Only Principals can view this dashboard." });
         }
-
-        // Check if the user is a 'principal'
-        if (user.role !== 'principal') {
-             console.warn(`Attempted access to Principal dashboard by non-principal: Role=${user.role}`);
-             return res.status(403).json({ message: "Access denied. Only Principals can view this dashboard." });
-        }
-
-        // Build a filter specifically for the Principal (no branch filter)
-        const principalFilter = buildRoleBasedFilter(user, {});
-
-        // Fetch all forms from each collection
+        // Fetch ALL from all forms, no branch filter
         const [
-            ug1Forms,
-            ug2Forms,
-            ug3aForms,
-            ug3bForms,
-            pg1Forms,
-            pg2aForms,
-            pg2bForms,
-            r1Forms,
+            ug1Forms, ug2Forms, ug3aForms, ug3bForms, 
+            pg1Forms, pg2aForms, pg2bForms, r1Forms
         ] = await Promise.all([
-            UG1Form.find(principalFilter).sort({ createdAt: -1 }).lean(),
-            UGForm2.find(principalFilter).sort({ createdAt: -1 }).lean(),
-            UG3AForm.find(principalFilter).sort({ createdAt: -1 }).lean(),
-            UG3BForm.find(principalFilter).sort({ createdAt: -1 }).lean(),
-            PG1Form.find(principalFilter).sort({ createdAt: -1 }).lean(),
-            PG2AForm.find(principalFilter).sort({ createdAt: -1 }).lean(),
-            PG2BForm.find(principalFilter).sort({ createdAt: -1 }).lean(),
-            R1Form.find(principalFilter).sort({ createdAt: -1 }).lean(),
+            UG1Form.find().sort({ createdAt: -1 }).lean(),
+            UGForm2.find().sort({ createdAt: -1 }).lean(),
+            UG3AForm.find().sort({ createdAt: -1 }).lean(),
+            UG3BForm.find().sort({ createdAt: -1 }).lean(),
+            PG1Form.find().sort({ createdAt: -1 }).lean(),
+            PG2AForm.find().sort({ createdAt: -1 }).lean(),
+            PG2BForm.find().sort({ createdAt: -1 }).lean(),
+            R1Form.find().sort({ createdAt: -1 }).lean(),
         ]);
-
         let results = await Promise.all([
             ...ug1Forms.map((f) => processFormForDisplay(f, "UG_1")),
             ...ug2Forms.map((f) => processFormForDisplay(f, "UG_2")),
@@ -1621,13 +1657,8 @@ router.get("/principal/applications", protect, async (req, res) => { // Added pr
             ...pg2bForms.map((f) => processFormForDisplay(f, "PG_2_B")),
             ...r1Forms.map((f) => processFormForDisplay(f, "R1")),
         ]);
-
-        // Apply post-fetch filtering based on approval chain
         results = filterApplicationsByApprovalChain(results, user);
-
-        console.log("✅ Total Applications fetched for Principal:", results.length);
-        return res.json(results); // Send the combined and processed results
-
+        return res.json(results);
     } catch (error) {
         console.error("❌ Error in /principal/applications:", error);
         return res.status(500).json({ message: "Server error while fetching applications for Principal" });

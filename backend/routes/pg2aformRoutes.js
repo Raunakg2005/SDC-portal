@@ -204,27 +204,6 @@ router.put('/:formId/review', async (req, res) => {
         changedByRole: req.user.role // Assuming user info is available in req.user from middleware
     });
     await form.save();
-    // --- NEW Email Logic: Send email on status update ---
-    if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && form.svvNetId) {
-        const subject = `Update on your PG2A Form (ID: ${form._id})`;
-        const htmlContent = `
-            <p>Dear ${form.teamName || 'Team'},</p>
-            <p>The status of your PG2A form for "${form.projectTitle}" has been updated.</p>
-            <p><strong>Previous Status:</strong> ${oldStatus || 'N/A'}</p>
-            <p><strong>New Status:</strong> ${form.status}</p>
-            ${form.hodRemarks ? `<p><strong>HOD Remarks:</strong> ${form.hodRemarks}</p>` : ''}
-            <p>Please log in to the SDC Portal to view the details.</p>
-            <p>Thank you.</p>
-        `;
-        try {
-            await sendEmail(form.svvNetId, subject, htmlContent);
-            console.log(`Email sent for PG2A form status update to ${form.svvNetId}`);
-        } catch (emailError) {
-            console.error(`Failed to send email for PG2A form status update to ${form.svvNetId}:`, emailError);
-        }
-    }
-    // --- END NEW Email Logic ---
-
     res.status(200).json({ message: "PG2A form review updated successfully." });
   } catch (error) {
     console.error("Error updating PG2A form review:", error);

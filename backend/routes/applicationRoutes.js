@@ -176,20 +176,20 @@ const processFormForDisplay = async (form, formType, userBranchFromRequest,gfsBu
     processedForm.employeeCodes = [];
 
     const getFile = async (id) => {
-        if (isStudent) {
-            console.log(`File access denied for student role for ID: ${id}`);
-            return null;
-        }
+        // if (isStudent) {
+        //     console.log(`File access denied for student role for ID: ${id}`);
+        //     return null;
+        // }
         const isValid = mongoose.Types.ObjectId.isValid(id);
         console.log(`🔎 getFile - ID: ${id}, Valid: ${isValid}`);
         return await getFileDetailsAndUrl(id, fileBaseUrl, formType, mongoose.connection);
     };
 
     const getMultipleFiles = async (fileList) => {
-        if (isStudent) {
-            console.log(`Multiple file access denied for student role for file list.`);
-            return [];
-        }
+        // if (isStudent) {
+        //     console.log(`Multiple file access denied for student role for file list.`);
+        //     return [];
+        // }
 
         const filePromises = fileList.map(fileMeta => {
             if (!fileMeta) return null;

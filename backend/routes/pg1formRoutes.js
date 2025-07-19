@@ -138,20 +138,35 @@ router.post('/submit', uploadFields, async (req, res) => {
     uploadedFileIds.length = 0; // Clear rollback list upon successful save
     console.log('Received svvNetId:', svvNetId);
     console.log('Cleaned svvNetId:', svvNetIdClean);
-    // --- NEW: Send email on successful submission ---
-    // Check if email notifications are enabled via environment variable
-    if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && newForm.svvNetId) {
-            const subject = `PG1 Form Submitted Successfully! (ID: ${newForm._id})`;
-            const htmlContent = `
-                <p>Dear ${newForm.studentName || 'Student'},</p>
-                <p>Your PG1 form for "${newForm.sttpTitle}" has been successfully submitted.</p>
-                <p>Your Form ID: <strong>${newForm._id}</strong></p>
-                <p>You will be notified when there are updates to your application status.</p>
-                <p>Thank you for using the SDC Portal.</p>
-            `;
-            await sendEmail(newForm.svvNetId, subject, htmlContent);
-      }
-        // --- END NEW Email Logic ---
+    // Enhanced email notification with logging
+    const studentEmail = svvNetIdClean.includes('@') ? svvNetIdClean : `${svvNetIdClean}@somaiya.edu`;
+    
+    if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
+      try {
+        const subject = `PG1 Form Submitted Successfully! (ID: ${newForm._id})`;
+        const htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2c5aa0;">PG1 Form Submitted Successfully!</h2>
+            <p>Dear ${newForm.studentName || 'Student'},</p>
+            <p>Your PG1 form for <strong>"${newForm.sttpTitle}"</strong> has been successfully submitted.</p>
+            <p><strong>Form ID:</strong> ${newForm._id}</p>
+            <p><strong>Status:</strong> ${newForm.status}</p>
+            <p>You will be notified when there are updates to your application status.</p>
+            <p>Thank you for using the SDC Portal.</p>
+            <hr>
+            <p style="color: #666; font-size: 12px;">This email was sent from the Somaiya University Forms System.</p>
+          </div>
+        `;
+        
+        await sendEmail(studentEmail, subject, htmlContent);
+        console.log(`[EMAIL] ✅ Email SENT to ${studentEmail} for PG1 form submission (ID: ${newForm._id})`);
+      } catch (emailError) {
+        console.error(`[EMAIL] ❌ Email NOT SENT to ${studentEmail} for PG1 form submission (ID: ${newForm._id})`, emailError);
+      }
+    } else {
+      console.log(`[EMAIL] ⚠️ Email notifications are DISABLED. No email sent for PG1 form submission to ${studentEmail} (ID: ${newForm._id})`);
+    }
+     // --- END NEW Email Logic ---
     res.status(201).json({ message: 'PG1 form submitted successfully!', id: newForm._id });
   } catch (err) {
     console.error('PG1 form submission error:', err);
@@ -166,7 +181,6 @@ router.post('/submit', uploadFields, async (req, res) => {
         }
       }
     }
-
     return res.status(500).json({
       error: "Form submission failed.",
       details: err.message,
@@ -220,21 +234,6 @@ router.put('/:formId/review', async (req, res) => {
         changedByRole: req.user.role // Assuming user info is available in req.user from middleware
     });
     await form.save();
-     // --- NEW: Send email on status update ---
-    // Check if email notifications are enabled via environment variable
-    if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && form.svvNetId) { // Use svvNetId as the recipient email
-            const subject = `Update on your PG1 Form (ID: ${form._id})`;
-            const htmlContent = `
-                <p>Dear ${form.studentName || 'Student'},</p>
-                <p>The status of your PG1 form for "${form.sttpTitle}" has been updated.</p>
-                <p><strong>Previous Status:</strong> ${oldStatus || 'N/A'}</p>
-                <p><strong>New Status:</strong> ${form.status}</p>
-                ${form.remarks ? `<p><strong>Remarks from Reviewer:</strong> ${form.remarks}</p>` : ''}
-                <p>Please log in to the SDC Portal to view the details.</p>
-                <p>Thank you.</p>
-            `;
-            await sendEmail(form.svvNetId, subject, htmlContent);
-    }
     res.status(200).json({ message: "PG1 form review updated successfully." });
   } catch (error) {
     console.error("Error updating PG1 form review:", error);

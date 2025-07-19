@@ -121,20 +121,21 @@ router.post('/submit', upload.fields([
         uploadedFileIds.length = 0;
 
         // Send email notification on successful submission
-        const studentEmail = svvNetIdClean.includes('@') ? svvNetIdClean : `${svvNetIdClean}@somaiya.edu`; // Assuming svvNetId is or can form an email
-        if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
-            try {
-                await sendEmail(
-                    studentEmail,
-                    'UG3B Form Submission Confirmation',
-                    `Dear student,\n\nYour UG3B form for project "${newEntry.projectTitle}" has been submitted successfully.\nForm ID: ${newEntry._id}\n\nRegards,\nYour University`
-                );
-                console.log(`Email sent for UG3B form submission to ${studentEmail}`);
-            } catch (emailError) {
-                console.error(`Failed to send email for UG3B form submission to ${studentEmail}:`, emailError);
-            }
-        }
-
+        const studentEmail = svvNetIdClean.includes('@') ? svvNetIdClean : `${svvNetIdClean}@somaiya.edu`; // Assuming svvNetId is or can form an email
+        if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
+            try {
+                await sendEmail(
+                    studentEmail,
+                    'UG3B Form Submission Confirmation',
+                    `Dear student,\n\nYour UG3B form for project "${newEntry.projectTitle}" has been submitted successfully.\nForm ID: ${newEntry._id}\n\nRegards,\nYour University`
+                );
+                console.log(`[EMAIL] ✅ Email SENT to ${studentEmail} for UG3B form submission (ID: ${newEntry._id})`);
+            } catch (emailError) {
+                console.error(`[EMAIL] ❌ Email NOT SENT to ${studentEmail} for UG3B form submission (ID: ${newEntry._id})`, emailError);
+            }
+        } else {
+            console.log(`[EMAIL] ⚠️ Email notifications are DISABLED. No email sent for UG3B form submission to ${studentEmail} (ID: ${newEntry._id})`);
+        }
         res.status(201).json({ message: 'UG3B form submitted successfully!', id: newEntry._id });
 
     } catch (error) {

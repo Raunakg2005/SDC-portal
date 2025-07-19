@@ -188,22 +188,6 @@ conn.once("open", () => {
           changedByRole: changedByRole || 'N/A', // Role of the user or 'N/A'
       });
       await form.save();
-
-      // Send email notification on form status update
-      const studentEmail = form.svvNetId.includes('@') ? form.svvNetId : `${form.svvNetId}@somaiya.edu`;
-      if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
-        try {
-          await sendEmail(
-            studentEmail,
-            `UG-2 Form Status Update: ${form.projectTitle}`,
-            `Dear student,\n\nYour UG-2 form for project "${form.projectTitle}" (ID: ${form._id}) has been updated.\nNew Status: ${form.status}\nRemarks: ${form.remarks || 'No remarks provided.'}\n\nRegards,\nYour University`
-          );
-          console.log(`Email sent for UG-2 form status update to ${studentEmail}`);
-        } catch (emailError) {
-          console.error(`Failed to send email for UG-2 form status update to ${studentEmail}:`, emailError);
-        }
-      }
-
       console.log(`✅ UG-2 form ${formId} reviewed. Status: ${status}, Remarks: ${remarks}`);
       res.status(200).json({ message: "Review updated" });
     } catch (error) {

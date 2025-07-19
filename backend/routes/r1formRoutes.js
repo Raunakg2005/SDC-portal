@@ -198,28 +198,6 @@ router.put('/:id/review', async (req, res) => {
         changedByRole: changedByRole || 'N/A' // Role of the user who made the change
     });
     await form.save();
-
-    // --- NEW Email Logic: Send email on status update ---
-    if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && form.svvNetId) {
-        const subject = `Update on your R1 Form (ID: ${form._id})`;
-        const htmlContent = `
-            <p>Dear ${form.studentName || 'Student'},</p>
-            <p>The status of your R1 form for "${form.paperTitle || form.sttpTitle}" has been updated.</p>
-            <p><strong>Previous Status:</strong> ${oldStatus || 'N/A'}</p>
-            <p><strong>New Status:</strong> ${form.status}</p>
-            ${form.remarksByHod ? `<p><strong>Remarks from HOD:</strong> ${form.remarksByHod}</p>` : ''}
-            <p>Please log in to the SDC Portal to view the details.</p>
-            <p>Thank you.</p>
-        `;
-        try {
-            await sendEmail(form.svvNetId, subject, htmlContent);
-            console.log(`Email sent for R1 form status update to ${form.svvNetId}`);
-        } catch (emailError) {
-            console.error(`Failed to send email for R1 form status update to ${form.svvNetId}:`, emailError);
-        }
-    }
-    // --- END NEW Email Logic ---
-
     res.status(200).json({ message: "R1 form review updated successfully." });
   } catch (error) {
     console.error("Error updating R1 form review:", error);

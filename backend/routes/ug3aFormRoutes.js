@@ -146,19 +146,31 @@ router.post('/submit', uploadFields, async (req, res) => {
         uploadedFileIds.length = 0; // Clear rollback list upon successful save
 
         // Send email notification on successful submission
-        const studentEmail = svvNetId.includes('@') ? svvNetId : `${svvNetId}@somaiya.edu`; // Assuming svvNetId is or can form an email
-        if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
-            try {
-                await sendEmail(
-                    studentEmail,
-                    'UG3A Form Submission Confirmation',
-                    `Dear student,\n\nYour UG3A form for project "${projectTitle}" has been submitted successfully.\nForm ID: ${newForm._id}\nStatus: ${newForm.status}\n\nRegards,\nYour University`
-                );
-                console.log(`Email sent for UG3A form submission to ${studentEmail}`);
-            } catch (emailError) {
-                console.error(`Failed to send email for UG3A form submission to ${studentEmail}:`, emailError);
-            }
-        }
+        const studentEmail = svvNetId.includes('@') ? svvNetId : `${svvNetId}@somaiya.edu`;
+        if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
+            try {
+                await sendEmail(
+                    studentEmail,
+                    'UG3A Form Submission Confirmation',
+                    `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <h2 style="color: #2c5aa0;">UG3A Form Submitted Successfully!</h2>
+                        <p>Dear Student,</p>
+                        <p>Your UG3A form for project <strong>"${projectTitle}"</strong> has been submitted successfully.</p>
+                        <p><strong>Form ID:</strong> ${newForm._id}</p>
+                        <p><strong>Status:</strong> ${newForm.status}</p>
+                        <p>You will be notified when there are updates to your application status.</p>
+                        <p>Thank you for using the SDC Portal.</p>
+                        <hr>
+                        <p style="color: #666; font-size: 12px;">This email was sent from the Somaiya University Forms System.</p>
+                    </div>`
+                );
+                console.log(`[EMAIL] ✅ Email SENT to ${studentEmail} for UG3A form submission (ID: ${newForm._id})`);
+            } catch (emailError) {
+                console.error(`[EMAIL] ❌ Email NOT SENT to ${studentEmail} for UG3A form submission (ID: ${newForm._id})`, emailError);
+            }
+        } else {
+            console.log(`[EMAIL] ⚠️ Email notifications are DISABLED. No email sent for UG3A form submission to ${studentEmail} (ID: ${newForm._id})`);
+        }
 
         res.status(201).json({ message: 'UG3A form submitted successfully!', id: newForm._id });
 
@@ -224,21 +236,6 @@ router.put('/:formId/review', async (req, res) => {
             changedByRole: changedByRole || (req.user ? req.user.role : 'Unknown') // Use req.user role if available
         });
         await form.save();
-        // Send email notification on form review update
-        const studentEmail = form.svvNetId.includes('@') ? form.svvNetId : `${form.svvNetId}@somaiya.edu`; // Assuming svvNetId is or can form an email
-        if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true') {
-            try {
-                await sendEmail(
-                    studentEmail,
-                    `UG3A Form Status Update - ${form.projectTitle}`,
-                    `Dear student,\n\nYour UG3A form for project "${form.projectTitle}" has been reviewed.\nNew Status: ${form.status}\nRemarks: ${form.remarks || 'N/A'}\n\nRegards,\nYour University`
-                );
-                console.log(`Email sent for UG3A form status update to ${studentEmail}`);
-            } catch (emailError) {
-                console.error(`Failed to send email for UG3A form status update to ${studentEmail}:`, emailError);
-            }
-        }
-
         res.status(200).json({ message: "UG3A form review updated successfully." });
     } catch (error) {
         console.error("Error updating UG3A form review:", error);

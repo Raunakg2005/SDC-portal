@@ -129,25 +129,23 @@ conn.once("open", () => {
                 await newForm.save();
                 uploadedFileIds.length = 0; // Clear rollback list upon successful save
 
-                // --- NEW Email Logic: Send email on successful submission ---
                 if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && newForm.svvNetId) {
-                    const subject = `UG-1 Form Submitted Successfully! (ID: ${newForm._id})`;
-                    const htmlContent = `
-                        <p>Dear ${newForm.studentDetails && newForm.studentDetails[0] ? newForm.studentDetails[0].studentName : 'Student'},</p>
-                        <p>Your UG-1 form for project "${newForm.projectTitle}" has been successfully submitted.</p>
-                        <p>Your Form ID: <strong>${newForm._id}</strong></p>
-                        <p>You will be notified when there are updates to your application status.</p>
-                        <p>Thank you for using the SDC Portal.</p>
-                    `;
-                    try {
-                        await sendEmail(newForm.svvNetId, subject, htmlContent);
-                        console.log(`Email sent for UG-1 form submission to ${newForm.svvNetId}`);
-                    } catch (emailError) {
-                        console.error(`Failed to send email for UG-1 form submission to ${newForm.svvNetId}:`, emailError);
-                    }
-                }
+                    const subject = `UG-1 Form Submitted Successfully! (ID: ${newForm._id})`;
+                    const htmlContent = `
+                        <p>Dear ${newForm.studentDetails && newForm.studentDetails[0] ? newForm.studentDetails[0].studentName : 'Student'},</p>
+                        <p>Your UG-1 form for project "${newForm.projectTitle}" has been successfully submitted.</p>
+                        <p>Your Form ID: <strong>${newForm._id}</strong></p>
+                        <p>You will be notified when there are updates to your application status.</p>
+                        <p>Thank you for using the SDC Portal.</p>
+                    `;
+                    try {
+                        await sendEmail(newForm.svvNetId, subject, htmlContent);
+                        console.log(`[EMAIL] ✅ Email SENT to ${newForm.svvNetId} for UG-1 form submission (Subject: "${subject}")`);
+                    } catch (emailError) {
+                        console.error(`[EMAIL] ❌ Email NOT SENT to ${newForm.svvNetId} for UG-1 form submission (Subject: "${subject}")`, emailError);
+                    }
+                }
                 // --- END NEW Email Logic ---
-
                 res.status(201).json({ message: 'UG-1 form submitted successfully!', id: newForm._id });
 
             } catch (error) {
@@ -204,28 +202,6 @@ conn.once("open", () => {
                     changedByRole: changedByRole
                 });
                 await form.save();
-
-                // --- NEW Email Logic: Send email on status update ---
-                if (process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && form.svvNetId) {
-                    const subject = `Update on your UG-1 Form (ID: ${form._id})`;
-                    const htmlContent = `
-                        <p>Dear ${form.studentDetails && form.studentDetails[0] ? form.studentDetails[0].studentName : 'Student'},</p>
-                        <p>The status of your UG-1 form for project "${form.projectTitle}" has been updated.</p>
-                        <p><strong>Previous Status:</strong> ${oldStatus || 'N/A'}</p>
-                        <p><strong>New Status:</strong> ${form.status}</p>
-                        ${form.remarks ? `<p><strong>Remarks:</strong> ${form.remarks}</p>` : ''}
-                        <p>Please log in to the SDC Portal to view the details.</p>
-                        <p>Thank you.</p>
-                    `;
-                    try {
-                        await sendEmail(form.svvNetId, subject, htmlContent);
-                        console.log(`Email sent for UG-1 form status update to ${form.svvNetId}`);
-                    } catch (emailError) {
-                        console.error(`Failed to send email for UG-1 form status update to ${form.svvNetId}:`, emailError);
-                    }
-                }
-                // --- END NEW Email Logic ---
-
                 console.log(`✅ UG-1 form ${formId} reviewed. Status: ${status}, Remarks: ${remarks}`);
                 res.status(200).json({ message: "Review updated" });
             } catch (error) {
